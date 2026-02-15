@@ -200,7 +200,7 @@ class CodefRegistryProvider(RegistryProvider):
     @staticmethod
     def validate_phone_no(phone_no: str | None = None) -> bool:
         """전화번호 유효성 검사 (CODEF API 문서 기준)"""
-        no = phone_no or settings.IROS_PHONE_NO
+        no = phone_no if phone_no is not None else settings.IROS_PHONE_NO
         if not no:
             return False
         return any(no.startswith(p) for p in VALID_PHONE_PREFIXES)
