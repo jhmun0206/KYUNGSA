@@ -1,0 +1,35 @@
+# 환경변수 (절대 커밋 금지)
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code 작업 파일
+.claude/
+
+# 백업 파일
+*.bak
+
+# CODEF 실 응답 데이터 (민감정보 포함 가능)
+backend/tests/fixtures/codef_registry_real_response.json

@@ -1,0 +1,196 @@
+{
+  "resRegisterEntriesList": [
+    {
+      "resPublishRegistryOffice": "",
+      "commUniqueNo": "11460000012345",
+      "resIssueNo": "",
+      "resDocTitle": "등기사항전부증명서(말소사항 포함) - 집합건물 -",
+      "resRealty": "[집합건물] 서울특별시 강남구 역삼동 123-45 ○○아파트 제101동 제5층 제501호",
+      "commCompetentRegistryOffice": "서울중앙지방법원 등기국",
+      "resPublishNo": "",
+      "resPublishDate": "20260210",
+      "resRegistrationHisList": [
+        {
+          "resType": "표제부",
+          "resType1": "1동의 건물의 표시",
+          "resContentsList": [
+            {
+              "resType2": "1",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "표시번호"},
+                {"resNumber": "1", "resContents": "접수"},
+                {"resNumber": "2", "resContents": "소재지번,건물명칭 및 번호"},
+                {"resNumber": "3", "resContents": "건물내역"},
+                {"resNumber": "4", "resContents": "등기원인 및 기타사항"}
+              ],
+              "resNumber": "0"
+            },
+            {
+              "resType2": "2",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "1"},
+                {"resNumber": "1", "resContents": "2015년5월20일"},
+                {"resNumber": "2", "resContents": "서울특별시 강남구 역삼동\n123-45\n○○아파트 제101동\n[도로명주소]\n서울특별시 강남구 테헤란로\n123"},
+                {"resNumber": "3", "resContents": "철근콘크리트구조\n철근콘크리트지붕\n5층 501호\n85.12㎡"},
+                {"resNumber": "4", "resContents": ""}
+              ],
+              "resNumber": "1"
+            }
+          ]
+        },
+        {
+          "resType": "갑구",
+          "resType1": "소유권에 관한 사항",
+          "resContentsList": [
+            {
+              "resType2": "1",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "순위번호"},
+                {"resNumber": "1", "resContents": "등기목적"},
+                {"resNumber": "2", "resContents": "접수"},
+                {"resNumber": "3", "resContents": "등기원인"},
+                {"resNumber": "4", "resContents": "권리자 및 기타사항"}
+              ],
+              "resNumber": "0"
+            },
+            {
+              "resType2": "2",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "1"},
+                {"resNumber": "1", "resContents": "소유권이전"},
+                {"resNumber": "2", "resContents": "2018년3월15일\n제12345호"},
+                {"resNumber": "3", "resContents": "2018년3월10일 매매"},
+                {"resNumber": "4", "resContents": "소유자 홍OO 800101-1XXXXXX\n서울특별시 강남구 역삼동 123-45"}
+              ],
+              "resNumber": "1"
+            },
+            {
+              "resType2": "2",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "2"},
+                {"resNumber": "1", "resContents": "가압류"},
+                {"resNumber": "2", "resContents": "2022년7월1일\n제56789호"},
+                {"resNumber": "3", "resContents": "2022년6월28일\n서울중앙지방법원"},
+                {"resNumber": "4", "resContents": "채권자 ○○은행\n청구금액 금500,000,000원"}
+              ],
+              "resNumber": "2"
+            },
+            {
+              "resType2": "2",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "3"},
+                {"resNumber": "1", "resContents": "임의경매개시결정"},
+                {"resNumber": "2", "resContents": "2023년1월10일\n제11111호"},
+                {"resNumber": "3", "resContents": "2023년1월5일\n서울중앙지방법원\n2023타경12345"},
+                {"resNumber": "4", "resContents": "채권자 ○○은행"}
+              ],
+              "resNumber": "3"
+            }
+          ]
+        },
+        {
+          "resType": "을구",
+          "resType1": "소유권 이외의 권리에 관한 사항",
+          "resContentsList": [
+            {
+              "resType2": "1",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "순위번호"},
+                {"resNumber": "1", "resContents": "등기목적"},
+                {"resNumber": "2", "resContents": "접수"},
+                {"resNumber": "3", "resContents": "등기원인"},
+                {"resNumber": "4", "resContents": "권리자 및 기타사항"}
+              ],
+              "resNumber": "0"
+            },
+            {
+              "resType2": "2",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "1"},
+                {"resNumber": "1", "resContents": "근저당권설정"},
+                {"resNumber": "2", "resContents": "2018년3월15일\n제12346호"},
+                {"resNumber": "3", "resContents": "2018년3월10일\n설정계약"},
+                {"resNumber": "4", "resContents": "채권최고액 금600,000,000원\n근저당권자 ○○은행"}
+              ],
+              "resNumber": "1"
+            },
+            {
+              "resType2": "2",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "2"},
+                {"resNumber": "1", "resContents": "전세권설정"},
+                {"resNumber": "2", "resContents": "2021년6월1일\n제33333호"},
+                {"resNumber": "3", "resContents": "2021년5월28일\n설정계약"},
+                {"resNumber": "4", "resContents": "전세금 금300,000,000원\n전세권자 박OO"}
+              ],
+              "resNumber": "2"
+            },
+            {
+              "resType2": "2",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "3"},
+                {"resNumber": "1", "resContents": "근저당권설정"},
+                {"resNumber": "2", "resContents": "2022년9월1일\n제44444호"},
+                {"resNumber": "3", "resContents": "2022년8월28일\n설정계약"},
+                {"resNumber": "4", "resContents": "채권최고액 금200,000,000원\n근저당권자 △△저축은행"}
+              ],
+              "resNumber": "3"
+            },
+            {
+              "resType2": "2",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "3"},
+                {"resNumber": "1", "resContents": "3번근저당권말소"},
+                {"resNumber": "2", "resContents": "2023년5월1일\n제55555호"},
+                {"resNumber": "3", "resContents": "2023년4월28일\n해지"},
+                {"resNumber": "4", "resContents": ""}
+              ],
+              "resNumber": "4"
+            }
+          ]
+        }
+      ],
+      "resRegistrationSumList": [
+        {
+          "resType": "소유지분현황 (갑구)",
+          "resType1": "",
+          "resContentsList": [
+            {
+              "resType2": "1",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "등기명의인"},
+                {"resNumber": "1", "resContents": "(주민)등록번호"},
+                {"resNumber": "2", "resContents": "최종지분"},
+                {"resNumber": "3", "resContents": "주소"},
+                {"resNumber": "4", "resContents": "순위번호"}
+              ],
+              "resNumber": "0"
+            },
+            {
+              "resType2": "2",
+              "resDetailList": [
+                {"resNumber": "0", "resContents": "홍OO (소유자)"},
+                {"resNumber": "1", "resContents": "800101-1XXXXXX"},
+                {"resNumber": "2", "resContents": "단독소유"},
+                {"resNumber": "3", "resContents": "서울특별시 강남구 역삼동 123-45"},
+                {"resNumber": "4", "resContents": "1"}
+              ],
+              "resNumber": "1"
+            }
+          ]
+        }
+      ],
+      "resPrecautionsList": []
+    }
+  ],
+  "resOriGinalData": "",
+  "commStartPageNo": "",
+  "resIssueYN": "1",
+  "resEndPageNo": "",
+  "resWarningMessage": "",
+  "resSearchList": [],
+  "resImageList": [],
+  "commIssueCode": "",
+  "resAddrList": [],
+  "resTotalPageCount": ""
+}

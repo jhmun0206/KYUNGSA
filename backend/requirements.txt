@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy
+celery
+selenium
+beautifulsoup4
+redis
+pymongo
+httpx
+pytest
+alembic
+pydantic
+pydantic-settings

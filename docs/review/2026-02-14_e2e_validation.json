@@ -1,0 +1,583 @@
+{
+  "started_at": "2026-02-14T11:34:02.059379",
+  "finished_at": "2026-02-14T11:36:22.760477",
+  "api_status": {
+    "카카오_Geocode": "SET",
+    "Vworld": "SET",
+    "공공데이터": "SET",
+    "CODEF": "SET",
+    "CODEF_SERVICE_TYPE": "demo"
+  },
+  "bugs_found": [
+    "[물건1] 2_codef_search: 검색 결과 0건",
+    "[물건3] 2_codef_search: [CF-13006] 검색결과가 없습니다. 검색어에 잘못된 철자가 없는지, 정확한 주소인지 다시 한번 확인해 주세요.",
+    "[물건4] 1_geocode: 결과 없음",
+    "[물건6] 1_geocode: 결과 없음",
+    "[물건7] 1_geocode: 결과 없음",
+    "[물건8] 1_geocode: 결과 없음",
+    "[물건9] 2_codef_search: [CF-13006] 검색결과가 없습니다. 검색어에 잘못된 철자가 없는지, 정확한 주소인지 다시 한번 확인해 주세요.",
+    "[물건10] 2_codef_search: [CF-13006] 검색결과가 없습니다. 검색어에 잘못된 철자가 없는지, 정확한 주소인지 다시 한번 확인해 주세요."
+  ],
+  "cases": [
+    {
+      "case_id": 1,
+      "address": "서울특별시 강남구 테헤란로 152",
+      "overall": "PARTIAL",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=서울특별시, sigungu=강남구, road=테헤란로, bldg_no=152",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_geocode",
+          "status": "PASS",
+          "detail": "x=127.036508620542, y=37.5000242405515",
+          "error": "",
+          "duration_ms": 234
+        },
+        {
+          "stage": "1_land_use",
+          "status": "PASS",
+          "detail": "2건: 일반상업지역, 미분류",
+          "error": "",
+          "duration_ms": 269
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "0건",
+          "error": "",
+          "duration_ms": 736
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "100건 (202601)",
+          "error": "",
+          "duration_ms": 781
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "FAIL",
+          "detail": "",
+          "error": "검색 결과 0건",
+          "duration_ms": 1330
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "SKIP",
+          "detail": "고유번호 없음",
+          "error": "",
+          "duration_ms": 0
+        }
+      ]
+    },
+    {
+      "case_id": 2,
+      "address": "서울특별시 서초구 서초대로 398",
+      "overall": "ALL_PASS",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=서울특별시, sigungu=서초구, road=서초대로, bldg_no=398",
+          "error": "",
+          "duration_ms": 1
+        },
+        {
+          "stage": "1_geocode",
+          "status": "PASS",
+          "detail": "x=127.025104317477, y=37.4966368177214",
+          "error": "",
+          "duration_ms": 173
+        },
+        {
+          "stage": "1_land_use",
+          "status": "PASS",
+          "detail": "2건: 일반상업지역, 미분류",
+          "error": "",
+          "duration_ms": 79
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "0건",
+          "error": "",
+          "duration_ms": 700
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "100건 (202601)",
+          "error": "",
+          "duration_ms": 378
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "PASS",
+          "detail": "24건, unique_no=11021996104790, addr=서울특별시 서초구 서초대로 398 그레이츠 강남 제1층 제101호 [서초",
+          "error": "",
+          "duration_ms": 1694
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "PASS",
+          "detail": "events=70, base=None, HS=['HS002'], survive=0, extinct=0, confidence=LOW",
+          "error": "",
+          "duration_ms": 20373
+        }
+      ]
+    },
+    {
+      "case_id": 3,
+      "address": "서울특별시 종로구 새문안로5가길 28 지1층비109호 (적선동,광화문플래티넘)",
+      "overall": "PARTIAL",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=서울특별시, sigungu=종로구, dong=적선동, road=새문안로5가길, bldg_no=28, bldg=광화문플래티넘",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_geocode",
+          "status": "PASS",
+          "detail": "x=126.973597076089, y=37.574460196686",
+          "error": "",
+          "duration_ms": 124
+        },
+        {
+          "stage": "1_land_use",
+          "status": "PASS",
+          "detail": "2건: 일반상업지역, 미분류",
+          "error": "",
+          "duration_ms": 108
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "0건",
+          "error": "",
+          "duration_ms": 150
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "41건 (202601)",
+          "error": "",
+          "duration_ms": 107
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "FAIL",
+          "detail": "",
+          "error": "[CF-13006] 검색결과가 없습니다. 검색어에 잘못된 철자가 없는지, 정확한 주소인지 다시 한번 확인해 주세요.",
+          "duration_ms": 4498
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "SKIP",
+          "detail": "고유번호 없음",
+          "error": "",
+          "duration_ms": 0
+        }
+      ]
+    },
+    {
+      "case_id": 4,
+      "address": "서울 강남구 역삼동 123-4",
+      "overall": "PARTIAL",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=서울특별시, sigungu=강남구, dong=역삼동, lot=123-4",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_geocode",
+          "status": "FAIL",
+          "detail": "",
+          "error": "결과 없음",
+          "duration_ms": 94
+        },
+        {
+          "stage": "1_land_use",
+          "status": "SKIP",
+          "detail": "좌표 없음 (Geocode 실패)",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "0건",
+          "error": "",
+          "duration_ms": 1838
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "100건 (202601)",
+          "error": "",
+          "duration_ms": 188
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "PASS",
+          "detail": "5건, unique_no=11012024002057, addr=서울특별시 강남구 언주로 563 원에디션강남 401동 근린생활시설 제40",
+          "error": "",
+          "duration_ms": 1336
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "PASS",
+          "detail": "events=5, base=None, HS=['HS002'], survive=0, extinct=0, confidence=LOW",
+          "error": "",
+          "duration_ms": 8434
+        }
+      ]
+    },
+    {
+      "case_id": 5,
+      "address": "서울특별시 관악구 남현6길 13 지1층비101호 (남현동,한샘빌라)",
+      "overall": "ALL_PASS",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=서울특별시, sigungu=관악구, dong=남현동, road=남현6길, bldg_no=13, bldg=한샘빌라",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_geocode",
+          "status": "PASS",
+          "detail": "x=126.975473185994, y=37.4742146258685",
+          "error": "",
+          "duration_ms": 69
+        },
+        {
+          "stage": "1_land_use",
+          "status": "PASS",
+          "detail": "2건: 미분류, 제2종일반주거지역",
+          "error": "",
+          "duration_ms": 109
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "0건",
+          "error": "",
+          "duration_ms": 2170
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "100건 (202601)",
+          "error": "",
+          "duration_ms": 159
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "PASS",
+          "detail": "29건, unique_no=11012016002600, addr=서울특별시 관악구 남현8길 7 한샘빌라 제2층 제201호 [남현동 107",
+          "error": "",
+          "duration_ms": 1675
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "PASS",
+          "detail": "events=31, base=근저당권설정, HS=None, survive=0, extinct=18, confidence=MEDIUM",
+          "error": "",
+          "duration_ms": 11508
+        }
+      ]
+    },
+    {
+      "case_id": 6,
+      "address": "경기 수원시 영통구 매탄동 123",
+      "overall": "PARTIAL",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=경기도, sigungu=수원시, dong=매탄동, lot=123",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_geocode",
+          "status": "FAIL",
+          "detail": "",
+          "error": "결과 없음",
+          "duration_ms": 102
+        },
+        {
+          "stage": "1_land_use",
+          "status": "SKIP",
+          "detail": "좌표 없음 (Geocode 실패)",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "0건",
+          "error": "",
+          "duration_ms": 112
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "100건 (202601)",
+          "error": "",
+          "duration_ms": 144
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "PASS",
+          "detail": "2건, unique_no=13011996328085, addr=경기도 수원시 영통구 매봉로27번길 42 [매탄동 111-123]",
+          "error": "",
+          "duration_ms": 2092
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "PASS",
+          "detail": "events=9, base=None, HS=None, survive=0, extinct=0, confidence=LOW",
+          "error": "",
+          "duration_ms": 8628
+        }
+      ]
+    },
+    {
+      "case_id": 7,
+      "address": "부산 해운대구 우동 123",
+      "overall": "PARTIAL",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=부산광역시, sigungu=해운대구, dong=우동, lot=123",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_geocode",
+          "status": "FAIL",
+          "detail": "",
+          "error": "결과 없음",
+          "duration_ms": 55
+        },
+        {
+          "stage": "1_land_use",
+          "status": "SKIP",
+          "detail": "좌표 없음 (Geocode 실패)",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "0건",
+          "error": "",
+          "duration_ms": 2080
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "100건 (202601)",
+          "error": "",
+          "duration_ms": 151
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "PASS",
+          "detail": "14건, unique_no=18112015009872, addr=부산광역시 해운대구 해운대로 620 해운대라뮤에뜨 제1층 제상점-123호",
+          "error": "",
+          "duration_ms": 1385
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "PASS",
+          "detail": "events=9, base=None, HS=['HS002'], survive=0, extinct=0, confidence=LOW",
+          "error": "",
+          "duration_ms": 9536
+        }
+      ]
+    },
+    {
+      "case_id": 8,
+      "address": "세종특별자치시 한솔동 123",
+      "overall": "PARTIAL",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=세종특별자치시, dong=한솔동, lot=123",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_geocode",
+          "status": "FAIL",
+          "detail": "",
+          "error": "결과 없음",
+          "duration_ms": 66
+        },
+        {
+          "stage": "1_land_use",
+          "status": "SKIP",
+          "detail": "좌표 없음 (Geocode 실패)",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "0건",
+          "error": "",
+          "duration_ms": 1082
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "100건 (202601)",
+          "error": "",
+          "duration_ms": 149
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "PASS",
+          "detail": "3건, unique_no=16472011003944, addr=세종특별자치시 노을3로 14 첫마을아파트 제103동 제1층 제123호 [",
+          "error": "",
+          "duration_ms": 1228
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "PASS",
+          "detail": "events=11, base=None, HS=None, survive=0, extinct=0, confidence=LOW",
+          "error": "",
+          "duration_ms": 12524
+        }
+      ]
+    },
+    {
+      "case_id": 9,
+      "address": "서울특별시 마포구 월드컵북로 396 (상암동,누리꿈스퀘어)",
+      "overall": "PARTIAL",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=서울특별시, sigungu=마포구, dong=상암동, road=월드컵북로, bldg_no=396, bldg=누리꿈스퀘어",
+          "error": "",
+          "duration_ms": 2
+        },
+        {
+          "stage": "1_geocode",
+          "status": "PASS",
+          "detail": "x=126.889782954548, y=37.5794283422818",
+          "error": "",
+          "duration_ms": 102
+        },
+        {
+          "stage": "1_land_use",
+          "status": "PASS",
+          "detail": "1건: 일반상업지역",
+          "error": "",
+          "duration_ms": 106
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "0건",
+          "error": "",
+          "duration_ms": 1180
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "100건 (202601)",
+          "error": "",
+          "duration_ms": 134
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "FAIL",
+          "detail": "",
+          "error": "[CF-13006] 검색결과가 없습니다. 검색어에 잘못된 철자가 없는지, 정확한 주소인지 다시 한번 확인해 주세요.",
+          "duration_ms": 6275
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "SKIP",
+          "detail": "고유번호 없음",
+          "error": "",
+          "duration_ms": 0
+        }
+      ]
+    },
+    {
+      "case_id": 10,
+      "address": "서울특별시 송파구 올림픽로 300 (신천동,롯데월드타워)",
+      "overall": "PARTIAL",
+      "stages": [
+        {
+          "stage": "1_address_parse",
+          "status": "PASS",
+          "detail": "sido=서울특별시, sigungu=송파구, dong=신천동, road=올림픽로, bldg_no=300, bldg=롯데월드타워",
+          "error": "",
+          "duration_ms": 0
+        },
+        {
+          "stage": "1_geocode",
+          "status": "PASS",
+          "detail": "x=127.104301829165, y=37.5137129859207",
+          "error": "",
+          "duration_ms": 95
+        },
+        {
+          "stage": "1_land_use",
+          "status": "PASS",
+          "detail": "2건: 일반상업지역, 미분류",
+          "error": "",
+          "duration_ms": 110
+        },
+        {
+          "stage": "1_building",
+          "status": "PASS",
+          "detail": "1건",
+          "error": "",
+          "duration_ms": 100
+        },
+        {
+          "stage": "1_market_price",
+          "status": "PASS",
+          "detail": "100건 (202601)",
+          "error": "",
+          "duration_ms": 149
+        },
+        {
+          "stage": "2_codef_search",
+          "status": "FAIL",
+          "detail": "",
+          "error": "[CF-13006] 검색결과가 없습니다. 검색어에 잘못된 철자가 없는지, 정확한 주소인지 다시 한번 확인해 주세요.",
+          "duration_ms": 5514
+        },
+        {
+          "stage": "2_registry_full",
+          "status": "SKIP",
+          "detail": "고유번호 없음",
+          "error": "",
+          "duration_ms": 0
+        }
+      ]
+    }
+  ]
+}

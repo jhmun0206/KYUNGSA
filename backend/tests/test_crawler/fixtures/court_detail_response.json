@@ -1,0 +1,158 @@
+{
+  "dma_result": {
+    "csBaseInfo": {
+      "cortOfcCd": "B000210",
+      "cortOfcNm": "서울중앙지방법원",
+      "cortSptNm": "서울중앙지방법원",
+      "csNo": "20220130112176",
+      "csNm": "부동산강제경매",
+      "csRcptYmd": "20221130",
+      "csCmdcYmd": "20221213",
+      "clmAmt": "500000000",
+      "csProgStatCd": "0002100001",
+      "cortAuctnJdbnNm": "경매21계",
+      "jdbnTelno": "530-1822",
+      "userCsNo": "2022타경112176",
+      "mvprpRletDvsCd": "00031R"
+    },
+    "dstrtDemnInfo": [
+      {
+        "orddcsDvsCd": "021",
+        "dstrtDemnLstprdYmd": "20230227"
+      }
+    ],
+    "dspslGdsDxdyInfo": {
+      "cortOfcCd": "B000210",
+      "csNo": "20220130112176",
+      "dspslGdsSeq": "4",
+      "auctnGdsStatCd": "01",
+      "gdsSpcfcWrtYmd": "20260126",
+      "gdsSpcfcRmk": "1. 일괄매각\n2. 현 이용상황이 일부 상이",
+      "tprtyRnkHypthcStngDts": "2006. 10. 4. 근저당",
+      "sprfcExstcDts": null,
+      "dspslGdsRmk": "1. 일괄매각",
+      "auctnGdsUsgCd": "06",
+      "flbdNcnt": "4",
+      "aeeEvlAmt": "467000000",
+      "fstPbancLwsDspslPrc": "191283000",
+      "scndPbancLwsDspslPrc": null,
+      "dspslDxdyYmd": "20260210",
+      "fstDspslHm": "1000",
+      "dspslDcsnDxdyYmd": "20260219",
+      "dspslGdsSpcfcEcdocId": "BF691A5BAC19061F1C91273D83A0E995",
+      "prchDposRate": "10",
+      "dspslPlcNm": "경매법정(4별관 211호)",
+      "cortOfcNm": "서울중앙지방법원",
+      "maemulSer": "4"
+    },
+    "gdsDspslDxdyLst": [
+      {
+        "dxdyYmd": "20230905",
+        "dxdyHm": "1000",
+        "dxdyPlcNm": "경매법정(4별관 211호)",
+        "auctnDxdyKndCd": "01",
+        "auctnDxdyRsltCd": "002",
+        "tsLwsDspslPrc": "467000000",
+        "dspslAmt": null
+      },
+      {
+        "dxdyYmd": "20240123",
+        "dxdyHm": "1000",
+        "dxdyPlcNm": "경매법정(4별관 211호)",
+        "auctnDxdyKndCd": "01",
+        "auctnDxdyRsltCd": "002",
+        "tsLwsDspslPrc": "373600000",
+        "dspslAmt": null
+      },
+      {
+        "dxdyYmd": "20260210",
+        "dxdyHm": "1000",
+        "dxdyPlcNm": "경매법정(4별관 211호)",
+        "auctnDxdyKndCd": "01",
+        "auctnDxdyRsltCd": "003",
+        "tsLwsDspslPrc": "191283000",
+        "dspslAmt": null
+      }
+    ],
+    "gdsDspslObjctLst": [
+      {
+        "dspslObjctSeq": "5",
+        "rletDvsDts": "전유",
+        "pjbBuldList": "철골철근콘크리트조 36.714㎡",
+        "bldDtlDts": "지1층비109호",
+        "bldNm": "광화문플래티넘",
+        "aeeEvlAmt": "220000000",
+        "lclDspslGdsLstUsgCd": "20000",
+        "mclDspslGdsLstUsgCd": "21100",
+        "adongSdNm": "서울특별시",
+        "adongSggNm": "종로구",
+        "adongEmdNm": "적선동",
+        "rprsLtnoAddr": "156",
+        "rdnm": "새문안로5가길",
+        "rdnmBldNo": "28",
+        "rdnmRefcAddr": "(적선동,광화문플래티넘)",
+        "userPrintSt": "서울특별시 종로구 새문안로5가길 28 지1층비109호 (적선동,광화문플래티넘)",
+        "stXcrd": "309531",
+        "stYcrd": "552961",
+        "rgstRdngYn": "Y"
+      },
+      {
+        "dspslObjctSeq": "6",
+        "rletDvsDts": "전유",
+        "pjbBuldList": "철골철근콘크리트조 43.974㎡",
+        "bldDtlDts": "지1층비110호",
+        "bldNm": "광화문플래티넘",
+        "aeeEvlAmt": "247000000",
+        "lclDspslGdsLstUsgCd": "20000",
+        "mclDspslGdsLstUsgCd": "21100",
+        "adongSdNm": "서울특별시",
+        "adongSggNm": "종로구",
+        "adongEmdNm": "적선동",
+        "rprsLtnoAddr": "156",
+        "rdnm": "새문안로5가길",
+        "rdnmBldNo": "28",
+        "rdnmRefcAddr": "(적선동,광화문플래티넘)",
+        "userPrintSt": "서울특별시 종로구 새문안로5가길 28 지1층비110호 (적선동,광화문플래티넘)",
+        "stXcrd": "309531",
+        "stYcrd": "552961",
+        "rgstRdngYn": "Y"
+      }
+    ],
+    "aeeWevlMnpntLst": [
+      {
+        "aeeWevlMnpntDtlSeq": "1",
+        "aeeWevlMnpntItmCd": "00083001",
+        "aeeWevlMnpntCtt": "지하철4호선 경복궁역 인근 상업지역에 위치"
+      },
+      {
+        "aeeWevlMnpntDtlSeq": "2",
+        "aeeWevlMnpntItmCd": "00083006",
+        "aeeWevlMnpntCtt": "KATANA GOLF 사무실 및 창고 등으로 이용 중"
+      }
+    ],
+    "csPicLst": [
+      {
+        "picFileUrl": "/nas_e_image_pgj/kj/2022/1229/",
+        "picTitlNm": "B000210202201301121761.jpg",
+        "cortAuctnPicDvsCd": "000241",
+        "cortAuctnPicSeq": "1"
+      },
+      {
+        "picFileUrl": "/nas_e_image_pgj/kj/2022/1229/",
+        "picTitlNm": "B000210202201301121762.jpg",
+        "cortAuctnPicDvsCd": "000245",
+        "cortAuctnPicSeq": "2"
+      }
+    ],
+    "picDvsIndvdCnt": [
+      {
+        "cortAuctnPicDvsCd": "000245",
+        "photoGubunCnt": "11"
+      }
+    ],
+    "rgltLandLstAll": [],
+    "bldSdtrDtlLstAll": [],
+    "gdsNotSugtBldLsstAll": [],
+    "gdsRletStLtnoLstAll": []
+  }
+}

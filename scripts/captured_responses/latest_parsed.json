@@ -1,0 +1,112 @@
+[
+  {
+    "case_number": "2022타경112176",
+    "court": "서울중앙지방법원",
+    "property_type": "상가,오피스텔,근린시설",
+    "address": "서울특별시 종로구 새문안로5가길 28 지1층비109호 (적선동,광화문플래티넘)",
+    "appraised_value": 467000000,
+    "minimum_bid": 191283000,
+    "auction_date": "2026-02-10",
+    "status": "진행",
+    "bid_count": 5
+  },
+  {
+    "case_number": "2022타경112176",
+    "court": "서울중앙지방법원",
+    "property_type": "상가,오피스텔,근린시설",
+    "address": "서울특별시 종로구 새문안로5가길 28 지1층비110호 (적선동,광화문플래티넘)",
+    "appraised_value": 467000000,
+    "minimum_bid": 191283000,
+    "auction_date": "2026-02-10",
+    "status": "진행",
+    "bid_count": 5
+  },
+  {
+    "case_number": "2023타경3835",
+    "court": "서울중앙지방법원",
+    "property_type": "연립주택,다세대,빌라",
+    "address": "서울특별시 관악구 남현7길 51 6층602호 (남현동,한샘타운)",
+    "appraised_value": 420000000,
+    "minimum_bid": 420000000,
+    "auction_date": "2026-02-10",
+    "status": "진행",
+    "bid_count": 1
+  },
+  {
+    "case_number": "2023타경3842",
+    "court": "서울중앙지방법원",
+    "property_type": "기타",
+    "address": "서울특별시 관악구 남현6길 13 지1층비101호 (남현동,한샘빌라)",
+    "appraised_value": 166000000,
+    "minimum_bid": 106240000,
+    "auction_date": "2026-02-12",
+    "status": "진행",
+    "bid_count": 3
+  },
+  {
+    "case_number": "2023타경3842",
+    "court": "서울중앙지방법원",
+    "property_type": "기타",
+    "address": "서울특별시 관악구 남현6길 13 1층101호 (남현동,한샘빌라)",
+    "appraised_value": 119000000,
+    "minimum_bid": 76160000,
+    "auction_date": "2026-02-12",
+    "status": "진행",
+    "bid_count": 3
+  },
+  {
+    "case_number": "2023타경3842",
+    "court": "서울중앙지방법원",
+    "property_type": "다세대",
+    "address": "서울특별시 관악구 남현6길 13 5층502호 (남현동,한샘빌라)",
+    "appraised_value": 409000000,
+    "minimum_bid": 261760000,
+    "auction_date": "2026-02-12",
+    "status": "진행",
+    "bid_count": 3
+  },
+  {
+    "case_number": "2023타경3842",
+    "court": "서울중앙지방법원",
+    "property_type": "다세대",
+    "address": "서울특별시 관악구 남현6길 13 6층601호 (남현동,한샘빌라)",
+    "appraised_value": 276000000,
+    "minimum_bid": 176640000,
+    "auction_date": "2026-02-12",
+    "status": "진행",
+    "bid_count": 3
+  },
+  {
+    "case_number": "2023타경3842",
+    "court": "서울중앙지방법원",
+    "property_type": "다세대",
+    "address": "서울특별시 관악구 남현6길 13 2층201호 (남현동,한샘빌라)",
+    "appraised_value": 235000000,
+    "minimum_bid": 150400000,
+    "auction_date": "2026-02-12",
+    "status": "진행",
+    "bid_count": 3
+  },
+  {
+    "case_number": "2023타경3842",
+    "court": "서울중앙지방법원",
+    "property_type": "다세대",
+    "address": "서울특별시 관악구 남현6길 13 2층202호 (남현동,한샘빌라)",
+    "appraised_value": 221000000,
+    "minimum_bid": 141440000,
+    "auction_date": "2026-02-12",
+    "status": "진행",
+    "bid_count": 3
+  },
+  {
+    "case_number": "2023타경3842",
+    "court": "서울중앙지방법원",
+    "property_type": "다세대",
+    "address": "서울특별시 관악구 남현6길 13 2층203호 (남현동,한샘빌라)",
+    "appraised_value": 234000000,
+    "minimum_bid": 149760000,
+    "auction_date": "2026-02-12",
+    "status": "진행",
+    "bid_count": 3
+  }
+]

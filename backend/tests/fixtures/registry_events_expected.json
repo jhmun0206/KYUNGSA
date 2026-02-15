@@ -1,0 +1,74 @@
+{
+  "description": "registry_sample_apt.txt 파싱 기대값",
+  "title": {
+    "address": "서울특별시 강남구 역삼동 123-45 ○○아파트 제101동 제5층 제501호",
+    "structure": "철근콘크리트조",
+    "area": 85.12
+  },
+  "gapgu_event_count": 3,
+  "eulgu_event_count": 3,
+  "all_event_count": 6,
+  "gapgu_events": [
+    {
+      "rank_no": 1,
+      "purpose": "소유권이전",
+      "event_type": "소유권이전",
+      "accepted_at": "2018.03.15",
+      "receipt_no": "12345",
+      "holder": "홍길동"
+    },
+    {
+      "rank_no": 2,
+      "purpose": "가압류",
+      "event_type": "가압류",
+      "accepted_at": "2022.07.01",
+      "receipt_no": "56789",
+      "amount": 500000000
+    },
+    {
+      "rank_no": 3,
+      "purpose": "임의경매개시결정",
+      "event_type": "경매개시결정",
+      "accepted_at": "2023.01.10",
+      "receipt_no": "11111"
+    }
+  ],
+  "eulgu_events": [
+    {
+      "rank_no": 1,
+      "purpose": "근저당권설정",
+      "event_type": "근저당권설정",
+      "accepted_at": "2018.03.15",
+      "receipt_no": "12346",
+      "amount": 600000000
+    },
+    {
+      "rank_no": 2,
+      "purpose": "전세권설정",
+      "event_type": "전세권설정",
+      "accepted_at": "2021.06.01",
+      "receipt_no": "33333",
+      "amount": 300000000
+    },
+    {
+      "rank_no": 3,
+      "purpose": "근저당권설정",
+      "event_type": "근저당권설정",
+      "accepted_at": "2022.09.01",
+      "receipt_no": "44444",
+      "amount": 200000000
+    }
+  ],
+  "analysis": {
+    "cancellation_base": {
+      "section": "EULGU",
+      "rank_no": 1,
+      "event_type": "근저당권설정",
+      "reason": "경매개시결정 이전 최선순위 담보권 (을구)"
+    },
+    "extinguished_count": 3,
+    "surviving_count": 0,
+    "uncertain_count": 1,
+    "has_hard_stop": false
+  }
+}

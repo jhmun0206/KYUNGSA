@@ -1,0 +1,35 @@
+{
+  "dma_result": {
+    "csBaseInfo": {
+      "csNo": "20220130112176",
+      "userCsNo": "2022타경112176",
+      "csCmdcYmd": "20221213",
+      "cortOfcNm": "서울중앙지방법원"
+    },
+    "dstrtDemnInfo": [
+      {
+        "dstrtDemnLstprdYmd": "20230227"
+      }
+    ],
+    "gdsDspslDxdyLst": [
+      {
+        "dxdyYmd": "20230905",
+        "dxdyHm": "1000",
+        "dxdyPlcNm": "경매법정(4별관 211호)",
+        "auctnDxdyKndCd": "01",
+        "auctnDxdyRsltCd": "002",
+        "tsLwsDspslPrc": "467000000",
+        "dspslAmt": null
+      },
+      {
+        "dxdyYmd": "20240123",
+        "dxdyHm": "1000",
+        "dxdyPlcNm": "경매법정(4별관 211호)",
+        "auctnDxdyKndCd": "01",
+        "auctnDxdyRsltCd": "001",
+        "tsLwsDspslPrc": "373600000",
+        "dspslAmt": "400000000"
+      }
+    ]
+  }
+}
