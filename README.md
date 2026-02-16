@@ -7,9 +7,9 @@
 | 항목 | 상태 |
 |------|------|
 | 프로젝트명 | KYUNGSA |
-| 현재 단계 | `5A 완료` → 다음: 5B (배치 수집기) |
-| 최종 업데이트 | 2026-02-15 |
-| 테스트 | 421개 통과 |
+| 현재 단계 | `5B 완료` → 다음: 5C (법률 점수 엔진) |
+| 최종 업데이트 | 2026-02-16 |
+| 테스트 | 434개 통과 |
 | 개발 도구 | Claude Code |
 | 개발자 | 경희대학교 컴퓨터공학과 4학년 |
 
@@ -117,13 +117,14 @@ KYUNGSA/
 │   │   │   ├── filter_engine.py # FilterEngine + CostGate
 │   │   │   ├── filter_rules.py  # RED(R001~R003) + YELLOW(Y001~Y003)
 │   │   │   ├── pipeline.py      # ⭐ 1단+2단 통합 AuctionPipeline
+│   │   │   ├── batch_collector.py # ⭐ 배치 수집기 (크롤→보강→필터→DB)
 │   │   │   ├── registry_rules.py # HardStop 5종 (HS001~HS005)
 │   │   │   ├── rules/           # (플레이스홀더, 미구현)
 │   │   │   ├── validator/       # (플레이스홀더, 미구현)
 │   │   │   ├── report/          # (플레이스홀더, 미구현)
 │   │   │   └── llm/             # (플레이스홀더, 미구현)
 │   │   └── tasks/
-│   ├── tests/                   # 421개 테스트 전체 통과
+│   ├── tests/                   # 434개 테스트 전체 통과
 │   │   ├── test_crawler/        # 61개 (대법원40 + 기타19 + URL2)
 │   │   ├── test_enricher.py     # 22개
 │   │   ├── test_filter_engine.py # 27개
@@ -141,11 +142,15 @@ KYUNGSA/
 │   │       └── registry_sample_*.txt
 │   └── requirements.txt
 ├── scripts/                     # CLI 도구
+│   ├── run_batch.py             # ⭐ 배치 수집기 CLI (5B)
 │   ├── run_pipeline.py          # 1단 파이프라인 실행
 │   ├── parse_registry.py        # 등기부 파싱 CLI
 │   ├── test_codef_registry.py   # CODEF 등기부 실 API 테스트
 │   ├── test_all_apis.py         # 전체 API 연결 테스트
 │   └── test_pipeline_e2e.py     # E2E 테스트 (Playwright)
+├── deploy/                      # 서버 배포 설정
+│   ├── kyungsa-batch.service    # systemd 배치 서비스
+│   └── kyungsa-batch.timer      # systemd 일일 타이머
 └── frontend/                    # (미착수)
 ```
 
@@ -233,11 +238,16 @@ KYUNGSA/
   - [x] FastAPI DB 세션 관리 (database.py + dependencies.py)
   - [x] SQLite in-memory 테스트 30개 (CRUD + 제약조건 + roundtrip)
   - [x] **총 421개 테스트 통과** (391 → 421, +30개)
-- [ ] **5B: 배치 수집기**
-  - [ ] BatchCollector: 대법원 크롤링 → DB 저장
-  - [ ] 1단 보강 + 필터링 → DB 저장
-  - [ ] cron 스케줄 (주 2~3회 새벽)
-  - [ ] 중복 감지 (이미 있는 물건 skip)
+- [x] **5B: 배치 수집기** ✅
+  - [x] BatchCollector: 크롤링 → 보강 → 필터 → DB 저장 (전 건 저장, RED 포함)
+  - [x] 페이지네이션 전체 수집 (search_cases_with_total)
+  - [x] skip-existing + force_update + dry_run + max_items
+  - [x] per-case commit (장애 복원력)
+  - [x] PipelineRun 추적 (RUNNING→COMPLETED)
+  - [x] CLI: `scripts/run_batch.py` (--court, --all-seoul, --max, --force, --dry-run)
+  - [x] systemd timer (매일 03:00, deploy/ 디렉토리)
+  - [x] 테스트 13개 (기본수집/스킵/force/페이징/에러/dry-run/max)
+  - [x] **총 434개 테스트 통과** (421 → 434, +13개)
 - [ ] **5C: 법률 점수 엔진**
   - [ ] 근저당 채권최고액/감정가 비율
   - [ ] 가압류 건수/금액
@@ -529,3 +539,4 @@ chore: 빌드, 설정 변경
 | 2026-02-14 | 로드맵 v2.2 확정 | PostgreSQL 16 확정, 5단계 재구성 (서버세팅+DB+배치+점수), 6~8단계 재편 |
 | 2026-02-15 | 5-0 홈서버 세팅 완료 | Ubuntu 24.04 LTS + PostgreSQL 16 + pyenv 3.11 + systemd + Tailscale, /health OK |
 | 2026-02-15 | 5A DB 스키마 + ORM 완료 | SQLAlchemy ORM 5개 + Alembic + converter + SQLite 테스트 30개, **421개 통과** |
+| 2026-02-16 | 5B 배치 수집기 완료 | BatchCollector + CLI + systemd timer + 테스트 13개, **434개 통과** |

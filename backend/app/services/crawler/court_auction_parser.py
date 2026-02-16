@@ -150,6 +150,27 @@ class CourtAuctionParser:
         logger.info("목록 파싱 완료: %d건", len(results))
         return results
 
+    def parse_list_with_total(
+        self, response_data: dict[str, Any]
+    ) -> tuple[list[AuctionCaseListItem], int]:
+        """검색 결과 JSON → (물건 목록, 전체 건수)
+
+        Args:
+            response_data: WebSquare JSON 응답 (data 래퍼 제거 후)
+
+        Returns:
+            (경매 물건 목록, 전체 건수) 튜플
+        """
+        items = self.parse_list_response(response_data)
+        total = 0
+        page_info = response_data.get("dma_pageInfo", {})
+        total_str = page_info.get("totalCnt", "0")
+        try:
+            total = int(total_str) if total_str else 0
+        except (ValueError, TypeError):
+            total = len(items)
+        return items, total
+
     def parse_list_html(self, html: str) -> list[AuctionCaseListItem]:
         """목록 페이지 HTML → AuctionCaseListItem 목록 (fallback)
 

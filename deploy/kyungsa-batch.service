@@ -1,0 +1,17 @@
+[Unit]
+Description=KYUNGSA Batch Collector
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=eric
+WorkingDirectory=/home/eric/projects/KYUNGSA
+ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/run_batch.py --all-seoul
+Environment=PYTHONPATH=/home/eric/projects/KYUNGSA/backend
+TimeoutStartSec=3600
+StandardOutput=journal
+StandardError=journal
+
+# 환경변수 (.env 파일에서 로드)
+EnvironmentFile=/home/eric/projects/KYUNGSA/backend/.env

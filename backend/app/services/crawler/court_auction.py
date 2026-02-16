@@ -313,6 +313,76 @@ class CourtAuctionClient:
         data = self._post(SEARCH_URL, payload)
         return self._parser.parse_list_response(data)
 
+    def search_cases_with_total(
+        self,
+        court_code: str = "",
+        page_no: int = 1,
+        page_size: int = 40,
+    ) -> tuple[list[AuctionCaseListItem], int]:
+        """경매 물건 목록 검색 + 전체 건수 반환
+
+        Args:
+            court_code: 법원코드
+            page_no: 페이지 번호 (1부터)
+            page_size: 페이지 크기 (최대 40)
+
+        Returns:
+            (경매 물건 목록, 전체 건수) 튜플
+        """
+        payload = {
+            "dma_pageInfo": {
+                "pageNo": page_no,
+                "pageSize": min(page_size, 40),
+                "bfPageNo": "",
+                "startRowNo": "",
+                "totalCnt": "",
+                "totalYn": "Y",
+                "groupTotalCount": "",
+            },
+            "dma_srchGdsDtlSrchInfo": {
+                "cortOfcCd": court_code,
+                "rprsAdongSdCd": "",
+                "lclDspslGdsLstUsgCd": "",
+                "bidBgngYmd": "",
+                "bidEndYmd": "",
+                "bidDvsCd": DEFAULT_BID_DVS_CD,
+                "mvprpRletDvsCd": DEFAULT_MVPRP_RLET_DVS_CD,
+                "cortAuctnSrchCondCd": DEFAULT_SRCH_COND_CD,
+                "pgmId": DEFAULT_PGM_ID,
+                "cortStDvs": "1",
+                "statNum": 1,
+                "notifyLoc": "off",
+                "rprsAdongSggCd": "",
+                "rprsAdongEmdCd": "",
+                "rdnmSdCd": "",
+                "rdnmSggCd": "",
+                "rdnmNo": "",
+                "mclDspslGdsLstUsgCd": "",
+                "sclDspslGdsLstUsgCd": "",
+                "cortAuctnMbrsId": "",
+                "aeeEvlAmtMin": "",
+                "aeeEvlAmtMax": "",
+                "lwsDspslPrcRateMin": "",
+                "lwsDspslPrcRateMax": "",
+                "flbdNcntMin": "",
+                "flbdNcntMax": "",
+                "objctArDtsMin": "",
+                "objctArDtsMax": "",
+                "lafjOrderBy": "",
+                "csNo": "",
+                "dspslDxdyYmd": "",
+                "lwsDspslPrcMin": "",
+                "lwsDspslPrcMax": "",
+                "sideDvsCd": "",
+                "jdbnCd": "",
+                "rletDspslSpcCondCd": "",
+            },
+        }
+
+        logger.info("경매 물건 검색(with total): 법원=%s, 페이지=%d", court_code, page_no)
+        data = self._post(SEARCH_URL, payload)
+        return self._parser.parse_list_with_total(data)
+
     def fetch_case_detail(
         self,
         case_number: str,
