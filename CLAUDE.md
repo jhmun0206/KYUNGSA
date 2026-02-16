@@ -514,8 +514,8 @@ tests/
 
 ## 🗄️ DB 스키마 가이드
 
-> 홈서버 확정: **PostgreSQL 16**. UUID, JSONB, TEXT[] 네이티브 지원.
-> 현재는 인메모리 처리만 (DB 미연동). **5A단계에서 구현 예정.**
+> 홈서버 확정: **PostgreSQL 16** (DB: `kyungsa_db`, User: `kyungsa`). UUID, JSONB, TEXT[] 네이티브 지원.
+> 현재는 인메모리 처리만 (DB 미연동). **5A단계에서 ORM 구현 예정.**
 
 ### 핵심 테이블
 
@@ -719,7 +719,7 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 
 > 이 섹션은 매 작업 세션 시작/종료 시 업데이트한다.
 
-**현재 단계:** 4단계 완료 → 5단계 진입 (로드맵 v2.2 확정)
+**현재 단계:** 5단계 진행 중 — 5A 완료, 다음 5B (배치 수집기)
 **완료된 것:**
 - 0단계: API 검증 및 데이터소스 확정
 - 1단 필터링: crawler → enricher → filter_engine (RED/YELLOW/GREEN + CostGate)
@@ -731,11 +731,12 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 - 4B 실전검증: E2E 10건 실행, BUG 7건 발견
 - 4C 버그수정: Vworld 데이터셋(LT_C_UQ111), CF-13007 재시도, 지번 fallback
 - 4E CODEF 전면 교정: inquiryType=0, password/ePrepayPass 분리, CF-12826/12411/13328 해소
-- 전체 391개 테스트 통과, E2E registry_full 86% (6/7)
+- **5-0 홈서버 세팅 완료:** Ubuntu 24.04 LTS + PostgreSQL 16 + pyenv 3.11 + systemd + Tailscale
+- **5A DB 스키마 + ORM 완료:** SQLAlchemy ORM 5개 + Alembic + converter + 421개 테스트 통과
 
-**다음 할 일:** 5-0 홈서버 세팅 (Ubuntu + PostgreSQL) → 5A DB 스키마 + ORM
-**블로커:** 홈서버 세팅 (Ubuntu 설치 + PostgreSQL 16)
-**최근 변경:** 2026-02-14 — 로드맵 v2.2 확정 (PostgreSQL, 5단계 재구성)
+**다음 할 일:** 5B 배치 수집기 (BatchCollector + cron 스케줄)
+**블로커:** 없음
+**최근 변경:** 2026-02-15 — 5A DB 스키마 + ORM 구현 완료
 
 ---
 

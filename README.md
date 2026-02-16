@@ -7,9 +7,9 @@
 | 항목 | 상태 |
 |------|------|
 | 프로젝트명 | KYUNGSA |
-| 현재 단계 | `4단계 완료` → 다음: 5단계 (서버세팅 + DB + 배치 + MVP점수) |
-| 최종 업데이트 | 2026-02-14 |
-| 테스트 | 391개 통과 |
+| 현재 단계 | `5A 완료` → 다음: 5B (배치 수집기) |
+| 최종 업데이트 | 2026-02-15 |
+| 테스트 | 421개 통과 |
 | 개발 도구 | Claude Code |
 | 개발자 | 경희대학교 컴퓨터공학과 4학년 |
 
@@ -123,7 +123,7 @@ KYUNGSA/
 │   │   │   ├── report/          # (플레이스홀더, 미구현)
 │   │   │   └── llm/             # (플레이스홀더, 미구현)
 │   │   └── tasks/
-│   ├── tests/                   # 391개 테스트 전체 통과
+│   ├── tests/                   # 421개 테스트 전체 통과
 │   │   ├── test_crawler/        # 61개 (대법원40 + 기타19 + URL2)
 │   │   ├── test_enricher.py     # 22개
 │   │   ├── test_filter_engine.py # 27개
@@ -214,21 +214,25 @@ KYUNGSA/
 - [x] 1단(크롤링→필터) + 2단(CODEF→등기부→분석) 실 데이터 통과 ✅ (registry_full 86%)
 - [x] 발견된 버그/파싱 오류 수정 ✅ (4C: Vworld/CF-13007/지번fallback, 4E: CODEF 전면 교정)
 - [x] E2E 검증 보고서 작성 ✅ ([4B](docs/review/2026-02-13_e2e_validation.md), [4E](docs/review/2026-02-14_e2e_validation.md))
-- [x] **총 391개 테스트 통과**
+- [x] **총 391개 테스트 통과** (4E 기준, 5A에서 421개로 증가)
 
 ### 5단계: 서버 세팅 + DB + 배치 + MVP 점수 ← **현재**
 
-- [ ] **5-0: 홈서버 세팅**
-  - [ ] Ubuntu Server 24.04 LTS 설치 (MSI GP75 Leopard)
-  - [ ] PostgreSQL 16 설치 + 튜닝 (shared_buffers=4GB, 16GB RAM 기준)
-  - [ ] Python 3.11 (pyenv) + SSH + 방화벽 (ufw)
-  - [ ] 프로젝트 배포 (git clone + .env + systemd 서비스 등록)
-  - [ ] 테스트 전체 통과 확인
-- [ ] **5A: DB 스키마 + ORM**
-  - [ ] SQLAlchemy 모델 (auctions, rights, analyses 등)
-  - [ ] Alembic 초기 마이그레이션
-  - [ ] Pydantic ↔ SQLAlchemy 변환
-  - [ ] FastAPI DB 세션 관리
+- [x] **5-0: 홈서버 세팅** ✅
+  - [x] Ubuntu Server 24.04 LTS 설치 (MSI GP75 Leopard, headless)
+  - [x] PostgreSQL 16 설치 + 튜닝 (shared_buffers=4GB, 16GB RAM 기준)
+  - [x] Python 3.11.11 (pyenv) + SSH 키 인증 + UFW 방화벽
+  - [x] 프로젝트 배포 (git clone + .env + systemd 서비스 등록)
+  - [x] FastAPI 서비스 가동 확인 (/health OK)
+  - [x] Tailscale VPN (외부 접속: 100.71.156.101)
+  - [x] 서버에서 테스트 전체 통과 확인 (391개, pycryptodome 설치 + validate_phone_no 수정)
+- [x] **5A: DB 스키마 + ORM** ✅
+  - [x] SQLAlchemy ORM 5개 (Auction, FilterResultORM, RegistryEventORM, RegistryAnalysisORM, PipelineRun)
+  - [x] Alembic 초기 마이그레이션 (JSONB + 인덱스)
+  - [x] Pydantic ↔ SQLAlchemy 양방향 변환 (converters.py) + roundtrip 검증
+  - [x] FastAPI DB 세션 관리 (database.py + dependencies.py)
+  - [x] SQLite in-memory 테스트 30개 (CRUD + 제약조건 + roundtrip)
+  - [x] **총 421개 테스트 통과** (391 → 421, +30개)
 - [ ] **5B: 배치 수집기**
   - [ ] BatchCollector: 대법원 크롤링 → DB 저장
   - [ ] 1단 보강 + 필터링 → DB 저장
@@ -523,3 +527,5 @@ chore: 빌드, 설정 변경
 | 2026-02-14 | 4C E2E 버그 수정 | Vworld LT_C_UQ111, CF-13007 재시도, 지번 fallback |
 | 2026-02-14 | 4E CODEF 등기부 열람 전면 교정 | inquiryType=0, password/ePrepayPass 분리, **391개 통과**, registry_full 86% → [보고서](docs/review/2026-02-14_e2e_validation.md) |
 | 2026-02-14 | 로드맵 v2.2 확정 | PostgreSQL 16 확정, 5단계 재구성 (서버세팅+DB+배치+점수), 6~8단계 재편 |
+| 2026-02-15 | 5-0 홈서버 세팅 완료 | Ubuntu 24.04 LTS + PostgreSQL 16 + pyenv 3.11 + systemd + Tailscale, /health OK |
+| 2026-02-15 | 5A DB 스키마 + ORM 완료 | SQLAlchemy ORM 5개 + Alembic + converter + SQLite 테스트 30개, **421개 통과** |

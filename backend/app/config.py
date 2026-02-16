@@ -50,7 +50,10 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
 
     # DB
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/kyungsa"
+    DATABASE_URL: str = "postgresql://kyungsa:password@localhost:5432/kyungsa_db"
+    DB_ECHO: bool = False           # SQLAlchemy SQL 로깅
+    DB_POOL_SIZE: int = 5           # 커넥션 풀 크기
+    DB_MAX_OVERFLOW: int = 10       # 풀 초과 허용 수
     REDIS_URL: str = "redis://localhost:6379/0"
     MONGODB_URL: str = "mongodb://localhost:27017/kyungsa"
 
