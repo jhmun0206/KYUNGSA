@@ -3,7 +3,12 @@
 모든 환경변수는 .env 파일에서 관리한다. 절대 하드코딩 금지.
 """
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+# 프로젝트 루트: backend/ 의 상위 디렉토리
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
@@ -58,7 +63,7 @@ class Settings(BaseSettings):
     MONGODB_URL: str = "mongodb://localhost:27017/kyungsa"
 
     model_config = {
-        "env_file": ".env",
+        "env_file": str(_PROJECT_ROOT / ".env"),
         "env_file_encoding": "utf-8",
     }
 
