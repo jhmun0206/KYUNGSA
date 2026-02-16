@@ -40,8 +40,8 @@ class AuctionPropertyObject(BaseModel):
     address: str = ""  # 소재지 (userPrintSt)
     lot_number: str = ""  # 지번 (rprsLtnoAddr)
     area_m2: float | None = None  # 면적 (㎡, building_info에서 추출)
-    x_coord: str = ""  # X 좌표
-    y_coord: str = ""  # Y 좌표
+    x_coord: str | int = ""  # X 좌표 (API가 int로 주기도 함)
+    y_coord: str | int = ""  # Y 좌표 (API가 int로 주기도 함)
 
 
 class AppraisalNote(BaseModel):
