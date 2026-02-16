@@ -9,6 +9,7 @@ from app.models.db.auction import Auction
 from app.models.db.filter_result import FilterResultORM
 from app.models.db.pipeline_run import PipelineRun
 from app.models.db.registry import RegistryAnalysisORM, RegistryEventORM
+from app.models.db.score import Score
 
 __all__ = [
     "Base",
@@ -17,4 +18,5 @@ __all__ = [
     "RegistryEventORM",
     "RegistryAnalysisORM",
     "PipelineRun",
+    "Score",
 ]

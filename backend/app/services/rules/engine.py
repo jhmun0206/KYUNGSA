@@ -1,7 +1,111 @@
-"""룰 엔진 메인
+"""RuleEngine v2 오케스트레이터 (5E)
 
-물건 유형에 따라 적절한 룰셋을 로드하여 평가 수행.
-1단계: Hard Stop 체크 → 하나라도 걸리면 즉시 REJECT
-2단계: Yellow Zone 체크 → 경고 플래그 부착
-3단계: 점수 산출 → 4개 영역 가중 합산
+1단 색상 필터 → pillar 점수(가격/법률) → 통합 점수 → 등급을 일괄 산출한다.
+DB 저장은 호출자(batch_collector, pipeline)의 책임.
+
+흐름:
+  1. FilterEngine.evaluate() → RED/YELLOW/GREEN
+  2. PriceScorer.score() → 가격 매력도 (항상)
+  3. LegalScorer.score() → 법률 리스크 (등기부 있을 때만)
+  4. TotalScorer.score() → 통합 점수 + 등급
 """
+
+from __future__ import annotations
+
+import logging
+
+from pydantic import BaseModel
+
+from app.models.enriched_case import (
+    EnrichedCase,
+    FilterResult,
+)
+from app.models.registry import RegistryAnalysisResult
+from app.models.scores import (
+    LegalScoreResult,
+    PriceScoreResult,
+    TotalScoreResult,
+)
+from app.services.filter_engine import FilterEngine
+from app.services.rules.legal_scorer import LegalScorer
+from app.services.rules.price_scorer import PriceScorer
+from app.services.rules.total_scorer import TotalScorer
+
+logger = logging.getLogger(__name__)
+
+
+class EvaluationResult(BaseModel):
+    """RuleEngineV2 전체 평가 결과"""
+
+    filter_result: FilterResult
+    legal: LegalScoreResult | None = None
+    price: PriceScoreResult | None = None
+    total: TotalScoreResult
+
+
+class RuleEngineV2:
+    """통합 룰 엔진 — 필터 + pillar 점수 + 통합 합산"""
+
+    def __init__(
+        self,
+        filter_engine: FilterEngine | None = None,
+        legal_scorer: LegalScorer | None = None,
+        price_scorer: PriceScorer | None = None,
+        total_scorer: TotalScorer | None = None,
+    ) -> None:
+        self._filter = filter_engine or FilterEngine()
+        self._legal_scorer = legal_scorer or LegalScorer()
+        self._price_scorer = price_scorer or PriceScorer()
+        self._total_scorer = total_scorer or TotalScorer()
+
+    def evaluate(
+        self,
+        enriched: EnrichedCase,
+        *,
+        registry_analysis: RegistryAnalysisResult | None = None,
+    ) -> EvaluationResult:
+        """전체 평가 수행
+
+        Args:
+            enriched: 보강된 경매 물건
+            registry_analysis: 등기부 분석 결과 (있으면 법률 점수 산출)
+
+        Returns:
+            EvaluationResult
+        """
+        case = enriched.case
+
+        # 1. 색상 필터
+        filter_result = self._filter.evaluate(enriched)
+
+        # 2. 가격 점수 (항상 산출)
+        price_result = self._price_scorer.score(
+            case=case,
+            market_price=enriched.market_price,
+        )
+
+        # 3. 법률 점수 (등기부 있을 때만)
+        legal_result: LegalScoreResult | None = None
+        needs_expert = False
+
+        if registry_analysis is not None:
+            legal_result = self._legal_scorer.score(
+                case=case,
+                registry_analysis=registry_analysis,
+            )
+            needs_expert = legal_result.needs_expert_review
+
+        # 4. 통합 점수
+        total_result = self._total_scorer.score(
+            property_type=case.property_type,
+            legal_score=legal_result.score if legal_result else None,
+            price_score=price_result.score,
+            needs_expert_review=needs_expert,
+        )
+
+        return EvaluationResult(
+            filter_result=filter_result,
+            legal=legal_result,
+            price=price_result,
+            total=total_result,
+        )

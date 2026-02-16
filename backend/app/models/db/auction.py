@@ -47,6 +47,9 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
     registry_analysis: Mapped[RegistryAnalysisORM | None] = relationship(
         "RegistryAnalysisORM", back_populates="auction", uselist=False, cascade="all, delete-orphan"
     )
+    score: Mapped[Score | None] = relationship(
+        "Score", back_populates="auction", uselist=False, cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("ix_auctions_court", "court"),
@@ -65,3 +68,4 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
 # 순환 참조 해소용 - 모듈 로딩 후 참조
 from app.models.db.filter_result import FilterResultORM  # noqa: E402
 from app.models.db.registry import RegistryAnalysisORM, RegistryEventORM  # noqa: E402
+from app.models.db.score import Score  # noqa: E402

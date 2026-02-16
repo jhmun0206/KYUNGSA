@@ -19,10 +19,11 @@ from sqlalchemy.orm import Session
 from app.models.db.auction import Auction
 from app.models.db.converters import save_enriched_case
 from app.models.db.pipeline_run import PipelineRun
+from app.models.db.score import Score
 from app.models.enriched_case import FilterColor
 from app.services.crawler.court_auction import CourtAuctionClient
 from app.services.enricher import CaseEnricher
-from app.services.filter_engine import FilterEngine
+from app.services.rules.engine import RuleEngineV2
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +57,12 @@ class BatchCollector:
         db: Session,
         crawler: CourtAuctionClient | None = None,
         enricher: CaseEnricher | None = None,
-        filter_engine: FilterEngine | None = None,
+        rule_engine: RuleEngineV2 | None = None,
     ) -> None:
         self._db = db
         self._crawler = crawler or CourtAuctionClient()
         self._enricher = enricher or CaseEnricher()
-        self._filter = filter_engine or FilterEngine()
+        self._rule_engine = rule_engine or RuleEngineV2()
 
     def collect(
         self,
@@ -279,8 +280,11 @@ class BatchCollector:
         # 보강 (항상 성공, partial result 가능)
         enriched = self._enricher.enrich(detail)
 
-        # 필터링
-        enriched.filter_result = self._filter.evaluate(enriched)
+        # 통합 평가 (필터 + 가격 + 통합 점수)
+        eval_result = self._rule_engine.evaluate(enriched)
+        enriched.filter_result = eval_result.filter_result
+        enriched.price_score = eval_result.price
+        enriched.total_score = eval_result.total
 
         # 카운트 갱신
         color = enriched.filter_result.color
@@ -304,7 +308,12 @@ class BatchCollector:
             is_update = existing is not None
 
             try:
-                save_enriched_case(self._db, enriched)
+                auction_orm = save_enriched_case(self._db, enriched)
+
+                # Score 테이블 upsert
+                if enriched.total_score:
+                    self._save_score(auction_orm.id, enriched, result.run_id)
+
                 if is_update:
                     result.updated_count += 1
                 else:
@@ -314,8 +323,49 @@ class BatchCollector:
                 raise RuntimeError(f"DB 저장 실패: {e}") from e
 
         logger.info(
-            "처리 완료 [%s]: %s%s",
+            "처리 완료 [%s]: %s grade=%s%s",
             detail.case_number,
             color.value,
+            enriched.total_score.grade if enriched.total_score else "-",
             " (dry-run)" if dry_run else "",
         )
+
+    def _save_score(
+        self,
+        auction_id: str,
+        enriched,
+        run_id: str,
+    ) -> None:
+        """Score 테이블 upsert"""
+        ts = enriched.total_score
+        if ts is None:
+            return
+
+        existing = (
+            self._db.query(Score)
+            .filter(Score.auction_id == auction_id)
+            .first()
+        )
+        if existing:
+            self._db.delete(existing)
+            self._db.flush()
+
+        score_orm = Score(
+            auction_id=auction_id,
+            property_category=ts.property_category,
+            legal_score=ts.legal_score,
+            price_score=ts.price_score,
+            location_score=ts.location_score,
+            occupancy_score=ts.occupancy_score,
+            total_score=ts.total_score,
+            score_coverage=ts.score_coverage,
+            missing_pillars=ts.missing_pillars,
+            grade=ts.grade,
+            sub_scores=ts.weights_used,
+            warnings=ts.warnings or None,
+            needs_expert_review=ts.needs_expert_review,
+            scorer_version=ts.scorer_version,
+            pipeline_run_id=run_id,
+        )
+        self._db.add(score_orm)
+        self._db.flush()

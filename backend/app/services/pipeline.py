@@ -22,6 +22,8 @@ from app.services.enricher import CaseEnricher
 from app.services.filter_engine import FilterEngine
 from app.services.registry.matcher import NoMatchError, RegistryMatcher
 from app.services.registry.pipeline import RegistryPipeline
+from app.services.rules.price_scorer import PriceScorer
+from app.services.rules.total_scorer import TotalScorer
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,8 @@ class AuctionPipeline:
         self._filter = filter_engine or FilterEngine()
         self._registry_pipeline = registry_pipeline
         self._matcher = RegistryMatcher()
+        self._price_scorer = PriceScorer()
+        self._total_scorer = TotalScorer()
 
     def run(
         self,
@@ -91,6 +95,12 @@ class AuctionPipeline:
                 enriched.filter_result = self._filter.evaluate(enriched)
                 result.total_filtered += 1
 
+                # 가격 매력도 점수 (1단 데이터만으로 산출)
+                enriched.price_score = self._price_scorer.score(
+                    case=enriched.case,
+                    market_price=enriched.market_price,
+                )
+
                 # 카운트 집계
                 color = enriched.filter_result.color
                 if color == FilterColor.RED:
@@ -106,6 +116,17 @@ class AuctionPipeline:
                     and enriched.filter_result.passed
                 ):
                     self._run_registry_analysis(enriched)
+
+                # 통합 점수 (가용 pillar 가중 합산)
+                enriched.total_score = self._total_scorer.score(
+                    property_type=enriched.case.property_type,
+                    legal_score=enriched.legal_score.score if enriched.legal_score else None,
+                    price_score=enriched.price_score.score if enriched.price_score else None,
+                    needs_expert_review=(
+                        enriched.legal_score.needs_expert_review
+                        if enriched.legal_score else False
+                    ),
+                )
 
                 result.cases.append(enriched)
 
@@ -125,6 +146,12 @@ class AuctionPipeline:
         enriched = self._enricher.enrich(case_detail)
         enriched.filter_result = self._filter.evaluate(enriched)
 
+        # 가격 매력도 점수 (1단 데이터만으로 산출)
+        enriched.price_score = self._price_scorer.score(
+            case=enriched.case,
+            market_price=enriched.market_price,
+        )
+
         # 2단: 1단 필터 통과 건만
         if (
             self._registry_pipeline
@@ -132,6 +159,17 @@ class AuctionPipeline:
             and enriched.filter_result.passed
         ):
             self._run_registry_analysis(enriched)
+
+        # 통합 점수 (가용 pillar 가중 합산)
+        enriched.total_score = self._total_scorer.score(
+            property_type=enriched.case.property_type,
+            legal_score=enriched.legal_score.score if enriched.legal_score else None,
+            price_score=enriched.price_score.score if enriched.price_score else None,
+            needs_expert_review=(
+                enriched.legal_score.needs_expert_review
+                if enriched.legal_score else False
+            ),
+        )
 
         return enriched
 
@@ -192,10 +230,19 @@ class AuctionPipeline:
             enriched.registry_unique_no = match.unique_no
             enriched.registry_match_confidence = match.confidence
 
+            # 6. 법률 리스크 점수 산출
+            from app.services.rules.legal_scorer import LegalScorer
+            legal_scorer = LegalScorer()
+            enriched.legal_score = legal_scorer.score(
+                case=enriched.case,
+                registry_analysis=enriched.registry_analysis,
+            )
+
             logger.info(
-                "2단 완료 [%s]: unique_no=%s, hard_stop=%s, match=%s(%.1f)",
+                "2단 완료 [%s]: unique_no=%s, hard_stop=%s, match=%s(%.1f), legal_score=%.1f",
                 case_id, match.unique_no, reg_result.has_hard_stop,
                 match.match_method, match.confidence,
+                enriched.legal_score.score,
             )
 
         except AddressParseError as e:

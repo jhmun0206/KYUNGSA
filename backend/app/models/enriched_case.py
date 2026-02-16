@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.models.auction import AuctionCaseDetail
 from app.models.registry import RegistryAnalysisResult
+from app.models.scores import LegalScoreResult, PriceScoreResult, TotalScoreResult
 
 
 class FilterColor(str, Enum):
@@ -84,6 +85,15 @@ class EnrichedCase(BaseModel):
     registry_unique_no: str | None = None             # CODEF 고유번호
     registry_match_confidence: float | None = None    # matcher 매칭 신뢰도
     registry_error: str | None = None                 # 2단 실패 사유
+
+    # 법률 리스크 점수 (5C — 등기부 분석 완료 건만)
+    legal_score: LegalScoreResult | None = None
+
+    # 가격 매력도 점수 (5D — 1단 데이터만으로 산출)
+    price_score: PriceScoreResult | None = None
+
+    # 통합 점수 (5E — 가용 pillar 가중 합산)
+    total_score: TotalScoreResult | None = None
 
 
 class PipelineResult(BaseModel):
