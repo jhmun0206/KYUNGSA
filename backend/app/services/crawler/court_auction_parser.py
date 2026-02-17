@@ -559,8 +559,8 @@ class CourtAuctionParser:
         rounds = []
         for idx, item in enumerate(schedule_list, start=1):
             try:
-                result_code = item.get("auctnDxdyRsltCd", "")
-                result_name = ROUND_RESULT_MAP.get(result_code, result_code)
+                result_code = item.get("auctnDxdyRsltCd") or ""  # None 방어
+                result_name = ROUND_RESULT_MAP.get(result_code, result_code) or ""
 
                 winning_bid = None
                 winning_str = item.get("dspslAmt")
