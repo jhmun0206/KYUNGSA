@@ -13,6 +13,7 @@ from app.models.enriched_case import (
     BuildingInfo,
     EnrichedCase,
     LandUseInfo,
+    LocationData,
     MarketPriceInfo,
 )
 from app.services.crawler.geo_client import GeoClient
@@ -72,13 +73,13 @@ class CaseEnricher:
         # 1. 주소 → 좌표
         enriched.coordinates = self._geocode(case)
 
-        # 2. 좌표 → 용도지역 (좌표 없으면 스킵)
+        # 2. 좌표 → 용도지역 + 입지 데이터 (좌표 없으면 스킵)
         if enriched.coordinates:
-            enriched.land_use = self._fetch_land_use(
-                enriched.coordinates["x"], enriched.coordinates["y"]
-            )
+            x, y = enriched.coordinates["x"], enriched.coordinates["y"]
+            enriched.land_use = self._fetch_land_use(x, y)
+            enriched.location_data = self._fetch_location_data(x, y)
 
-        # 3. 건축물대장 조회
+        # 3. 건축물대장 조회 (좌표와 독립)
         enriched.building = self._fetch_building(case)
 
         # 4. 시세 조회
@@ -161,6 +162,63 @@ class CaseEnricher:
         except Exception as e:
             logger.warning("건축물대장 조회 실패 [%s]: %s", case.case_number, e)
             return None
+
+    def _fetch_location_data(self, x: str, y: str) -> LocationData | None:
+        """카카오 카테고리 검색으로 입지 데이터 수집 (fail-open)
+
+        카테고리별로 독립 호출하며, 실패한 카테고리는 건너뛴다.
+        categories_fetched에는 성공한 카테고리 코드만 기록된다.
+        """
+        fetched: list[str] = []
+        nearest_station_m: int | None = None
+        station_count_1km = 0
+        nearest_school_m: int | None = None
+        school_count_1km = 0
+        amenity_count_500m = 0
+
+        # 지하철역 (SW8, 반경 2000m)
+        try:
+            stations = self._geo.search_nearby_category(x, y, "SW8", radius=2000)
+            fetched.append("SW8")
+            if stations:
+                dists = [int(p.get("distance", 0)) for p in stations if p.get("distance")]
+                if dists:
+                    nearest_station_m = min(dists)
+                    station_count_1km = sum(1 for d in dists if d <= 1000)
+        except Exception as e:
+            logger.warning("지하철역 검색 실패 [SW8]: %s", e)
+
+        # 학교 (SC4, 반경 1500m)
+        try:
+            schools = self._geo.search_nearby_category(x, y, "SC4", radius=1500)
+            fetched.append("SC4")
+            if schools:
+                dists = [int(p.get("distance", 0)) for p in schools if p.get("distance")]
+                if dists:
+                    nearest_school_m = min(dists)
+                    school_count_1km = sum(1 for d in dists if d <= 1000)
+        except Exception as e:
+            logger.warning("학교 검색 실패 [SC4]: %s", e)
+
+        # 편의시설 (MT1=마트, CS2=편의점, HP8=병원, 반경 500m)
+        amenity_total = 0
+        for code in ("MT1", "CS2", "HP8"):
+            try:
+                places = self._geo.search_nearby_category(x, y, code, radius=500)
+                fetched.append(code)
+                amenity_total += len(places)
+            except Exception as e:
+                logger.warning("편의시설 검색 실패 [%s]: %s", code, e)
+        amenity_count_500m = amenity_total
+
+        return LocationData(
+            nearest_station_m=nearest_station_m,
+            station_count_1km=station_count_1km,
+            nearest_school_m=nearest_school_m,
+            school_count_1km=school_count_1km,
+            amenity_count_500m=amenity_count_500m,
+            categories_fetched=fetched,
+        )
 
     def _fetch_market_price(self, case: AuctionCaseDetail) -> MarketPriceInfo | None:
         """시세 정보 조회 (아파트 매매 실거래가)"""

@@ -132,8 +132,9 @@ class TotalScorer:
             )
             total_score = round(total_score, 1)
 
-        # 6. 등급 부여
+        # 6. 등급 부여 + 잠정 여부 (coverage < 0.70)
         grade = self._assign_grade(total_score)
+        grade_provisional = score_coverage < 0.70
 
         # 7. 예측 낙찰가율 (rule_v1: 유찰 횟수 기반 통계값)
         predicted_ratio = self._calc_predicted_ratio(category, fail_count)
@@ -143,6 +144,7 @@ class TotalScorer:
             score_coverage=round(score_coverage, 4),
             missing_pillars=missing,
             grade=grade,
+            grade_provisional=grade_provisional,
             property_category=category,
             weights_used={k: round(v, 4) for k, v in normalized.items()},
             legal_score=legal_score,

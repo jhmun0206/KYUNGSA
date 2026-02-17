@@ -35,6 +35,7 @@ class Score(PrimaryKeyMixin, Base):
     score_coverage: Mapped[float] = mapped_column(Float, nullable=False)
     missing_pillars: Mapped[list | None] = mapped_column(JSONBOrJSON, nullable=False, default=list)
     grade: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    grade_provisional: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)  # Phase 6
     sub_scores: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
     warnings: Mapped[list | None] = mapped_column(JSONBOrJSON, nullable=True, default=list)
     needs_expert_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

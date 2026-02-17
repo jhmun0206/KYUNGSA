@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # API 엔드포인트
 KAKAO_GEOCODE_URL = "https://dapi.kakao.com/v2/local/search/address.json"
+KAKAO_CATEGORY_URL = "https://dapi.kakao.com/v2/local/search/category.json"
 VWORLD_DATA_URL = "https://api.vworld.kr/req/data"
 VWORLD_SEARCH_URL = "https://api.vworld.kr/req/search"
 
@@ -64,6 +65,54 @@ class GeoClient:
         }
         logger.info("Geocode 성공: %s → (%s, %s)", address, result["x"], result["y"])
         return result
+
+    # === 카카오: 좌표 기준 카테고리 검색 ===
+
+    def search_nearby_category(
+        self,
+        x: str,
+        y: str,
+        category_group_code: str,
+        radius: int = 1000,
+    ) -> list[dict[str, Any]]:
+        """카카오 카테고리 검색 — 반경 내 시설 목록
+
+        Args:
+            x: 경도 (longitude)
+            y: 위도 (latitude)
+            category_group_code: 카테고리 코드
+                SW8=지하철역, SC4=학교, MT1=대형마트, CS2=편의점, HP8=병원
+            radius: 검색 반경 (m, 최대 20000)
+
+        Returns:
+            [{"place_name": str, "distance": str, ...}, ...]
+            실패(HTTP 오류/타임아웃) 시 예외 전파 — 호출자가 fail-open 처리
+        """
+        with httpx.Client(timeout=10) as client:
+            response = client.get(
+                KAKAO_CATEGORY_URL,
+                params={
+                    "category_group_code": category_group_code,
+                    "x": x,
+                    "y": y,
+                    "radius": radius,
+                    "size": 15,
+                    "sort": "distance",
+                },
+                headers={"Authorization": f"KakaoAK {self._kakao_key}"},
+            )
+        response.raise_for_status()
+
+        docs = response.json().get("documents", [])
+        logger.info(
+            "카테고리 검색 (%s, r=%dm): %d건 (%.4s,%.4s)",
+            category_group_code,
+            radius,
+            len(docs),
+            x,
+            y,
+        )
+        return docs
 
     # === Vworld: 좌표 → 용도지역/지구 조회 ===
 

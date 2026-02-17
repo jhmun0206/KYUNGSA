@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.models.auction import AuctionCaseDetail
 from app.models.registry import RegistryAnalysisResult
-from app.models.scores import LegalScoreResult, PriceScoreResult, TotalScoreResult
+from app.models.scores import LegalScoreResult, LocationScoreResult, PriceScoreResult, TotalScoreResult
 
 
 class FilterColor(str, Enum):
@@ -60,6 +60,17 @@ class LandUseInfo(BaseModel):
     raw_items: list[dict] = Field(default_factory=list)
 
 
+class LocationData(BaseModel):
+    """입지 데이터 (카카오 카테고리 검색 결과 — raw)"""
+
+    nearest_station_m: int | None = None     # 가장 가까운 지하철역 거리 (m), None=역 없음
+    station_count_1km: int = 0              # 1km 내 지하철역 수
+    nearest_school_m: int | None = None     # 가장 가까운 학교 거리 (m), None=1500m 내 없음
+    school_count_1km: int = 0              # 1km 내 학교 수
+    amenity_count_500m: int = 0             # 500m 내 편의시설 합산 수 (마트+편의점+병원)
+    categories_fetched: list[str] = Field(default_factory=list)  # 성공한 카테고리 코드 목록
+
+
 class MarketPriceInfo(BaseModel):
     """시세 정보 (실거래가 API)"""
 
@@ -86,11 +97,17 @@ class EnrichedCase(BaseModel):
     registry_match_confidence: float | None = None    # matcher 매칭 신뢰도
     registry_error: str | None = None                 # 2단 실패 사유
 
+    # 입지 데이터 (Phase 6 — 카카오 카테고리 검색 결과 raw)
+    location_data: LocationData | None = None
+
     # 법률 리스크 점수 (5C — 등기부 분석 완료 건만)
     legal_score: LegalScoreResult | None = None
 
     # 가격 매력도 점수 (5D — 1단 데이터만으로 산출)
     price_score: PriceScoreResult | None = None
+
+    # 입지 점수 (Phase 6 — 1단 데이터만으로 산출)
+    location_score: LocationScoreResult | None = None
 
     # 통합 점수 (5E — 가용 pillar 가중 합산)
     total_score: TotalScoreResult | None = None

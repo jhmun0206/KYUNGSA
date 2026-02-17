@@ -23,11 +23,13 @@ from app.models.enriched_case import (
 from app.models.registry import RegistryAnalysisResult
 from app.models.scores import (
     LegalScoreResult,
+    LocationScoreResult,
     PriceScoreResult,
     TotalScoreResult,
 )
 from app.services.filter_engine import FilterEngine
 from app.services.rules.legal_scorer import LegalScorer
+from app.services.rules.location_scorer import LocationScorer
 from app.services.rules.price_scorer import PriceScorer
 from app.services.rules.total_scorer import TotalScorer
 
@@ -40,6 +42,7 @@ class EvaluationResult(BaseModel):
     filter_result: FilterResult
     legal: LegalScoreResult | None = None
     price: PriceScoreResult | None = None
+    location: LocationScoreResult | None = None
     total: TotalScoreResult
 
 
@@ -51,11 +54,13 @@ class RuleEngineV2:
         filter_engine: FilterEngine | None = None,
         legal_scorer: LegalScorer | None = None,
         price_scorer: PriceScorer | None = None,
+        location_scorer: LocationScorer | None = None,
         total_scorer: TotalScorer | None = None,
     ) -> None:
         self._filter = filter_engine or FilterEngine()
         self._legal_scorer = legal_scorer or LegalScorer()
         self._price_scorer = price_scorer or PriceScorer()
+        self._location_scorer = location_scorer or LocationScorer()
         self._total_scorer = total_scorer or TotalScorer()
 
     def evaluate(
@@ -95,12 +100,20 @@ class RuleEngineV2:
             )
             needs_expert = legal_result.needs_expert_review
 
-        # 4. 통합 점수 (fail_count = bid_count - 1, 유찰 횟수)
+        # 4. 입지 점수 (좌표 있을 때만 — location_data 기반)
+        location_result = self._location_scorer.score(
+            case=case,
+            location_data=enriched.location_data,
+            land_use=enriched.land_use,
+        )
+
+        # 5. 통합 점수 (fail_count = bid_count - 1, 유찰 횟수)
         fail_count = max(0, (case.bid_count or 1) - 1)
         total_result = self._total_scorer.score(
             property_type=case.property_type,
             legal_score=legal_result.score if legal_result else None,
             price_score=price_result.score,
+            location_score=location_result.score if location_result else None,
             needs_expert_review=needs_expert,
             fail_count=fail_count,
         )
@@ -109,5 +122,6 @@ class RuleEngineV2:
             filter_result=filter_result,
             legal=legal_result,
             price=price_result,
+            location=location_result,
             total=total_result,
         )

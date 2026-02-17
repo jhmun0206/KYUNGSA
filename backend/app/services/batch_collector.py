@@ -124,16 +124,28 @@ class BatchCollector:
         result.finished_at = datetime.now(timezone.utc)
 
         if pipeline_run and not dry_run:
-            pipeline_run.finished_at = result.finished_at
-            pipeline_run.total_searched = result.total_searched
-            pipeline_run.total_enriched = result.processed
-            pipeline_run.total_filtered = result.processed
-            pipeline_run.red_count = result.red_count
-            pipeline_run.yellow_count = result.yellow_count
-            pipeline_run.green_count = result.green_count
-            pipeline_run.errors = result.errors or None
-            pipeline_run.status = "COMPLETED" if not result.errors else "COMPLETED"
-            self._db.commit()
+            try:
+                # 오염된 세션이 있으면 정리 후 재시도
+                try:
+                    self._db.rollback()
+                except Exception:
+                    pass
+                pipeline_run.finished_at = result.finished_at
+                pipeline_run.total_searched = result.total_searched
+                pipeline_run.total_enriched = result.processed
+                pipeline_run.total_filtered = result.processed
+                pipeline_run.red_count = result.red_count
+                pipeline_run.yellow_count = result.yellow_count
+                pipeline_run.green_count = result.green_count
+                pipeline_run.errors = result.errors or None
+                pipeline_run.status = "COMPLETED" if not result.errors else "COMPLETED"
+                self._db.commit()
+            except Exception as e:
+                logger.error("PipelineRun 최종 커밋 실패 [%s]: %s", run_id, e)
+                try:
+                    self._db.rollback()
+                except Exception:
+                    pass
 
         logger.info(
             "배치 완료 [%s]: 검색=%d, 처리=%d, 스킵=%d, 에러=%d "
@@ -255,6 +267,11 @@ class BatchCollector:
                 )
                 count += 1
             except Exception as e:
+                # 세션 오염 방지: 어떤 경로로 예외가 나와도 반드시 rollback
+                try:
+                    self._db.rollback()
+                except Exception:
+                    pass
                 logger.error("물건 처리 실패 [%s]: %s", case_number, e)
                 result.errors.append(f"[{case_number}] {e}")
                 count += 1  # 에러도 처리 시도로 카운트
@@ -361,6 +378,7 @@ class BatchCollector:
             score_coverage=ts.score_coverage,
             missing_pillars=ts.missing_pillars,
             grade=ts.grade,
+            grade_provisional=ts.grade_provisional,
             sub_scores=ts.weights_used,
             warnings=ts.warnings or None,
             needs_expert_review=ts.needs_expert_review,

@@ -63,6 +63,7 @@ class TotalScoreResult(BaseModel):
     score_coverage: float                       # 가용 가중치 합 (0~1.0)
     missing_pillars: list[str] = Field(default_factory=list)  # 미산출 pillar 이름
     grade: str = "D"                            # A(80+) / B(60~80) / C(40~60) / D(<40)
+    grade_provisional: bool = False             # True = coverage < 0.70 (잠정 등급)
     property_category: str = "꼬마빌딩"         # 아파트 / 꼬마빌딩 / 토지
     weights_used: dict[str, float] = Field(default_factory=dict)  # 재정규화된 가중치
     legal_score: float | None = None
@@ -76,6 +77,28 @@ class TotalScoreResult(BaseModel):
     predicted_winning_ratio: float | None = None  # 예측 낙찰가율 (0~1.0)
     prediction_method: str = "rule_v1"            # 'rule_v1' | 'model_v1' (Phase 9)
 
+
+
+class LocationSubScores(BaseModel):
+    """입지 세부 점수 (각 0~100, 높을수록 입지 우수)"""
+
+    station_score: float = 0.0      # 역세권 (지하철역 거리 기반)
+    amenity_score: float = 0.0      # 편의시설 (마트/편의점/병원, 반경 500m)
+    school_score: float = 0.0       # 학군 (아파트만 유효, 반경 1500m)
+    land_use_score: float = 0.0     # 용도지역 (토지만 유효, LandUseInfo 활용)
+
+
+class LocationScoreResult(BaseModel):
+    """입지 점수 최종 결과 (0~100, 높을수록 입지 우수)"""
+
+    score: float                          # 최종 점수 (신뢰도 감쇠 후)
+    base_score: float                     # 신뢰도 감쇠 전 가중 합산
+    sub_scores: LocationSubScores
+    confidence: str = "HIGH"             # HIGH / MEDIUM / LOW
+    confidence_multiplier: float = 1.0   # HIGH=1.0, MEDIUM=0.85, LOW=0.70
+    property_category: str = "꼬마빌딩"  # 아파트 / 꼬마빌딩 / 토지
+    warnings: list[str] = Field(default_factory=list)
+    scorer_version: str = "v1.0"
 
 
 # EvaluationResult는 순환 참조 방지를 위해 engine.py에 정의
