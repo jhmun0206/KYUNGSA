@@ -72,6 +72,9 @@ class TotalScoreResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     needs_expert_review: bool = False
     scorer_version: str = "v1.0"
+    # 5.5: 낙찰가율 예측 (rule_v1: 유찰 횟수 기반 통계값)
+    predicted_winning_ratio: float | None = None  # 예측 낙찰가율 (0~1.0)
+    prediction_method: str = "rule_v1"            # 'rule_v1' | 'model_v1' (Phase 9)
 
 
 

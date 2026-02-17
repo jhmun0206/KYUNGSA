@@ -95,12 +95,14 @@ class RuleEngineV2:
             )
             needs_expert = legal_result.needs_expert_review
 
-        # 4. 통합 점수
+        # 4. 통합 점수 (fail_count = bid_count - 1, 유찰 횟수)
+        fail_count = max(0, (case.bid_count or 1) - 1)
         total_result = self._total_scorer.score(
             property_type=case.property_type,
             legal_score=legal_result.score if legal_result else None,
             price_score=price_result.score,
             needs_expert_review=needs_expert,
+            fail_count=fail_count,
         )
 
         return EvaluationResult(

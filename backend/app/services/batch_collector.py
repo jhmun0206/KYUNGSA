@@ -364,6 +364,8 @@ class BatchCollector:
             sub_scores=ts.weights_used,
             warnings=ts.warnings or None,
             needs_expert_review=ts.needs_expert_review,
+            predicted_winning_ratio=ts.predicted_winning_ratio,
+            prediction_method=ts.prediction_method,
             scorer_version=ts.scorer_version,
             pipeline_run_id=run_id,
         )

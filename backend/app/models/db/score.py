@@ -39,6 +39,10 @@ class Score(PrimaryKeyMixin, Base):
     warnings: Mapped[list | None] = mapped_column(JSONBOrJSON, nullable=True, default=list)
     needs_expert_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    # 5.5 낙찰가율 예측 (rule_v1: 유찰 횟수 기반 통계값)
+    predicted_winning_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    prediction_method: Mapped[str] = mapped_column(String(30), nullable=False, default="rule_v1")
+
     # 5F 캘리브레이션용
     actual_winning_bid: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     actual_winning_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)

@@ -203,3 +203,50 @@ class TestIntegration:
         assert result.total_score < 40.0
         assert result.grade == "D"
         assert result.needs_expert_review is True
+
+
+# ──────────────────────────────────────
+# predicted_winning_ratio 테스트 (5.5)
+# ──────────────────────────────────────
+
+
+class TestPredictedWinningRatio:
+    """예측 낙찰가율 산출 — rule_v1 테이블 검증"""
+
+    def test_apartment_fresh(self):
+        """아파트 신건 (0유찰) → 0.975"""
+        result = scorer.score("아파트", price_score=60.0, fail_count=0)
+        assert result.predicted_winning_ratio == pytest.approx(0.975)
+        assert result.prediction_method == "rule_v1"
+
+    def test_apartment_2nd_fail(self):
+        """아파트 2유찰 → 0.80"""
+        result = scorer.score("아파트", price_score=60.0, fail_count=2)
+        assert result.predicted_winning_ratio == pytest.approx(0.80)
+
+    def test_building_1st_fail(self):
+        """꼬마빌딩 1유찰 → 0.80"""
+        result = scorer.score("상가", price_score=55.0, fail_count=1)
+        assert result.predicted_winning_ratio == pytest.approx(0.80)
+
+    def test_building_3rd_fail(self):
+        """꼬마빌딩 3유찰 → 0.60"""
+        result = scorer.score("상가", price_score=55.0, fail_count=3)
+        assert result.predicted_winning_ratio == pytest.approx(0.60)
+
+    def test_clamp_high_fail(self):
+        """유찰 5회 이상은 인덱스 4로 클램프 (꼬마빌딩 4유찰+ = 0.50)"""
+        result4 = scorer.score("상가", price_score=50.0, fail_count=4)
+        result9 = scorer.score("상가", price_score=50.0, fail_count=9)
+        assert result4.predicted_winning_ratio == pytest.approx(0.50)
+        assert result9.predicted_winning_ratio == pytest.approx(0.50)
+
+    def test_land_fresh(self):
+        """토지 신건 → 0.85"""
+        result = scorer.score("토지", price_score=40.0, fail_count=0)
+        assert result.predicted_winning_ratio == pytest.approx(0.85)
+
+    def test_default_fail_count_is_0(self):
+        """fail_count 미지정 시 0유찰로 처리"""
+        result = scorer.score("아파트", price_score=60.0)
+        assert result.predicted_winning_ratio == pytest.approx(0.975)

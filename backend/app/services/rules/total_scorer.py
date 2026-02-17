@@ -8,7 +8,21 @@ I/O 없음 — 순수 계산 로직만 포함.
   - 유형별 가중치 (아파트/꼬마빌딩/토지)
   - 등급: A(80+) / B(60~80) / C(40~60) / D(<40)
   - score_coverage: 원래 가중치 중 가용 pillar가 차지하는 비율 (0~1.0)
-"""
+
+=== 신뢰도 설계 원칙 (Phase 5.5 명문화) ===
+1. 신뢰도 감쇠(confidence_multiplier)는 각 pillar 내부에서만 적용한다.
+   - LegalScorer:  HIGH=1.0, MEDIUM=0.8,  LOW=0.6
+   - PriceScorer:  HIGH=1.0, MEDIUM=0.85, LOW=0.7
+   - LocationScorer (Phase 6), OccupancyScorer (Phase 7): 별도 결정
+
+2. TotalScorer는 신뢰도 감쇠를 하지 않는다. 재정규화만 수행한다.
+   이유: pillar 내부에서 이미 감쇠된 점수를 TotalScorer가 또 감쇠하면
+         이중 페널티가 발생한다.
+
+3. 대신 TotalScorer는 score_coverage와 경고로만 신뢰도를 표현한다.
+   - coverage < 0.70 → "점수 커버리지 낮음" 경고
+   - 이 원칙은 Phase 6/7 pillar 추가 후에도 유지한다.
+==="""
 
 from __future__ import annotations
 
@@ -28,10 +42,20 @@ PILLAR_WEIGHTS: dict[str, dict[str, float]] = {
 DEFAULT_CATEGORY = "꼬마빌딩"
 
 SCORER_VERSION = "v1.0"
+PREDICTION_METHOD = "rule_v1"
 
 # property_type → category 매핑
 _APARTMENT_TYPES = frozenset({"아파트", "오피스텔", "주상복합", "연립", "빌라"})
 _LAND_TYPES = frozenset({"토지", "임야", "전", "답", "대지"})
+
+# rule_v1: 유찰 횟수별 예측 낙찰가율 (통계 평균 midpoint)
+# 출처: 경매 통계 일반값. Phase 5F 백테스트에서 실데이터로 교체 예정.
+_PREDICTED_RATIO_TABLE: dict[str, list[float]] = {
+    #            0유찰  1유찰  2유찰  3유찰  4유찰+
+    "아파트":   [0.975, 0.90,  0.80,  0.70,  0.60],
+    "꼬마빌딩": [0.90,  0.80,  0.70,  0.60,  0.50],
+    "토지":     [0.85,  0.75,  0.65,  0.55,  0.45],
+}
 
 
 class TotalScorer:
@@ -46,6 +70,7 @@ class TotalScorer:
         location_score: float | None = None,
         occupancy_score: float | None = None,
         needs_expert_review: bool = False,
+        fail_count: int = 0,
     ) -> TotalScoreResult:
         """통합 점수 산출
 
@@ -56,6 +81,7 @@ class TotalScorer:
             location_score: 입지 점수 (0~100) — Phase 6
             occupancy_score: 명도 리스크 점수 (0~100) — Phase 7
             needs_expert_review: 전문가 검토 필요 여부 (pillar에서 전달)
+            fail_count: 유찰 횟수 (bid_count - 1). predicted_winning_ratio 산출에 사용.
 
         Returns:
             TotalScoreResult
@@ -109,6 +135,9 @@ class TotalScorer:
         # 6. 등급 부여
         grade = self._assign_grade(total_score)
 
+        # 7. 예측 낙찰가율 (rule_v1: 유찰 횟수 기반 통계값)
+        predicted_ratio = self._calc_predicted_ratio(category, fail_count)
+
         return TotalScoreResult(
             total_score=total_score,
             score_coverage=round(score_coverage, 4),
@@ -123,6 +152,8 @@ class TotalScorer:
             warnings=warnings,
             needs_expert_review=needs_expert_review,
             scorer_version=SCORER_VERSION,
+            predicted_winning_ratio=predicted_ratio,
+            prediction_method=PREDICTION_METHOD,
         )
 
     @staticmethod
@@ -159,3 +190,14 @@ class TotalScorer:
         if total_score >= 40:
             return "C"
         return "D"
+
+    @staticmethod
+    def _calc_predicted_ratio(category: str, fail_count: int) -> float:
+        """예측 낙찰가율 산출 (rule_v1 — 유찰 횟수 기반 통계값)
+
+        Phase 5F 백테스트에서 실데이터 기반으로 교체될 초기값.
+        4회 이상 유찰은 마지막 값(인덱스 4)으로 클램프.
+        """
+        table = _PREDICTED_RATIO_TABLE.get(category, _PREDICTED_RATIO_TABLE[DEFAULT_CATEGORY])
+        idx = min(fail_count, len(table) - 1)
+        return table[idx]

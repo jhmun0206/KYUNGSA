@@ -3,11 +3,17 @@
 RegistryParser의 출력(RegistryDocument)을 받아서:
 1. 말소기준권리(base right)를 판별한다
 2. 각 권리의 인수/소멸/불확실을 분류한다
-3. Hard Stop 5종을 탐지한다
+3. Hard Stop 8종을 탐지한다
 4. 신뢰도를 산출하고 요약을 생성한다
 
 ※ 이 계산은 RuleEngine이 아니라 여기서 수행한다.
   RuleEngine은 이미 계산된 파생 필드를 소비만 한다.
+
+Hard Stop 종류:
+  HS001~HS005: 이벤트 타입/키워드 기반 (순서 무관)
+  HS006: 소유권이전청구권 가등기 (담보가등기 제외)
+  HS007~HS008: 말소기준권리 이전 지상권/지역권
+    → analyze()에서 말소기준권리를 먼저 판별한 뒤 _check_hard_stops()에 전달한다.
 """
 
 import logging
@@ -52,9 +58,11 @@ _EXTINGUISH_TYPES = {
     EventType.PROVISIONAL_DISPOSITION,
 }
 
-# 인수되는 용익권 타입
+# 인수되는 용익권 타입 (말소기준 이전 설정 시 매수인 인수)
 _SURVIVING_TYPES = {
     EventType.LEASE_RIGHT,
+    EventType.SUPERFICIES,   # 지상권 — HS007 트리거 후보
+    EventType.EASEMENT,      # 지역권 — HS008 트리거 후보
 }
 
 # 소유권 관련 (UNCERTAIN 처리)
@@ -68,14 +76,22 @@ class RegistryAnalyzer:
     """RegistryDocument → RegistryAnalysisResult 분석"""
 
     def analyze(self, doc: RegistryDocument) -> RegistryAnalysisResult:
-        """전체 분석 수행"""
+        """전체 분석 수행
+
+        순서:
+          1. 말소기준권리 판단 — HS007~HS008 탐지에 필요하므로 Hard Stop 이전에 수행
+          2. Hard Stop 체크 (HS001~HS008)
+          3. 인수/소멸 분류
+          4. 신뢰도 산출
+          5. 결과 조립 + 요약 생성
+        """
         all_events = doc.all_events
 
-        # 1. Hard Stop 체크 (최우선)
-        hard_stop_flags = self._check_hard_stops(all_events)
-
-        # 2. 말소기준권리 판단
+        # 1. 말소기준권리 판단 (HS007~HS008에 base_event 필요)
         base_event, base_reason = self._find_cancellation_base(all_events)
+
+        # 2. Hard Stop 체크 (base_event 전달)
+        hard_stop_flags = self._check_hard_stops(all_events, base_event=base_event)
 
         # 3. 인수/소멸 분류
         extinguished, surviving, uncertain = self._classify_rights(
@@ -234,13 +250,31 @@ class RegistryAnalyzer:
         return extinguished, surviving, uncertain
 
     def _check_hard_stops(
-        self, events: list[RegistryEvent]
+        self,
+        events: list[RegistryEvent],
+        *,
+        base_event: RegistryEvent | None = None,
     ) -> list[HardStopFlag]:
-        """Hard Stop 5종 탐지"""
+        """Hard Stop 8종 탐지
+
+        Args:
+            events: 전체 이벤트 목록
+            base_event: 말소기준권리 (HS007~HS008 타이밍 판별용)
+        """
         flags: list[HardStopFlag] = []
         active_events = [e for e in events if not e.canceled]
+        base_date = (
+            base_event.accepted_at
+            if base_event and base_event.accepted_at
+            else None
+        )
 
         for rule in HARD_STOP_RULES:
+            # requires_before_base=True인데 base_date 미확인 → 이 룰 스킵
+            # (말소기준 판별 불가 = 신뢰도 LOW로 별도 처리됨)
+            if rule.get("requires_before_base") and base_date is None:
+                continue
+
             for event in active_events:
                 matched = False
 
@@ -250,19 +284,38 @@ class RegistryAnalyzer:
 
                 # keyword 매칭 (raw_text에서)
                 if not matched:
-                    for kw in rule["keywords"]:
+                    for kw in rule.get("keywords", []):
                         if kw in event.raw_text:
                             matched = True
                             break
 
-                if matched:
-                    flags.append(HardStopFlag(
-                        rule_id=rule["id"],
-                        name=rule["name"],
-                        description=rule["description"],
-                        event=event,
-                    ))
-                    break  # 같은 룰은 첫 매칭만 (중복 방지)
+                if not matched:
+                    continue
+
+                # exclude_keywords 체크 (HS006: 담보가등기 제외)
+                exclude = rule.get("exclude_keywords", [])
+                if exclude:
+                    combined = (event.purpose or "") + event.raw_text
+                    if any(kw in combined for kw in exclude):
+                        matched = False
+
+                if not matched:
+                    continue
+
+                # requires_before_base 체크 (HS007~HS008)
+                if rule.get("requires_before_base") and base_date:
+                    event_date = event.accepted_at or ""
+                    if not event_date or event_date >= base_date:
+                        # 말소기준 이후 설정 → 소멸 → Hard Stop 아님
+                        continue
+
+                flags.append(HardStopFlag(
+                    rule_id=rule["id"],
+                    name=rule["name"],
+                    description=rule["description"],
+                    event=event,
+                ))
+                break  # 같은 룰은 첫 매칭만 (중복 방지)
 
         return flags
 

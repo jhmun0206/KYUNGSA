@@ -35,6 +35,9 @@ class EventType(str, Enum):
     PRELIMINARY_NOTICE = "예고등기"
     TRUST = "신탁"
     REPURCHASE = "환매특약"
+    PROVISIONAL_REGISTRATION = "가등기"     # 소유권이전청구권 가등기 (HS006)
+    SUPERFICIES = "지상권설정"              # 지상권 (HS007)
+    EASEMENT = "지역권설정"                 # 지역권 (HS008)
     CANCEL = "말소"
     CORRECTION = "경정"
     OTHER = "기타"
