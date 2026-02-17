@@ -58,7 +58,7 @@ class AuctionRound(BaseModel):
     round_number: int  # 회차
     round_date: date | None = None  # 기일
     minimum_bid: int  # 최저매각가격
-    result: str  # 결과 (매각, 유찰, 진행예정 등)
+    result: str = ""  # 결과 (매각, 유찰, 진행예정 등) — 미래 기일은 None으로 올 수 있음
     result_code: str = ""  # 결과코드 원본 (001, 002, 003 등)
     winning_bid: int | None = None  # 낙찰가
     sale_time: str = ""  # 기일 시각 ("1000")

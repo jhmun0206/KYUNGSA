@@ -195,9 +195,9 @@ class CaseEnricher:
         """geocode용 주소 추출"""
         if case.property_objects:
             addr = case.property_objects[0].address
-            if addr:
-                return addr
-        return case.address
+            if addr and addr.strip():
+                return addr.strip()
+        return case.address.strip() if case.address else ""
 
     @staticmethod
     def _extract_building_params(case: AuctionCaseDetail) -> dict | None:
