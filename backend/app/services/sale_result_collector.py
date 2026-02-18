@@ -182,12 +182,19 @@ class SaleResultCollector:
         court_processed = 0
         result.total_items += len(items)
 
+        # 법원 단위 중복 추적: 같은 사건번호 여러 maemulSer 방지
+        # - real-run: per-case commit으로 두 번째 건이 existing으로 잡히지만,
+        #   dry-run에서는 DB write 없이 두 번째도 None → 중복 카운트 발생
+        # - seen_cases로 세션 내 중복을 명시적으로 차단
+        seen_cases: set[str] = set()
+
         court_processed += self._process_items(
             items=items,
             result=result,
             date_from=date_from,
             date_to=date_to,
             dry_run=dry_run,
+            seen_cases=seen_cases,
         )
 
         for page_no in range(2, total_pages + 1):
@@ -211,6 +218,7 @@ class SaleResultCollector:
                 date_from=date_from,
                 date_to=date_to,
                 dry_run=dry_run,
+                seen_cases=seen_cases,
             )
 
         return court_processed
@@ -222,12 +230,13 @@ class SaleResultCollector:
         date_from: date | None,
         date_to: date | None,
         dry_run: bool,
+        seen_cases: set[str],
     ) -> int:
         """아이템 목록 처리. 처리된 건수 반환."""
         count = 0
         for item in items:
             try:
-                outcome = self._process_one(item, date_from, date_to, dry_run)
+                outcome = self._process_one(item, date_from, date_to, dry_run, seen_cases)
                 if outcome == "updated":
                     result.updated += 1
                 elif outcome == "inserted":
@@ -255,6 +264,7 @@ class SaleResultCollector:
         date_from: date | None,
         date_to: date | None,
         dry_run: bool,
+        seen_cases: set[str],
     ) -> str:
         """단일 아이템 처리
 
@@ -268,6 +278,14 @@ class SaleResultCollector:
         """
         case_number: str = item.get("srnSaNo", "").strip()
         court_office_code: str = item.get("boCd", "").strip()
+
+        # 0. 세션 내 중복 체크 (같은 사건번호의 여러 maemulSer 방지)
+        #    - DB unique 제약(case_number)상 두 번째 물건은 저장 불가
+        #    - dry-run에서도 통계 오염 방지
+        if case_number in seen_cases:
+            logger.debug("세션 내 중복 스킵 [%s]", case_number)
+            return "already_exists"
+        seen_cases.add(case_number)
 
         # 1. 낙찰가 확인
         winning_bid = _safe_int(item.get("maeAmt"))
