@@ -28,6 +28,10 @@ BASE_URL = "https://www.courtauction.go.kr"
 INIT_URL = f"{BASE_URL}/pgj/index.on"
 SEARCH_URL = f"{BASE_URL}/pgj/pgjsearch/searchControllerMain.on"
 DETAIL_URL = f"{BASE_URL}/pgj/pgj15B/selectAuctnCsSrchRslt.on"
+SALE_RESULT_URL = f"{BASE_URL}/pgj/pgjsearch/selectDspslSchdRsltSrch.on"
+
+# 매각결과검색 전용 설정
+SALE_RESULT_PAGE_SIZE = 50  # 최대 (100은 WAF 차단)
 
 # 기본 User-Agent
 USER_AGENT = (
@@ -117,12 +121,18 @@ class CourtAuctionClient:
             logger.debug("Rate limit 대기: %.1f초", wait_time)
             time.sleep(wait_time)
 
-    def _post(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _post(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        extra_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """공통 POST 요청 (재시도 + 캡차 감지 + 세션 유지)
 
         Args:
             url: 요청 URL
             payload: JSON payload
+            extra_headers: 엔드포인트별 헤더 오버라이드 (Referer, submissionid 등)
 
         Returns:
             JSON 응답 데이터
@@ -135,6 +145,7 @@ class CourtAuctionClient:
 
         max_retries = settings.COURT_AUCTION_MAX_RETRIES
         last_error = None
+        headers = {**self._headers, **(extra_headers or {})}
 
         for attempt in range(max_retries):
             self._wait_rate_limit()
@@ -144,7 +155,7 @@ class CourtAuctionClient:
                     response = client.post(
                         url,
                         json=payload,
-                        headers=self._headers,
+                        headers=headers,
                         cookies=self._cookies,
                     )
 
@@ -486,3 +497,79 @@ class CourtAuctionClient:
         documents = self._parser.parse_documents_response(data)
 
         return detail, history, documents
+
+    def fetch_sale_results(
+        self,
+        court_code: str,
+        page_no: int = 1,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """매각결과검색 API 호출 (낙찰 완료 건 전용)
+
+        대법원 PGJ158 화면 엔드포인트를 직접 호출한다.
+        - statNum="5" (전체, "3"은 남부/북부 0건 버그)
+        - auctnGdsStatCd="04" (낙찰 완료 필터)
+        - pageSize=50 (최대; 100은 WAF 차단)
+        - 날짜 서버 필터 없음 → 호출자가 maeGiil로 클라이언트 측 필터링
+
+        Args:
+            court_code: 법원코드 (예: "B000210")
+            page_no: 페이지 번호 (1부터)
+
+        Returns:
+            (item 목록, totalCnt) 튜플
+            item 주요 필드:
+              boCd, srnSaNo, maemulSer, maeAmt, gamevalAmt, minmaePrice,
+              maeGiil, maegyuljGiil, yuchalCnt, mulStatcd, jiwonNm, printSt,
+              hjguSido, hjguSigu, dspslUsgNm, xCordi, yCordi
+        """
+        payload = {
+            "dma_pageInfo": {
+                "pageNo": page_no,
+                "pageSize": SALE_RESULT_PAGE_SIZE,
+                "bfPageNo": "",
+                "startRowNo": "",
+                "totalCnt": "",
+                "totalYn": "Y",
+                "groupTotalCount": "",
+            },
+            "dma_srchGdsDtlSrchInfo": {
+                "pgmId": "PGJ158M01",
+                "statNum": "5",
+                "cortStDvs": "1",
+                "cortOfcCd": court_code,
+                "auctnGdsStatCd": "04",  # 낙찰 완료 전용
+                "jdbnCd": "",
+                "csNo": "",
+                "rprsAdongSdCd": "",
+                "rprsAdongSggCd": "",
+                "rprsAdongEmdCd": "",
+                "rdnmSdCd": "",
+                "rdnmSggCd": "",
+                "rdnmNo": "",
+                "lclDspslGdsLstUsgCd": "",
+                "mclDspslGdsLstUsgCd": "",
+                "sclDspslGdsLstUsgCd": "",
+                "dspslAmtMin": "",
+                "dspslAmtMax": "",
+                "aeeEvlAmtMin": "",
+                "aeeEvlAmtMax": "",
+                "flbdNcntMin": "",
+                "flbdNcntMax": "",
+                "lafjOrderBy": "",
+            },
+        }
+
+        extra_headers = {
+            "Referer": f"{BASE_URL}/pgj/ui/pgj100/PGJ158M00.xml",
+            "submissionid": "sbm_selectDspslRsltSrch",
+        }
+
+        logger.info("매각결과 검색: 법원=%s, 페이지=%d", court_code, page_no)
+        data = self._post(SALE_RESULT_URL, payload, extra_headers=extra_headers)
+
+        items: list[dict[str, Any]] = data.get("dlt_srchResult", [])
+        raw_total = data.get("dma_pageInfo", {}).get("totalCnt", 0)
+        total_cnt = int(raw_total or 0)
+
+        logger.info("매각결과 응답: %d건 (전체 %d건)", len(items), total_cnt)
+        return items, total_cnt

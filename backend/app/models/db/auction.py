@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, Index, Integer, String, Text
+from sqlalchemy import BigInteger, Date, Float, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.db.base import Base, JSONBOrJSON, PrimaryKeyMixin, TimestampMixin
@@ -29,6 +29,12 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
     auction_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="")
     bid_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    # 낙찰결과 컬럼 (Phase 6.5)
+    winning_bid: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    winning_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    winning_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    winning_source: Mapped[str | None] = mapped_column(String(20), nullable=True)  # 'court_api'
 
     # JSONB 컬럼 (중첩 구조)
     coordinates: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
