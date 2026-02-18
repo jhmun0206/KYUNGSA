@@ -29,6 +29,8 @@ backend_dir = str(Path(__file__).resolve().parent.parent / "backend")
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
+from sqlalchemy import text  # noqa: E402
+
 from app.database import SessionLocal  # noqa: E402
 
 
@@ -95,14 +97,14 @@ def analyze_basic(db) -> dict[str, list[float]]:
     _header("A. 기본 통계 — 전체 낙찰 데이터")
 
     # A-1. 전체 winning_ratio 분포
-    rows = db.execute(
+    rows = db.execute(text(
         """
         SELECT winning_ratio, property_type, bid_count, court_office_code
         FROM auctions
         WHERE winning_ratio IS NOT NULL
         ORDER BY winning_ratio
         """
-    ).fetchall()
+    )).fetchall()
 
     all_ratios = [r[0] for r in rows]
     s = _stats(all_ratios)
@@ -194,7 +196,7 @@ def analyze_prediction(db) -> dict[str, list[float]]:
     """predicted vs actual winning_ratio 비교"""
     _header("B. 예측 정확도 — predicted vs actual (Score 있는 물건)")
 
-    rows = db.execute(
+    rows = db.execute(text(
         """
         SELECT s.predicted_winning_ratio,
                s.actual_winning_ratio,
@@ -207,7 +209,7 @@ def analyze_prediction(db) -> dict[str, list[float]]:
           AND s.actual_winning_ratio IS NOT NULL
         ORDER BY s.actual_winning_ratio
         """
-    ).fetchall()
+    )).fetchall()
 
     if not rows:
         print("\n  ⚠ 예측 + 실제 낙찰가율이 모두 있는 물건이 없습니다.")
@@ -267,14 +269,14 @@ def analyze_correlation(db) -> None:
     """total_score와 actual_winning_ratio의 상관관계"""
     _header("C. 상관 분석 — total_score vs actual_winning_ratio")
 
-    rows = db.execute(
+    rows = db.execute(text(
         """
         SELECT s.total_score, s.actual_winning_ratio, s.grade
         FROM scores s
         WHERE s.actual_winning_ratio IS NOT NULL
           AND s.total_score IS NOT NULL
         """
-    ).fetchall()
+    )).fetchall()
 
     if not rows:
         print("\n  ⚠ total_score + actual_winning_ratio 쌍이 없습니다.")
@@ -331,14 +333,14 @@ def analyze_calibration(db) -> None:
     }
 
     # bid_count - 1 = 유찰횟수 그룹별 실제 낙찰가율
-    rows = db.execute(
+    rows = db.execute(text(
         """
         SELECT a.bid_count, a.property_type, a.winning_ratio
         FROM auctions a
         WHERE a.winning_ratio IS NOT NULL
           AND a.bid_count IS NOT NULL
         """
-    ).fetchall()
+    )).fetchall()
 
     if not rows:
         print("\n  데이터 없음")
@@ -400,11 +402,11 @@ def main() -> None:
     db = SessionLocal()
     try:
         # DB 연결 확인
-        result = db.execute("SELECT COUNT(*) FROM auctions WHERE winning_ratio IS NOT NULL").scalar()
+        result = db.execute(text("SELECT COUNT(*) FROM auctions WHERE winning_ratio IS NOT NULL")).scalar()
         print(f"\n낙찰가율 데이터: {result}건 (auctions.winning_ratio IS NOT NULL)")
 
         score_result = db.execute(
-            "SELECT COUNT(*) FROM scores WHERE predicted_winning_ratio IS NOT NULL"
+            text("SELECT COUNT(*) FROM scores WHERE predicted_winning_ratio IS NOT NULL")
         ).scalar()
         print(f"예측 데이터:     {score_result}건 (scores.predicted_winning_ratio IS NOT NULL)")
 
