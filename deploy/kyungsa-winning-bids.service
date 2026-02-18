@@ -1,0 +1,18 @@
+[Unit]
+Description=KYUNGSA Winning Bids Collector (기수집 물건 낙찰가 사후 추적)
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=eric
+WorkingDirectory=/home/eric/projects/KYUNGSA
+ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/collect_winning_bids.py --all-seoul
+Environment=PYTHONPATH=/home/eric/projects/KYUNGSA/backend
+# 물건 수 × 3초 요청 간격 기준, 여유 4시간
+TimeoutStartSec=14400
+StandardOutput=journal
+StandardError=journal
+
+# 환경변수 (.env 파일에서 로드)
+EnvironmentFile=/home/eric/projects/KYUNGSA/backend/.env

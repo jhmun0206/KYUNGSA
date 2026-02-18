@@ -175,8 +175,9 @@ class SaleResultCollector:
         items, total_cnt = self._crawler.fetch_sale_results(court_code, page_no=1)
         total_pages = max(1, math.ceil(total_cnt / 50)) if total_cnt else 1
 
+        court_label = court_code if court_code else "전국"
         logger.info(
-            "법원 [%s]: 전체 %d건, %d페이지", court_code, total_cnt, total_pages
+            "법원 [%s]: 전체 %d건, %d페이지", court_label, total_cnt, total_pages
         )
 
         court_processed = 0
@@ -207,7 +208,7 @@ class SaleResultCollector:
             try:
                 items, _ = self._crawler.fetch_sale_results(court_code, page_no=page_no)
             except Exception as e:
-                logger.error("페이지 %d 요청 실패 [%s]: %s", page_no, court_code, e)
+                logger.error("페이지 %d 요청 실패 [%s]: %s", page_no, court_label, e)
                 result.errors += 1
                 continue
 

@@ -111,7 +111,8 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 예시:
-  python scripts/collect_sale_results.py
+  python scripts/collect_sale_results.py                          # 서울 5개 법원 (기본)
+  python scripts/collect_sale_results.py --all-courts            # 전국 전체 (~12,000건)
   python scripts/collect_sale_results.py --court B000210
   python scripts/collect_sale_results.py --from 2026-01-01 --to 2026-02-17
   python scripts/collect_sale_results.py --dry-run --limit 50
@@ -125,6 +126,11 @@ def main() -> None:
         metavar="CODE",
         nargs="+",
         help="법원코드 목록 (공백 구분, 예: B000210 B000214)",
+    )
+    court_group.add_argument(
+        "--all-courts",
+        action="store_true",
+        help="전국 모든 법원 수집 (court_code='' 단일 전국 조회, ~12,000건)",
     )
 
     parser.add_argument(
@@ -159,14 +165,20 @@ def main() -> None:
     # 법원 코드 결정
     if args.court:
         court_codes = [args.court]
+        label_str = f"{SEOUL_COURTS.get(args.court, args.court)}({args.court})"
     elif args.courts:
         court_codes = args.courts
+        labels = [f"{SEOUL_COURTS.get(c, c)}({c})" for c in court_codes]
+        label_str = ", ".join(labels)
+    elif args.all_courts:
+        court_codes = [""]  # 빈 문자열 → 전국 조회
+        label_str = "전국 전체 (court_code='')"
     else:
         court_codes = SEOUL_COURT_CODES
+        labels = [f"{SEOUL_COURTS.get(c, c)}({c})" for c in court_codes]
+        label_str = ", ".join(labels)
 
-    # 법원 이름 출력
-    labels = [f"{SEOUL_COURTS.get(c, c)}({c})" for c in court_codes]
-    print(f"대상 법원: {', '.join(labels)}")
+    print(f"대상: {label_str}")
     if args.date_from or args.date_to:
         print(f"날짜 필터: {args.date_from or '제한없음'} ~ {args.date_to or '제한없음'}")
     if args.dry_run:

@@ -1,0 +1,18 @@
+[Unit]
+Description=KYUNGSA Sale Results Collector (전국 낙찰 완료 건 대량 수집)
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=eric
+WorkingDirectory=/home/eric/projects/KYUNGSA
+ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/collect_sale_results.py --all-courts
+Environment=PYTHONPATH=/home/eric/projects/KYUNGSA/backend
+# 전국 259페이지 × 2.5초 = ~11분, 여유 2시간
+TimeoutStartSec=7200
+StandardOutput=journal
+StandardError=journal
+
+# 환경변수 (.env 파일에서 로드)
+EnvironmentFile=/home/eric/projects/KYUNGSA/backend/.env

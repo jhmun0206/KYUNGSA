@@ -1,0 +1,12 @@
+[Unit]
+Description=KYUNGSA Daily Sale Results Collection (전국 낙찰 완료 건, 매일 06:00 KST)
+Requires=kyungsa-sale-results.service
+
+[Timer]
+# 매일 06:00 KST (UTC+9 기준, 서버 timezone=Asia/Seoul 가정)
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

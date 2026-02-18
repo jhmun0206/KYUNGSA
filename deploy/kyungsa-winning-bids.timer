@@ -1,0 +1,12 @@
+[Unit]
+Description=KYUNGSA Weekly Winning Bids Collection (기수집 물건 낙찰가 추적, 매주 일 07:00 KST)
+Requires=kyungsa-winning-bids.service
+
+[Timer]
+# 매주 일요일 07:00 KST (서버 timezone=Asia/Seoul 가정)
+OnCalendar=Sun *-*-* 07:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
