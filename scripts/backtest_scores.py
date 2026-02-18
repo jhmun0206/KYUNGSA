@@ -287,7 +287,8 @@ def analyze_correlation(db) -> None:
     actuals = [r[1] for r in rows]
 
     corr = _pearson(scores, actuals)
-    print(f"\n[상관계수] 피어슨 r = {corr:.4f if corr is not None else 'N/A'}")
+    corr_str = f"{corr:.4f}" if corr is not None else "N/A"
+    print(f"\n[상관계수] 피어슨 r = {corr_str}")
     if corr is not None:
         strength = (
             "강한 양의 상관" if corr > 0.7
