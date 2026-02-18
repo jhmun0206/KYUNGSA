@@ -353,6 +353,8 @@ class SaleResultCollector:
             logger.info("신규 물건 삽입 [%s]: 낙찰가=%d", case_number, winning_bid)
             if not dry_run:
                 minimum_bid = _safe_int(item.get("minmaePrice"))
+                # bid_count = 유찰횟수 + 1 (회차 기준: 1=신건, 2=1유찰 후, ...)
+                bid_count = _safe_yuchal(item.get("yuchalCnt")) + 1
                 new_auction = Auction(
                     id=str(uuid.uuid4()),
                     case_number=case_number,
@@ -363,6 +365,7 @@ class SaleResultCollector:
                     appraised_value=appraised_value,
                     minimum_bid=minimum_bid,
                     status="매각",
+                    bid_count=bid_count,
                     winning_bid=winning_bid,
                     winning_date=mae_date,
                     winning_ratio=winning_ratio,
@@ -388,6 +391,16 @@ def _safe_int(value: Any) -> int | None:
         return result if result > 0 else None
     except (ValueError, TypeError):
         return None
+
+
+def _safe_yuchal(value: Any) -> int:
+    """yuchalCnt(유찰횟수) 문자열 → int 0 이상 (실패 시 0)"""
+    if value is None:
+        return 0
+    try:
+        return max(0, int(str(value).strip()))
+    except (ValueError, TypeError):
+        return 0
 
 
 def _parse_date(value: Any) -> date | None:

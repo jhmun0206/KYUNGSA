@@ -214,9 +214,9 @@ class TestPredictedWinningRatio:
     """예측 낙찰가율 산출 — rule_v1 테이블 검증"""
 
     def test_apartment_fresh(self):
-        """아파트 신건 (0유찰) → 0.975"""
+        """아파트 신건 (0유찰) → 0.80 (Phase 5F 캘리브레이션)"""
         result = scorer.score("아파트", price_score=60.0, fail_count=0)
-        assert result.predicted_winning_ratio == pytest.approx(0.975)
+        assert result.predicted_winning_ratio == pytest.approx(0.80)
         assert result.prediction_method == "rule_v1"
 
     def test_apartment_2nd_fail(self):
@@ -242,11 +242,11 @@ class TestPredictedWinningRatio:
         assert result9.predicted_winning_ratio == pytest.approx(0.50)
 
     def test_land_fresh(self):
-        """토지 신건 → 0.85"""
+        """토지 신건 (0유찰) → 0.54 (Phase 5F 캘리브레이션)"""
         result = scorer.score("토지", price_score=40.0, fail_count=0)
-        assert result.predicted_winning_ratio == pytest.approx(0.85)
+        assert result.predicted_winning_ratio == pytest.approx(0.54)
 
     def test_default_fail_count_is_0(self):
-        """fail_count 미지정 시 0유찰로 처리"""
+        """fail_count 미지정 시 0유찰로 처리 → 0.80 (Phase 5F 캘리브레이션)"""
         result = scorer.score("아파트", price_score=60.0)
-        assert result.predicted_winning_ratio == pytest.approx(0.975)
+        assert result.predicted_winning_ratio == pytest.approx(0.80)

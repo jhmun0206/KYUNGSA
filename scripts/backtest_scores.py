@@ -99,7 +99,8 @@ def analyze_basic(db) -> dict[str, list[float]]:
     # A-1. 전체 winning_ratio 분포
     rows = db.execute(text(
         """
-        SELECT winning_ratio, property_type, bid_count, court_office_code
+        SELECT winning_ratio, property_type, bid_count, court_office_code,
+               CAST(COALESCE(detail->>'yuchalCnt', (bid_count - 1)::TEXT) AS INTEGER) AS yuchal_cnt
         FROM auctions
         WHERE winning_ratio IS NOT NULL
         ORDER BY winning_ratio
@@ -117,7 +118,7 @@ def analyze_basic(db) -> dict[str, list[float]]:
 
     # A-2. 용도별 평균 낙찰가율
     by_type: dict[str, list[float]] = defaultdict(list)
-    for ratio, ptype, _, _ in rows:
+    for ratio, ptype, _, _, _ in rows:
         key = ptype if ptype else "미분류"
         by_type[key].append(ratio)
 
@@ -132,10 +133,10 @@ def analyze_basic(db) -> dict[str, list[float]]:
         ["용도", "건수", "평균", "중앙값"],
     )
 
-    # A-3. 유찰횟수별 평균 낙찰가율 (bid_count - 1 = 유찰횟수)
+    # A-3. 유찰횟수별 평균 낙찰가율 (detail->yuchalCnt 우선, 없으면 bid_count-1)
     by_fail: dict[int, list[float]] = defaultdict(list)
-    for ratio, _, bid_count, _ in rows:
-        fail = max(0, (bid_count or 1) - 1)
+    for ratio, _, bid_count, _, yuchal_cnt in rows:
+        fail = yuchal_cnt if yuchal_cnt is not None else max(0, (bid_count or 1) - 1)
         by_fail[fail].append(ratio)
 
     print(f"\n[유찰횟수별] 평균 낙찰가율")
@@ -151,7 +152,7 @@ def analyze_basic(db) -> dict[str, list[float]]:
 
     # A-4. 법원별 평균 낙찰가율 (상위 10개, 건수 기준)
     by_court: dict[str, list[float]] = defaultdict(list)
-    for ratio, _, _, court_code in rows:
+    for ratio, _, _, court_code, _ in rows:
         by_court[court_code or "미상"].append(ratio)
 
     print(f"\n[법원별] 평균 낙찰가율 (상위 10개)")
@@ -336,7 +337,8 @@ def analyze_calibration(db) -> None:
     # bid_count - 1 = 유찰횟수 그룹별 실제 낙찰가율
     rows = db.execute(text(
         """
-        SELECT a.bid_count, a.property_type, a.winning_ratio
+        SELECT a.bid_count, a.property_type, a.winning_ratio,
+               CAST(COALESCE(a.detail->>'yuchalCnt', (a.bid_count - 1)::TEXT) AS INTEGER) AS yuchal_cnt
         FROM auctions a
         WHERE a.winning_ratio IS NOT NULL
           AND a.bid_count IS NOT NULL
@@ -359,8 +361,9 @@ def analyze_calibration(db) -> None:
         return "꼬마빌딩"  # 기본값
 
     by_fail_type: dict[tuple[str, int], list[float]] = defaultdict(list)
-    for bid_count, ptype, ratio in rows:
-        fail = max(0, (bid_count or 1) - 1)
+    for bid_count, ptype, ratio, yuchal_cnt in rows:
+        # yuchalCnt(JSONB) 우선, 없으면 bid_count-1 폴백
+        fail = yuchal_cnt if yuchal_cnt is not None else max(0, (bid_count or 1) - 1)
         fail_key = min(fail, 4)  # 4+ 그룹화
         cat = _normalize_type(ptype)
         by_fail_type[(cat, fail_key)].append(ratio)
