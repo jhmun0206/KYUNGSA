@@ -1,5 +1,7 @@
 // FastAPI /api/v1/* 응답 스키마와 1:1 대응
 
+export type Grade = "A" | "B" | "C" | "D"
+
 export interface AuctionListItem {
   case_number: string
   address: string

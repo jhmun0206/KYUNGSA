@@ -1,15 +1,22 @@
 export const GRADE_COLORS: Record<string, string> = {
-  A: "#10B981",  // 에메랄드
-  B: "#3B82F6",  // 블루
-  C: "#F59E0B",  // 앰버
-  D: "#EF4444",  // 레드
+  A: "#10B981",  // emerald
+  B: "#2563EB",  // blue
+  C: "#D97706",  // amber
+  D: "#DC2626",  // red
 }
 
 export const GRADE_BG: Record<string, string> = {
-  A: "bg-emerald-100 text-emerald-800",
-  B: "bg-blue-100 text-blue-800",
-  C: "bg-amber-100 text-amber-800",
-  D: "bg-red-100 text-red-800",
+  A: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  B: "bg-blue-50 text-blue-700 ring-blue-200",
+  C: "bg-amber-50 text-amber-700 ring-amber-200",
+  D: "bg-red-50 text-red-700 ring-red-200",
+}
+
+export const GRADE_LABEL: Record<string, string> = {
+  A: "A등급",
+  B: "B등급",
+  C: "C등급",
+  D: "D등급",
 }
 
 export const API_BASE =
