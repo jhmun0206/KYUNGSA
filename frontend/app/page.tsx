@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { fetchAuctions } from "@/lib/api"
 import { AuctionCard } from "@/components/auction/AuctionCard"
 import { AuctionFilters } from "@/components/auction/AuctionFilters"
+import type { AuctionListResponse } from "@/lib/types"
 
 interface PageProps {
   searchParams: {
@@ -87,7 +88,13 @@ export default async function HomePage({ searchParams }: PageProps) {
     size: 20,
   }
 
-  const data = await fetchAuctions(params)
+  let data: AuctionListResponse = { total: 0, page: 1, size: 20, items: [] }
+  let apiError = false
+  try {
+    data = await fetchAuctions(params)
+  } catch {
+    apiError = true
+  }
 
   return (
     <div>
@@ -102,7 +109,13 @@ export default async function HomePage({ searchParams }: PageProps) {
         <AuctionFilters />
       </Suspense>
 
-      {data.items.length === 0 ? (
+      {apiError && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          서버에 연결할 수 없습니다. 백엔드가 실행 중인지 확인하세요.
+        </div>
+      )}
+
+      {!apiError && data.items.length === 0 ? (
         <div className="mt-12 text-center text-gray-400">
           <p className="text-lg">해당 조건의 물건이 없습니다.</p>
         </div>

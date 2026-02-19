@@ -19,8 +19,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",          # 로컬 개발
-        "https://kyungsa.vercel.app",     # Vercel 배포
+        "http://localhost:3000",                    # 로컬 개발
+        "https://kyungsa.vercel.app",              # Vercel 기본 도메인
+        "https://kyungsa-frontend.vercel.app",     # Vercel 프로젝트 도메인
+        "https://kyungsa.com",                     # 커스텀 도메인
+        "https://www.kyungsa.com",                 # www 서브도메인
     ],
     allow_methods=["GET"],
     allow_headers=["*"],
