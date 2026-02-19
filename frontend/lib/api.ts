@@ -6,6 +6,12 @@ import type {
   MapResponse,
 } from "@/lib/types"
 
+export class ApiNotFoundError extends Error {
+  constructor(path: string) {
+    super(`404: ${path}`)
+  }
+}
+
 async function apiFetch<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
   const url = new URL(`${API_BASE}${path}`)
   if (params) {
@@ -17,6 +23,7 @@ async function apiFetch<T>(path: string, params?: Record<string, string | number
   }
   const res = await fetch(url.toString(), { next: { revalidate: 300 } }) // 5분 캐시
   if (!res.ok) {
+    if (res.status === 404) throw new ApiNotFoundError(path)
     throw new Error(`API 오류 ${res.status}: ${path}`)
   }
   return res.json() as Promise<T>
