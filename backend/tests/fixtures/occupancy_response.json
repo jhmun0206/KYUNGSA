@@ -1,0 +1,53 @@
+{
+  "dma_curstExmndcInfo": {
+    "curstExmndcDt": "2022년12월09일16시10분",
+    "lesDts": "상가건물임대차 현황서에 등재된자를<br />일응 임차인으로 보고함."
+  },
+  "dlt_curstExmndcDtl": [
+    {
+      "dspslGdsSeq": "1",
+      "relPrtsNm": "김미미",
+      "relPrtsCd": "01",
+      "occptnPrtDts": "1층 159호",
+      "usgCd": "02",
+      "usgNm": "점포",
+      "dpstAmt": "2천만원",
+      "mnthlyRntAmt": "165만원",
+      "mvnDt": "2011.08.23",
+      "fxdDt": "2011.09.01"
+    },
+    {
+      "dspslGdsSeq": "1",
+      "relPrtsNm": "이상익",
+      "relPrtsCd": "01",
+      "occptnPrtDts": "2층 201호",
+      "usgCd": "01",
+      "usgNm": "주거",
+      "dpstAmt": "4억 3,800만원",
+      "mnthlyRntAmt": "",
+      "mvnDt": "2017.1.5",
+      "fxdDt": "2017.01.10"
+    },
+    {
+      "dspslGdsSeq": "1",
+      "relPrtsNm": "미상",
+      "relPrtsCd": "",
+      "occptnPrtDts": "",
+      "usgCd": "",
+      "usgNm": "",
+      "dpstAmt": "",
+      "mnthlyRntAmt": "",
+      "mvnDt": "",
+      "fxdDt": ""
+    }
+  ],
+  "dlt_gdsPossCtt": [
+    {
+      "dspslGdsSeq": "1",
+      "printSt": "서울특별시 중구 마장로1길 22, 1층159호",
+      "relPrtsCnt": "3",
+      "gdsPossCd": "05",
+      "gdsPossCtt": "채무자(소유자)점유, 임차인(별지)점유<br /><font color=\"red\">주의</font>"
+    }
+  ]
+}

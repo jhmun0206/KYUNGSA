@@ -29,6 +29,7 @@ INIT_URL = f"{BASE_URL}/pgj/index.on"
 SEARCH_URL = f"{BASE_URL}/pgj/pgjsearch/searchControllerMain.on"
 DETAIL_URL = f"{BASE_URL}/pgj/pgj15B/selectAuctnCsSrchRslt.on"
 SALE_RESULT_URL = f"{BASE_URL}/pgj/pgjsearch/selectDspslSchdRsltSrch.on"
+OCCUPANCY_URL = f"{BASE_URL}/pgj/pgj15B/selectCurstExmndc.on"
 
 # 매각결과검색 전용 설정
 SALE_RESULT_PAGE_SIZE = 50  # 최대 (100은 WAF 차단)
@@ -497,6 +498,38 @@ class CourtAuctionClient:
         documents = self._parser.parse_documents_response(data)
 
         return detail, history, documents
+
+    def fetch_occupancy_report(
+        self,
+        case_number: str,
+        court_office_code: str,
+        property_sequence: str,
+    ) -> dict[str, Any]:
+        """현황조사서 JSON 조회
+
+        대법원 현황조사서(selectCurstExmndc) 엔드포인트를 호출한다.
+        기존 _build_detail_payload() 재사용 (csNo, cortOfcCd, dspslGdsSeq).
+
+        Args:
+            case_number: 내부 사건번호 (예: "20220130112176")
+            court_office_code: 법원코드 (예: "B000210")
+            property_sequence: 물건순서 (예: "1")
+
+        Returns:
+            현황조사서 raw JSON dict
+        """
+        payload = self._build_detail_payload(
+            case_number, court_office_code, property_sequence
+        )
+
+        extra_headers = {
+            "Referer": f"{BASE_URL}/pgj/ui/pgj100/PGJ151F00.xml",
+            "submissionid": "mf_wfm_mainFrame_sbm_selectCurstExmndc",
+        }
+
+        logger.info("현황조사서 조회: %s", case_number)
+        data = self._post(OCCUPANCY_URL, payload, extra_headers=extra_headers)
+        return data
 
     def fetch_sale_results(
         self,
