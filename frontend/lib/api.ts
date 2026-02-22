@@ -38,7 +38,15 @@ export async function fetchAuctions(
 export async function fetchAuctionDetail(
   caseNumber: string
 ): Promise<AuctionDetailResponse> {
-  return apiFetch<AuctionDetailResponse>(`/api/v1/auctions/${encodeURIComponent(caseNumber)}`)
+  // Next.js App Router params may pass URL-encoded segments as-is.
+  // Normalize: decode first (no-op if already decoded), then re-encode.
+  let normalized = caseNumber
+  try {
+    normalized = decodeURIComponent(caseNumber)
+  } catch {
+    // invalid percent-encoding — use as-is
+  }
+  return apiFetch<AuctionDetailResponse>(`/api/v1/auctions/${encodeURIComponent(normalized)}`)
 }
 
 export async function fetchMapItems(

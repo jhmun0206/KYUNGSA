@@ -2,6 +2,9 @@ import { KakaoMap } from "@/components/map/KakaoMap"
 import { fetchMapItems } from "@/lib/api"
 import type { MapResponse } from "@/lib/types"
 
+// 매 요청마다 SSR — 빌드 시 정적 생성 방지 (API 타임아웃 회피)
+export const dynamic = "force-dynamic"
+
 export default async function MapPage() {
   let data: MapResponse = { items: [] }
   let apiError = false
