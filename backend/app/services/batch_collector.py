@@ -44,6 +44,8 @@ class BatchResult(BaseModel):
     red_count: int = 0
     yellow_count: int = 0
     green_count: int = 0
+    new_grade_a: int = 0
+    new_grade_b: int = 0
     errors: list[str] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     finished_at: datetime | None = None
@@ -335,6 +337,12 @@ class BatchCollector:
                     result.updated_count += 1
                 else:
                     result.new_count += 1
+                    # 신규 A/B등급 카운트
+                    grade = enriched.total_score.grade if enriched.total_score else None
+                    if grade == "A":
+                        result.new_grade_a += 1
+                    elif grade == "B":
+                        result.new_grade_b += 1
             except Exception as e:
                 self._db.rollback()
                 raise RuntimeError(f"DB 저장 실패: {e}") from e

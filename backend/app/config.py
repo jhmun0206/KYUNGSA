@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # OPENAI API (LLM 설명 생성용)
     OPENAI_API_KEY: str = ""
 
+    # 텔레그램 알림 (배치 수집 결과 알림)
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_CHAT_ID: str = ""
+
     # DB
     DATABASE_URL: str = "postgresql://kyungsa:password@localhost:5432/kyungsa_db"
     DB_ECHO: bool = False           # SQLAlchemy SQL 로깅
@@ -65,6 +69,7 @@ class Settings(BaseSettings):
     model_config = {
         "env_file": str(_PROJECT_ROOT / ".env"),
         "env_file_encoding": "utf-8",
+        "extra": "ignore",
     }
 
 

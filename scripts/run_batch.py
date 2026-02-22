@@ -27,6 +27,7 @@ if backend_dir not in sys.path:
 
 from app.database import SessionLocal  # noqa: E402
 from app.services.batch_collector import BatchCollector, BatchResult  # noqa: E402
+from app.services.notifier import send_telegram, format_batch_summary  # noqa: E402
 
 # 서울 5개 법원코드
 SEOUL_COURTS = {
@@ -78,6 +79,21 @@ def print_result(result: BatchResult) -> None:
         if len(result.errors) > 5:
             print(f"    ... 외 {len(result.errors) - 5}건")
     print()
+
+
+def notify_result(result: BatchResult, *, court_label: str) -> None:
+    """텔레그램 알림 전송 (신규 A/B등급 있을 때만)"""
+    if result.new_grade_a > 0 or result.new_grade_b > 0:
+        msg = format_batch_summary(
+            court_code=result.court_code,
+            court_label=court_label,
+            total_searched=result.total_searched,
+            new_count=result.new_count,
+            new_a=result.new_grade_a,
+            new_b=result.new_grade_b,
+            errors=len(result.errors),
+        )
+        send_telegram(msg)
 
 
 def run_single_court(
@@ -144,14 +160,36 @@ def main() -> None:
         print(f"\n{'='*50}")
         print(f"전체 서울 수집 완료: {total_processed}건 처리, {total_errors}건 에러")
         print(f"{'='*50}")
+
+        # 텔레그램 알림 (전체 합산)
+        if not args.dry_run:
+            total_a = sum(r.new_grade_a for r in results)
+            total_b = sum(r.new_grade_b for r in results)
+            total_new = sum(r.new_count for r in results)
+            total_searched = sum(r.total_searched for r in results)
+            if total_a > 0 or total_b > 0:
+                msg = format_batch_summary(
+                    court_code="서울전체",
+                    court_label="서울 5개 법원",
+                    total_searched=total_searched,
+                    new_count=total_new,
+                    new_a=total_a,
+                    new_b=total_b,
+                    errors=total_errors,
+                )
+                send_telegram(msg)
     else:
-        run_single_court(
+        result = run_single_court(
             court_code=args.court,
             max_items=args.max,
             force=args.force,
             delay=args.delay,
             dry_run=args.dry_run,
         )
+        # 텔레그램 알림 (단일 법원)
+        if not args.dry_run:
+            court_label = SEOUL_COURTS.get(args.court, args.court)
+            notify_result(result, court_label=court_label)
 
 
 if __name__ == "__main__":
