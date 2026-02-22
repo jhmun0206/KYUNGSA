@@ -7,6 +7,7 @@ Alembic과 database.py에서 `from app.models.db import *` 사용.
 from app.models.db.base import Base
 from app.models.db.auction import Auction
 from app.models.db.filter_result import FilterResultORM
+from app.models.db.occupancy import OccupancyProperty, OccupancyReport, OccupancyTenant
 from app.models.db.pipeline_run import PipelineRun
 from app.models.db.registry import RegistryAnalysisORM, RegistryEventORM
 from app.models.db.score import Score
@@ -15,6 +16,9 @@ __all__ = [
     "Base",
     "Auction",
     "FilterResultORM",
+    "OccupancyReport",
+    "OccupancyTenant",
+    "OccupancyProperty",
     "RegistryEventORM",
     "RegistryAnalysisORM",
     "PipelineRun",

@@ -36,6 +36,15 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
     winning_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
     winning_source: Mapped[str | None] = mapped_column(String(20), nullable=True)  # 'court_api'
 
+    # 명도 관련 (Phase 7)
+    occupancy_tenant_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    occupancy_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="분석대기"
+    )
+    occupancy_risk_level: Mapped[str | None] = mapped_column(
+        String(10), nullable=True
+    )
+
     # JSONB 컬럼 (중첩 구조)
     coordinates: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
     building_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
@@ -56,6 +65,9 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
     score: Mapped[Score | None] = relationship(
         "Score", back_populates="auction", uselist=False, cascade="all, delete-orphan"
     )
+    occupancy_reports: Mapped[list[OccupancyReport]] = relationship(
+        "OccupancyReport", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("ix_auctions_court", "court"),
@@ -65,6 +77,7 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_auctions_status", "status"),
         Index("ix_auctions_court_date", "court_office_code", "auction_date"),
         Index("ix_auctions_status_date", "status", "auction_date"),
+        Index("ix_auctions_occupancy_status", "occupancy_status"),
     )
 
     def __repr__(self) -> str:
@@ -73,5 +86,6 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
 
 # 순환 참조 해소용 - 모듈 로딩 후 참조
 from app.models.db.filter_result import FilterResultORM  # noqa: E402
+from app.models.db.occupancy import OccupancyReport  # noqa: E402
 from app.models.db.registry import RegistryAnalysisORM, RegistryEventORM  # noqa: E402
 from app.models.db.score import Score  # noqa: E402
