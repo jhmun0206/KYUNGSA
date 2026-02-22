@@ -3,6 +3,7 @@ import "./globals.css"
 import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
 import { MobileNav } from "@/components/layout/MobileNav"
+import { CompareBar } from "@/components/domain/CompareBar"
 import { ThemeProvider } from "@/components/layout/ThemeProvider"
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
+            <CompareBar />
             <MobileNav />
           </div>
         </ThemeProvider>

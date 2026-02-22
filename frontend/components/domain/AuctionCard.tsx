@@ -4,6 +4,7 @@ import Link from "next/link"
 import { GradeBadge } from "@/components/domain/GradeBadge"
 import { CoveragePill } from "@/components/domain/CoveragePill"
 import { FavoriteButton } from "@/components/domain/FavoriteButton"
+import { CompareButton } from "@/components/domain/CompareButton"
 import { formatPrice, calcDiscount, calcDday } from "@/lib/utils"
 import { COURT_LABELS } from "@/lib/constants"
 import type { AuctionListItem } from "@/lib/types"
@@ -116,8 +117,9 @@ export function AuctionCard({ item, className }: Props) {
         )}
       </Link>
 
-      {/* 즐겨찾기 버튼 — 카드 우측 상단 절대 위치 */}
-      <div className="absolute right-3 top-3">
+      {/* 액션 버튼 — 카드 우측 상단 절대 위치 */}
+      <div className="absolute right-3 top-3 flex items-center gap-0.5">
+        <CompareButton caseNumber={item.case_number} />
         <FavoriteButton caseNumber={item.case_number} />
       </div>
     </div>
