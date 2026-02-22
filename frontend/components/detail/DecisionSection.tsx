@@ -51,14 +51,6 @@ export function DecisionSection({ auction }: Props) {
 
         <div className="flex shrink-0 items-center gap-2">
           <FavoriteButton caseNumber={auction.case_number} />
-          <a
-            href="https://www.courtauction.go.kr"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            대법원 →
-          </a>
         </div>
       </div>
 

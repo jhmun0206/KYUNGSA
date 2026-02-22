@@ -1,221 +1,113 @@
-import { Suspense } from "react"
 import Link from "next/link"
+import { ArrowRight, Building2 } from "lucide-react"
 import { fetchAuctions } from "@/lib/api"
-import { AuctionCard } from "@/components/domain/AuctionCard"
-import { AuctionFilters } from "@/components/auction/AuctionFilters"
+import { TopPicksGrid } from "@/components/landing/TopPicksGrid"
 import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
-import type { AuctionListResponse } from "@/lib/types"
-import { cn } from "@/lib/utils"
 
-interface PageProps {
-  searchParams: {
-    tab?: string
-    court_office_code?: string
-    grade?: string
-    property_type?: string
-    sort?: string
-    page?: string
-  }
-}
+export const dynamic = "force-dynamic"
 
-function Pagination({
-  page,
-  total,
-  size,
-  searchParams,
-}: {
-  page: number
-  total: number
-  size: number
-  searchParams: Record<string, string | undefined>
-}) {
-  const totalPages = Math.ceil(total / size)
-  if (totalPages <= 1) return null
-
-  function buildUrl(p: number) {
-    const params = new URLSearchParams()
-    for (const [k, v] of Object.entries(searchParams)) {
-      if (v) params.set(k, v)
-    }
-    params.set("page", String(p))
-    return `/?${params.toString()}`
-  }
-
-  const pages: number[] = []
-  const start = Math.max(1, page - 2)
-  const end = Math.min(totalPages, page + 2)
-  for (let i = start; i <= end; i++) pages.push(i)
-
-  return (
-    <nav className="mt-8 flex items-center justify-center gap-1">
-      {page > 1 && (
-        <a href={buildUrl(page - 1)} className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent">
-          이전
-        </a>
-      )}
-      {pages.map((p) => (
-        <a
-          key={p}
-          href={buildUrl(p)}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-sm font-medium",
-            p === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
-          )}
-        >
-          {p}
-        </a>
-      ))}
-      {page < totalPages && (
-        <a href={buildUrl(page + 1)} className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent">
-          다음
-        </a>
-      )}
-    </nav>
-  )
-}
-
-export default async function HomePage({ searchParams }: PageProps) {
-  const tab = searchParams.tab ?? "top"
-  const page = Number(searchParams.page ?? 1)
-
-  // 높은 평가 탭: A/B 등급, 최신순
-  const topParams = {
-    grade: "A,B",
-    sort: "grade",
-    page: 1,
-    size: 12,
-  }
-
-  // 검색 탭: 필터 적용
-  const searchParamsForApi = {
-    court_office_code: searchParams.court_office_code,
-    grade: searchParams.grade,
-    property_type: searchParams.property_type,
-    sort: searchParams.sort ?? "grade",
-    page,
-    size: 20,
-  }
-
-  let topData: AuctionListResponse = { total: 0, page: 1, size: 12, items: [] }
-  let searchData: AuctionListResponse = { total: 0, page: 1, size: 20, items: [] }
+export default async function LandingPage() {
+  let topPicks = { items: [] as Awaited<ReturnType<typeof fetchAuctions>>["items"], total: 0 }
+  let totalCount = 0
   let apiError = false
 
   try {
-    if (tab === "top") {
-      topData = await fetchAuctions(topParams)
-    } else {
-      searchData = await fetchAuctions(searchParamsForApi)
-    }
+    const [picks, all] = await Promise.all([
+      fetchAuctions({ grade: "A,B", sort: "grade", size: 4 }),
+      fetchAuctions({ size: 1 }),
+    ])
+    topPicks = picks
+    totalCount = all.total
   } catch {
     apiError = true
   }
 
-  const tabClass = (active: boolean) =>
-    cn(
-      "rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
-      active
-        ? "bg-primary text-primary-foreground"
-        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-    )
-
-  function tabUrl(t: string) {
-    return `/?tab=${t}`
-  }
+  const abCount = topPicks.total
 
   return (
-    <div>
-      {/* 탭 네비게이션 */}
-      <div className="mb-6 flex items-center gap-2">
-        <Link href={tabUrl("top")} className={tabClass(tab === "top")}>
-          높은 평가
-        </Link>
-        <Link href={tabUrl("search")} className={tabClass(tab === "search")}>
-          검색
-        </Link>
-      </div>
-
+    <div className="mx-auto max-w-4xl space-y-12 pb-16">
+      {/* 에러 배너 */}
       {apiError && (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
           서버에 연결할 수 없습니다. 백엔드가 실행 중인지 확인하세요.
         </div>
       )}
 
-      {/* 높은 평가 탭 */}
-      {tab === "top" && (
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-foreground">A·B 등급 물건</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                정량 분석 기준 상위 등급. 총{" "}
-                <span className="font-semibold text-foreground">{topData.total.toLocaleString()}</span>건
-              </p>
-            </div>
-            <Link
-              href="/?tab=search"
-              className="text-xs text-primary hover:underline"
-            >
-              전체 검색 →
-            </Link>
-          </div>
-
-          {topData.items.length === 0 && !apiError ? (
-            <div className="py-16 text-center text-muted-foreground">
-              <p>분석된 물건이 없습니다.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {topData.items.map((item) => (
-                <AuctionCard key={item.case_number} item={item} />
-              ))}
-            </div>
-          )}
-
-          <div className="mt-8">
-            <DisclaimerBanner compact />
-          </div>
+      {/* Hero */}
+      <section className="pt-8 text-center sm:pt-14">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+          <Building2 className="h-7 w-7 text-primary" />
         </div>
-      )}
+        <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+          경매 리스크를
+          <br className="sm:hidden" />
+          {" "}자동으로 구조화합니다
+        </h1>
+        <p className="mt-3 text-base text-muted-foreground sm:text-lg">
+          70%를 먼저 걸러내고, 볼 가치 있는 물건만 큐레이션합니다
+        </p>
 
-      {/* 검색 탭 */}
-      {tab === "search" && (
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              총{" "}
-              <span className="font-semibold text-foreground">{searchData.total.toLocaleString()}</span>건
-            </p>
-          </div>
-
-          <Suspense>
-            <AuctionFilters />
-          </Suspense>
-
-          {searchData.items.length === 0 && !apiError ? (
-            <div className="mt-12 py-8 text-center text-muted-foreground">
-              <p>해당 조건의 물건이 없습니다.</p>
-            </div>
-          ) : (
-            <>
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {searchData.items.map((item) => (
-                  <AuctionCard key={item.case_number} item={item} />
-                ))}
-              </div>
-              <Pagination
-                page={searchData.page}
-                total={searchData.total}
-                size={searchData.size}
-                searchParams={searchParams}
-              />
-            </>
-          )}
-
-          <div className="mt-8">
-            <DisclaimerBanner compact />
-          </div>
+        {/* 통계 strip */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-6 sm:gap-10">
+          <Stat label="수집 물건" value={totalCount > 0 ? `${totalCount.toLocaleString()}건` : "–"} />
+          <div className="h-8 w-px bg-border" />
+          <Stat label="A/B등급" value={abCount > 0 ? `${abCount.toLocaleString()}건` : "–"} accent />
+          <div className="h-8 w-px bg-border" />
+          <Stat label="서울 5개 법원" value="수집 중" />
         </div>
-      )}
+      </section>
+
+      {/* Top Picks */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-foreground">이번 주 주목할 만한 물건</h2>
+          {abCount > 4 && (
+            <span className="text-xs text-muted-foreground">
+              A/B등급 {abCount}건 중 상위 4건
+            </span>
+          )}
+        </div>
+        <TopPicksGrid items={topPicks.items.slice(0, 4)} />
+      </section>
+
+      {/* CTA */}
+      <section className="text-center">
+        <Link
+          href="/search"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          전체 물건 검색하기
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+        <p className="mt-3 text-xs text-muted-foreground">
+          등급 · 법원 · 물건종류로 필터링할 수 있습니다
+        </p>
+      </section>
+
+      <DisclaimerBanner />
+    </div>
+  )
+}
+
+function Stat({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string
+  value: string
+  accent?: boolean
+}) {
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span
+        className={`text-xl font-black tabular-nums ${
+          accent ? "text-primary" : "text-foreground"
+        }`}
+      >
+        {value}
+      </span>
+      <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   )
 }

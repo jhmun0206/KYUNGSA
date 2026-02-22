@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import "./globals.css"
 import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
+import { MobileNav } from "@/components/layout/MobileNav"
 import { ThemeProvider } from "@/components/layout/ThemeProvider"
 
 export const metadata: Metadata = {
@@ -26,10 +27,11 @@ export default function RootLayout({
         >
           <div className="flex min-h-screen flex-col">
             <Header />
-            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-20 sm:px-6 sm:pb-6 lg:px-8">
               {children}
             </main>
             <Footer />
+            <MobileNav />
           </div>
         </ThemeProvider>
       </body>
