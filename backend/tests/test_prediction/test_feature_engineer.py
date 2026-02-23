@@ -163,12 +163,22 @@ class TestBasicFeatures:
 
 
 class TestFillMissing:
-    def test_score_fill(self):
-        """점수 결측 → 50.0"""
-        df = _make_df(1, legal_score=[None], price_score=[None])
+    def test_score_fill_when_in_config(self):
+        """점수가 NUMERIC_FEATURES에 포함되면 median으로 채움"""
+        config = PredictionConfig()
+        config.NUMERIC_FEATURES = list(config.NUMERIC_FEATURES) + ["price_score"]
+        fe_with_scores = FeatureEngineer(config)
+        df = _make_df(3, price_score=[70.0, None, 80.0])
+        result = fe_with_scores._fill_missing(df)
+        # median(70, 80) = 75
+        assert result["price_score"].iloc[1] == 75.0
+
+    def test_score_not_filled_when_excluded(self):
+        """점수가 NUMERIC_FEATURES에 없으면 fillna 안 함"""
+        df = _make_df(1, legal_score=[None])
         result = fe._fill_missing(df)
-        assert result["legal_score"].iloc[0] == 50.0
-        assert result["price_score"].iloc[0] == 50.0
+        # legal_score는 config에서 제외 → fillna 안 됨
+        assert pd.isna(result["legal_score"].iloc[0])
 
     def test_fail_count_fill(self):
         """fail_count 결측 → 0"""

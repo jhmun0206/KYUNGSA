@@ -51,17 +51,20 @@ class PredictionConfig:
         "fail_count",
         "appraised_value_log",
         "discount_rate",
-        "legal_score",
-        "price_score",
-        "location_score",
-        "occupancy_score",
-        "total_score",
         "tenant_count",
         "total_deposit_ratio",
         "quarter",
         "year_month",
         "rolling_avg_3m",
         "rolling_count_3m",
+        # ── 아래 피처는 낙찰 데이터에 점수가 충분히 쌓이면 단계적 재추가 ──
+        # 현황: legal=0건, location=2건, occupancy=0건, price=1397건, total=미산출
+        # 재추가 기준: 해당 점수가 있는 낙찰 건수 500건 이상
+        # "price_score",       # 현재 1,397건 (19.6%) → 단독으로는 의미 제한
+        # "legal_score",       # 현재 0건
+        # "location_score",    # 현재 2건
+        # "occupancy_score",   # 현재 0건
+        # "total_score",       # 위 pillar 없으면 의미 없음
     ])
 
     CATEGORICAL_FEATURES: list[str] = field(default_factory=lambda: [

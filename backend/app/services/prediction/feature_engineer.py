@@ -168,14 +168,18 @@ class FeatureEngineer:
 
     def _fill_missing(self, df: pd.DataFrame) -> pd.DataFrame:
         """결측치 처리"""
-        # 점수 결측 → 중간값 (50.0)
+        # 점수 피처: config.NUMERIC_FEATURES에 포함된 것만 fillna 적용
+        # 현재 점수 피처는 데이터 부족으로 제외 상태 (재추가 시 자동 활성화)
         score_cols = [
             "legal_score", "price_score", "location_score",
             "occupancy_score", "total_score",
         ]
         for col in score_cols:
-            if col in df.columns:
-                df[col] = df[col].fillna(self.config.SCORE_FILL_VALUE)
+            if col in df.columns and col in self.config.NUMERIC_FEATURES:
+                median_val = df[col].dropna().median()
+                df[col] = df[col].fillna(
+                    median_val if not pd.isna(median_val) else self.config.SCORE_FILL_VALUE,
+                )
 
         # fail_count 결측
         if "fail_count" in df.columns:
