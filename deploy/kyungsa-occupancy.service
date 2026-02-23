@@ -1,0 +1,18 @@
+[Unit]
+Description=KYUNGSA Occupancy Report Collector (현황조사서 일괄 수집)
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=eric
+WorkingDirectory=/home/eric/projects/KYUNGSA
+ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/collect_occupancy.py --backfill --limit 200 --delay 3
+Environment=PYTHONPATH=/home/eric/projects/KYUNGSA/backend
+# 200건 × 3초 = ~10분, 여유 1시간
+TimeoutStartSec=3600
+StandardOutput=journal
+StandardError=journal
+
+# 환경변수 (.env 파일에서 로드)
+EnvironmentFile=/home/eric/projects/KYUNGSA/backend/.env

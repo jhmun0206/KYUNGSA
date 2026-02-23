@@ -22,7 +22,11 @@ sudo systemctl start  kyungsa-sale-results.timer
 sudo systemctl enable kyungsa-winning-bids.timer
 sudo systemctl start  kyungsa-winning-bids.timer
 
-# 6. 타이머 목록 확인
+# 6. 현황조사서 수집 타이머 (신규, 매일 04:00 분석대기 물건)
+sudo systemctl enable kyungsa-occupancy.timer
+sudo systemctl start  kyungsa-occupancy.timer
+
+# 7. 타이머 목록 확인
 systemctl list-timers | grep kyungsa
 ```
 
@@ -32,6 +36,7 @@ systemctl list-timers | grep kyungsa
 |--------|--------|------|
 | kyungsa-batch.timer | 매일 03:00 KST | 서울 5개 법원 진행 물건 수집 (BatchCollector) |
 | kyungsa-sale-results.timer | 매일 06:00 KST | 전국 낙찰 완료 건 수집 (SaleResultCollector, ~11분) |
+| kyungsa-occupancy.timer | 매일 04:00 KST | 분석대기 물건 현황조사서 수집 (OccupancyService, 200건) |
 | kyungsa-winning-bids.timer | 매주 일 07:00 KST | 기수집 물건 낙찰가 사후 추적 (WinningBidCollector) |
 
 ## 로그 확인
@@ -44,6 +49,7 @@ journalctl -u kyungsa-batch.service -f
 
 # 최근 실행 결과
 journalctl -u kyungsa-sale-results.service -n 100
+journalctl -u kyungsa-occupancy.service -n 100
 ```
 
 ## 수동 실행 (테스트)
@@ -56,6 +62,9 @@ PYTHONPATH=backend backend/.venv/bin/python scripts/collect_sale_results.py --al
 
 # 실제 실행
 PYTHONPATH=backend backend/.venv/bin/python scripts/collect_sale_results.py --all-courts
+
+# 현황조사서 수집 dry-run
+PYTHONPATH=backend backend/.venv/bin/python scripts/collect_occupancy.py --backfill --dry-run --limit 10
 
 # 낙찰가 추적 dry-run
 PYTHONPATH=backend backend/.venv/bin/python scripts/collect_winning_bids.py --all-seoul --dry-run --limit 10
