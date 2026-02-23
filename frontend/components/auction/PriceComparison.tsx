@@ -37,17 +37,19 @@ export function PriceComparison({ auction }: Props) {
     if (raw) market = toUk(Number(raw))
   }
 
-  // 예상 낙찰가
+  // 추정 낙찰가: ml_prediction 우선, fallback score.predicted_winning_ratio
   let predicted: number | null = null
-  if (auction.score?.predicted_winning_ratio && minimum !== null) {
-    predicted = Math.round(minimum * auction.score.predicted_winning_ratio)
+  if (auction.ml_prediction?.predicted_price) {
+    predicted = toUk(auction.ml_prediction.predicted_price)
+  } else if (auction.score?.predicted_winning_ratio && appraised !== null) {
+    predicted = Math.round(appraised * auction.score.predicted_winning_ratio)
   }
 
   const bars = [
     { name: "감정가", value: appraised, color: "#6b7280" },
     { name: "실거래가", value: market, color: "#10b981" },
     { name: "최저입찰가", value: minimum, color: "#3b82f6" },
-    { name: "예상낙찰가", value: predicted, color: "#f59e0b" },
+    { name: "추정 낙찰가", value: predicted, color: "#f59e0b" },
   ].filter((b) => b.value !== null) as { name: string; value: number; color: string }[]
 
   if (bars.length === 0) {

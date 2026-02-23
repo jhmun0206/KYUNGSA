@@ -21,6 +21,7 @@ from app.api.v1.schemas import (
     MapItem,
     MapResponse,
     MLPrediction,
+    MLPredictionFactor,
     RoundItem,
     ScoreDetail,
 )
@@ -158,7 +159,9 @@ def _build_ml_prediction(auction: Auction, db: Session) -> MLPrediction | None:
             predicted_price=result.predicted_price,
             confidence=result.confidence,
             model_version=result.model_version,
-            top_factors=result.top_factors,
+            top_factors=[
+                MLPredictionFactor(**f) for f in result.top_factors
+            ],
             fallback_reason=result.fallback_reason,
         )
     except Exception:

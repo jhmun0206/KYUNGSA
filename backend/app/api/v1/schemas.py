@@ -121,6 +121,13 @@ class AuctionDetailResponse(BaseModel):
     location_data: dict[str, Any] | None
 
 
+class MLPredictionFactor(BaseModel):
+    """ML 예측 영향 요인 1건"""
+
+    feature: str            # "할인율 64%", "유찰 2회" 등 (사람 읽기용)
+    importance: float       # 중요도 (%)
+
+
 class MLPrediction(BaseModel):
     """ML 낙찰가율 예측 결과 (Private → 상세 페이지용)"""
 
@@ -128,7 +135,7 @@ class MLPrediction(BaseModel):
     predicted_price: int            # 예측 낙찰가 (원)
     confidence: str                 # "high" | "medium" | "low"
     model_version: str              # "ml_v1" | "rule_v1"
-    top_factors: list[str]          # 상위 영향 피처 (최대 3개)
+    top_factors: list[MLPredictionFactor]  # 상위 영향 피처 (최대 3개)
     fallback_reason: str | None     # fallback 사유 (ML 사용 시 None)
 
 

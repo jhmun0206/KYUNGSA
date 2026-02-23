@@ -83,13 +83,16 @@ export function PillarBreakdown({ auction }: Props) {
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold text-card-foreground">가격 비교</p>
-          {score?.predicted_winning_ratio && (
+          {(auction.ml_prediction?.predicted_ratio ?? score?.predicted_winning_ratio) != null && (
             <span className="text-xs text-muted-foreground">
               모델 추정 낙찰가율:{" "}
               <span className="font-semibold text-foreground">
-                {(score.predicted_winning_ratio * 100).toFixed(0)}%
+                {((auction.ml_prediction?.predicted_ratio ?? score?.predicted_winning_ratio ?? 0) * 100).toFixed(0)}%
               </span>{" "}
               (참고)
+              <span className="ml-1 text-[10px] text-muted-foreground">
+                {auction.ml_prediction?.model_version === "ml_v1" ? "ML 모델" : "통계 기반"}
+              </span>
             </span>
           )}
         </div>

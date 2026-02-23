@@ -61,6 +61,21 @@ export interface RoundItem {
   result: string
 }
 
+// ML 예측 관련
+export interface MLPredictionFactor {
+  feature: string       // "할인율 64%", "유찰 2회" 등 (사람 읽기용)
+  importance: number    // 중요도 (%)
+}
+
+export interface MLPrediction {
+  predicted_ratio: number | null
+  predicted_price: number | null
+  confidence: "high" | "medium" | "low"
+  model_version: string               // "ml_v1" | "rule_v1"
+  top_factors: MLPredictionFactor[]
+  fallback_reason: string | null
+}
+
 export interface AuctionDetailResponse {
   case_number: string
   address: string
@@ -82,6 +97,9 @@ export interface AuctionDetailResponse {
 
   score: ScoreDetail | null
   rounds: RoundItem[]
+
+  // ML 낙찰가율 예측 (모델 있으면 ml_v1, 없으면 rule_v1 fallback)
+  ml_prediction: MLPrediction | null
 
   specification_remarks: string
   market_price_info: Record<string, unknown> | null

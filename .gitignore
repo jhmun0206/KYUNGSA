@@ -13,6 +13,9 @@ build/
 venv/
 .pytest_cache/
 
+# CatBoost 학습 아티팩트
+catboost_info/
+
 # Node
 node_modules/
 .next/

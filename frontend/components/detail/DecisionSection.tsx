@@ -88,8 +88,9 @@ export function DecisionSection({ auction }: Props) {
           <div className="flex flex-col gap-1 rounded-md bg-muted p-3">
             <span className="text-xs text-muted-foreground">모델 추정 범위 (참고)</span>
             <PredictionPill
+              mlPrediction={auction.ml_prediction}
               ratio={score?.predicted_winning_ratio}
-              minimumBid={auction.minimum_bid}
+              appraisedValue={auction.appraised_value}
             />
           </div>
         )}

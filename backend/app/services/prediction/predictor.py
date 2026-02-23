@@ -28,7 +28,7 @@ class PredictionResult:
     predicted_price: int            # 예측 낙찰가 (원)
     confidence: str                 # "high" | "medium" | "low"
     model_version: str              # "ml_v1" | "rule_v1"
-    top_factors: list[str]          # 상위 영향 피처 (최대 3개)
+    top_factors: list[dict]         # [{"feature": "할인율 64%", "importance": 67.5}, ...]
     fallback_reason: str | None     # fallback 사유 (ML 사용 시 None)
 
 
@@ -248,7 +248,10 @@ class WinningBidPredictor:
             predicted_price=predicted_price,
             confidence="low",
             model_version="rule_v1",
-            top_factors=["유찰횟수", "물건유형"],
+            top_factors=[
+                {"feature": f"유찰 {fail_count}회", "importance": 50.0},
+                {"feature": property_type_merged, "importance": 50.0},
+            ],
             fallback_reason="ML 모델 파일 없음 → 룩업 테이블 사용",
         )
 
@@ -275,12 +278,63 @@ class WinningBidPredictor:
             return "high"
         return "medium"
 
-    def _get_top_factors(self, features: dict) -> list[str]:
-        """피처 중요도 기준 상위 3개 영향 요인 (한국어)"""
-        if not self.feature_importances:
-            return ["할인율", "유찰횟수", "물건유형"]
+    def _get_top_factors(self, features: dict) -> list[dict]:
+        """피처 중요도 기준 상위 3개 영향 요인 (한국어, 값 포함)
 
-        FEATURE_LABELS = {
+        Returns:
+            [{"feature": "할인율 64%", "importance": 67.5}, ...]
+        """
+        if not self.feature_importances:
+            return self._format_default_factors(features)
+
+        sorted_features = sorted(
+            self.feature_importances.items(),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        return [
+            {
+                "feature": self._format_factor_label(name, features),
+                "importance": round(importance, 1),
+            }
+            for name, importance in sorted_features[:3]
+        ]
+
+    def _format_default_factors(self, features: dict) -> list[dict]:
+        """피처 중요도 정보 없을 때 기본 상위 3개"""
+        dr = features.get("discount_rate", 0)
+        fc = features.get("fail_count", 0)
+        pt = features.get("property_type_merged", "기타")
+        return [
+            {"feature": f"할인율 {dr * 100:.0f}%", "importance": 50.0},
+            {"feature": f"유찰 {int(fc)}회", "importance": 30.0},
+            {"feature": str(pt), "importance": 20.0},
+        ]
+
+    @staticmethod
+    def _format_factor_label(name: str, features: dict) -> str:
+        """피처명 + 실제 값 → 사람 읽기용 라벨"""
+        val = features.get(name)
+        formatters: dict = {
+            "discount_rate": lambda v: f"할인율 {v * 100:.0f}%",
+            "fail_count": lambda v: f"유찰 {int(v)}회",
+            "property_type_merged": lambda v: str(v),
+            "court_office_code": lambda v: f"법원 {v}",
+            "sido": lambda v: str(v),
+            "sgg": lambda v: str(v),
+            "rolling_avg_3m": lambda v: f"유사물건 평균 {v * 100:.0f}%",
+            "rolling_count_3m": lambda v: f"유사물건 {int(v)}건",
+            "appraised_value_log": lambda v: "감정가",
+            "tenant_count": lambda v: f"임차인 {int(v)}명",
+            "total_deposit_ratio": lambda v: f"보증금비율 {v * 100:.0f}%",
+            "quarter": lambda v: f"{int(v)}분기",
+            "year_month": lambda v: "시기",
+        }
+        fmt = formatters.get(name)
+        if fmt and val is not None:
+            return fmt(val)
+
+        fallback_labels = {
             "discount_rate": "할인율",
             "fail_count": "유찰횟수",
             "property_type_merged": "물건유형",
@@ -295,13 +349,4 @@ class WinningBidPredictor:
             "quarter": "분기",
             "year_month": "시기",
         }
-
-        sorted_features = sorted(
-            self.feature_importances.items(),
-            key=lambda x: x[1],
-            reverse=True,
-        )
-        return [
-            FEATURE_LABELS.get(f, f)
-            for f, _ in sorted_features[:3]
-        ]
+        return fallback_labels.get(name, name)

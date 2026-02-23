@@ -65,6 +65,10 @@ class TestRuleV1Fallback:
         assert 0 < result.predicted_ratio < 1.5
         assert result.predicted_price > 0
         assert result.confidence == "low"
+        # top_factors: dict 형식
+        assert len(result.top_factors) == 2
+        assert all("feature" in f and "importance" in f for f in result.top_factors)
+        assert any("유찰" in f["feature"] for f in result.top_factors)
 
     def test_fallback_property_type_mapping(self):
         """rule_v1: 물건유형별 다른 예측값"""
@@ -120,13 +124,16 @@ class TestMLPredict:
         assert result.predicted_price == int(0.75 * 500_000_000)
 
     def test_ml_predict_top_factors(self):
-        """ML: 상위 영향 피처 한국어 변환"""
+        """ML: 상위 영향 피처 한국어 변환 + 값 포함"""
         predictor = self._make_predictor_with_mock_model()
         result = predictor.predict(**_base_kwargs())
 
         assert len(result.top_factors) == 3
-        assert "할인율" in result.top_factors
-        assert "유찰횟수" in result.top_factors
+        # dict 형식: {"feature": "할인율 70%", "importance": 67.5}
+        assert all("feature" in f and "importance" in f for f in result.top_factors)
+        features = [f["feature"] for f in result.top_factors]
+        assert any("할인율" in f for f in features)
+        assert any("유찰" in f for f in features)
 
     def test_ml_predict_clamp(self):
         """ML: 예측값 클램프 (0 ~ TARGET_MAX)"""
