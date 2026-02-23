@@ -21,15 +21,18 @@ from app.models.enriched_case import (
     FilterResult,
 )
 from app.models.registry import RegistryAnalysisResult
+from app.models.occupancy_dto import OccupancyTenantDTO
 from app.models.scores import (
     LegalScoreResult,
     LocationScoreResult,
+    OccupancyScoreResult,
     PriceScoreResult,
     TotalScoreResult,
 )
 from app.services.filter_engine import FilterEngine
 from app.services.rules.legal_scorer import LegalScorer
 from app.services.rules.location_scorer import LocationScorer
+from app.services.rules.occupancy_scorer import OccupancyScorer
 from app.services.rules.price_scorer import PriceScorer
 from app.services.rules.total_scorer import TotalScorer
 
@@ -43,6 +46,7 @@ class EvaluationResult(BaseModel):
     legal: LegalScoreResult | None = None
     price: PriceScoreResult | None = None
     location: LocationScoreResult | None = None
+    occupancy: OccupancyScoreResult | None = None
     total: TotalScoreResult
 
 
@@ -55,12 +59,14 @@ class RuleEngineV2:
         legal_scorer: LegalScorer | None = None,
         price_scorer: PriceScorer | None = None,
         location_scorer: LocationScorer | None = None,
+        occupancy_scorer: OccupancyScorer | None = None,
         total_scorer: TotalScorer | None = None,
     ) -> None:
         self._filter = filter_engine or FilterEngine()
         self._legal_scorer = legal_scorer or LegalScorer()
         self._price_scorer = price_scorer or PriceScorer()
         self._location_scorer = location_scorer or LocationScorer()
+        self._occupancy_scorer = occupancy_scorer or OccupancyScorer()
         self._total_scorer = total_scorer or TotalScorer()
 
     def evaluate(
@@ -68,12 +74,14 @@ class RuleEngineV2:
         enriched: EnrichedCase,
         *,
         registry_analysis: RegistryAnalysisResult | None = None,
+        tenants: list[OccupancyTenantDTO] | None = None,
     ) -> EvaluationResult:
         """전체 평가 수행
 
         Args:
             enriched: 보강된 경매 물건
             registry_analysis: 등기부 분석 결과 (있으면 법률 점수 산출)
+            tenants: 현황조사서 임차인 목록 (있으면 명도 점수 산출)
 
         Returns:
             EvaluationResult
@@ -107,13 +115,22 @@ class RuleEngineV2:
             land_use=enriched.land_use,
         )
 
-        # 5. 통합 점수 (fail_count = bid_count - 1, 유찰 횟수)
+        # 5. 명도 점수 (현황조사서 임차인 있을 때만)
+        occupancy_result: OccupancyScoreResult | None = None
+        if tenants is not None:
+            occupancy_result = self._occupancy_scorer.score(
+                case=case,
+                tenants=tenants,
+            )
+
+        # 6. 통합 점수 (fail_count = bid_count - 1, 유찰 횟수)
         fail_count = max(0, (case.bid_count or 1) - 1)
         total_result = self._total_scorer.score(
             property_type=case.property_type,
             legal_score=legal_result.score if legal_result else None,
             price_score=price_result.score,
             location_score=location_result.score if location_result else None,
+            occupancy_score=occupancy_result.score if occupancy_result else None,
             needs_expert_review=needs_expert,
             fail_count=fail_count,
         )
@@ -123,5 +140,6 @@ class RuleEngineV2:
             legal=legal_result,
             price=price_result,
             location=location_result,
+            occupancy=occupancy_result,
             total=total_result,
         )

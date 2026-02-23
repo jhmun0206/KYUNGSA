@@ -288,7 +288,7 @@ class BatchCollector:
         force_update: bool,
         dry_run: bool,
     ) -> None:
-        """단일 물건 처리: 상세조회 → 보강 → 필터 → DB 저장"""
+        """단일 물건 처리: 상세조회 → 보강 → 현황조사서 → 필터 → DB 저장"""
         # 상세 조회
         detail = self._crawler.fetch_case_detail(
             case_number=item.internal_case_number,
@@ -299,10 +299,19 @@ class BatchCollector:
         # 보강 (항상 성공, partial result 가능)
         enriched = self._enricher.enrich(detail)
 
-        # 통합 평가 (필터 + 가격 + 통합 점수)
-        eval_result = self._rule_engine.evaluate(enriched)
+        # 현황조사서 수집 (Phase 7-3) — fail-open
+        tenants = self._fetch_occupancy_tenants(
+            internal_case_number=item.internal_case_number,
+            court_office_code=item.court_office_code,
+            property_sequence=item.property_sequence or "1",
+            formatted_case_number=detail.case_number,
+        )
+
+        # 통합 평가 (필터 + 가격 + 명도 + 통합 점수)
+        eval_result = self._rule_engine.evaluate(enriched, tenants=tenants)
         enriched.filter_result = eval_result.filter_result
         enriched.price_score = eval_result.price
+        enriched.occupancy_score = eval_result.occupancy
         enriched.total_score = eval_result.total
 
         # 카운트 갱신
@@ -354,6 +363,35 @@ class BatchCollector:
             enriched.total_score.grade if enriched.total_score else "-",
             " (dry-run)" if dry_run else "",
         )
+
+    def _fetch_occupancy_tenants(
+        self,
+        internal_case_number: str,
+        court_office_code: str,
+        property_sequence: str,
+        formatted_case_number: str,
+    ) -> list | None:
+        """현황조사서에서 임차인 DTO 목록 추출 (fail-open)
+
+        실패 시 None 반환 → RuleEngineV2가 occupancy 스킵.
+        """
+        try:
+            from app.services.occupancy.parser import OccupancyParser
+
+            raw = self._crawler.fetch_occupancy_report(
+                case_number=internal_case_number,
+                court_office_code=court_office_code,
+                property_sequence=property_sequence,
+            )
+            if raw and raw.get("dlt_curstExmndcDtl"):
+                parser = OccupancyParser()
+                dto = parser.parse(raw, formatted_case_number, court_office_code)
+                return dto.tenants
+        except Exception as e:
+            logger.warning(
+                "현황조사서 수집 실패 [%s]: %s", formatted_case_number, e
+            )
+        return None
 
     def _save_score(
         self,

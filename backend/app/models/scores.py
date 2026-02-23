@@ -4,7 +4,8 @@
 5C: 법률 리스크 점수 (LegalScoreResult)
 5D: 가격 매력도 점수 (PriceScoreResult)
 5E: 통합 점수 (TotalScoreResult)
-향후: LocationScoreResult (6), OccupancyScoreResult (7)
+Phase 6: LocationScoreResult
+Phase 7: OccupancyScoreResult
 """
 
 from __future__ import annotations
@@ -97,6 +98,30 @@ class LocationScoreResult(BaseModel):
     confidence: str = "HIGH"             # HIGH / MEDIUM / LOW
     confidence_multiplier: float = 1.0   # HIGH=1.0, MEDIUM=0.85, LOW=0.70
     property_category: str = "꼬마빌딩"  # 아파트 / 꼬마빌딩 / 토지
+    warnings: list[str] = Field(default_factory=list)
+    scorer_version: str = "v1.0"
+
+
+class OccupancySubScores(BaseModel):
+    """명도 세부 점수 (각 0~100, 높을수록 명도 용이)"""
+
+    tenant_complexity_score: float = 0.0  # 임차인 수/미상 비율 기반 복잡도
+    deposit_burden_score: float = 0.0     # 총 보증금/감정가 비율 기반 부담도
+    opposing_power_score: float = 0.0     # 대항력 위험도 (전입+확정일 보유 비율)
+
+
+class OccupancyScoreResult(BaseModel):
+    """명도 리스크 점수 최종 결과 (0~100, 높을수록 명도 용이)"""
+
+    score: float                          # 최종 점수 (신뢰도 감쇠 후)
+    base_score: float                     # 3축 가중 합산 (감쇠 전)
+    sub_scores: OccupancySubScores
+    confidence: str = "HIGH"              # HIGH / MEDIUM / LOW
+    confidence_multiplier: float = 1.0    # HIGH=1.0, MEDIUM=0.85, LOW=0.70
+    property_category: str = "꼬마빌딩"   # 아파트 / 꼬마빌딩 / 토지
+    tenant_count: int = 0                 # 임차인 수
+    unknown_count: int = 0                # 미상 임차인 수
+    total_deposit: int = 0                # 총 보증금 합산
     warnings: list[str] = Field(default_factory=list)
     scorer_version: str = "v1.0"
 

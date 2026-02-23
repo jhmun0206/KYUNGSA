@@ -3,6 +3,8 @@
 오케스트레이터가 필터 → pillar 점수 → 통합 점수를 올바르게 연결하는지 검증한다.
 """
 
+from datetime import date
+
 from app.models.auction import AuctionCaseDetail
 from app.models.enriched_case import (
     BuildingInfo,
@@ -11,6 +13,7 @@ from app.models.enriched_case import (
     LandUseInfo,
     MarketPriceInfo,
 )
+from app.models.occupancy_dto import OccupancyTenantDTO
 from app.models.registry import (
     Confidence,
     RegistryAnalysisResult,
@@ -186,3 +189,57 @@ class TestEvaluateScenarios:
 
         # needs_expert_review는 legal 결과에서 전파됨
         assert isinstance(result.total.needs_expert_review, bool)
+
+
+# ──────────────────────────────────────
+# 명도(occupancy) 통합 테스트
+# ──────────────────────────────────────
+
+
+def _make_tenant(**overrides) -> OccupancyTenantDTO:
+    """테스트용 OccupancyTenantDTO"""
+    defaults = {
+        "tenant_name": "김OO",
+        "party_type": "임차인",
+        "deposit": 50_000_000,
+        "deposit_raw": "5천만원",
+        "move_in_date": date(2023, 1, 15),
+        "fixed_date": date(2023, 2, 1),
+        "is_unknown": False,
+    }
+    defaults.update(overrides)
+    return OccupancyTenantDTO(**defaults)
+
+
+class TestOccupancyIntegration:
+    """명도 점수 RuleEngineV2 통합"""
+
+    def test_evaluate_with_occupancy(self):
+        """tenants 전달 시 occupancy 점수 산출 + total에 반영"""
+        enriched = _make_enriched(
+            property_type="아파트",
+            appraised_value=500_000_000,
+            minimum_bid=255_000_000,
+        )
+        tenants = [_make_tenant()]
+
+        result = engine.evaluate(enriched, tenants=tenants)
+
+        assert result.occupancy is not None
+        assert result.occupancy.score > 0
+        assert result.occupancy.tenant_count == 1
+        # occupancy가 total에 반영됨
+        assert "occupancy" not in result.total.missing_pillars
+
+    def test_evaluate_without_occupancy(self):
+        """tenants=None → 기존 동작 유지 (하위 호환)"""
+        enriched = _make_enriched(
+            property_type="아파트",
+            appraised_value=500_000_000,
+            minimum_bid=255_000_000,
+        )
+
+        result = engine.evaluate(enriched)
+
+        assert result.occupancy is None
+        assert "occupancy" in result.total.missing_pillars

@@ -13,7 +13,13 @@ from pydantic import BaseModel, Field
 
 from app.models.auction import AuctionCaseDetail
 from app.models.registry import RegistryAnalysisResult
-from app.models.scores import LegalScoreResult, LocationScoreResult, PriceScoreResult, TotalScoreResult
+from app.models.scores import (
+    LegalScoreResult,
+    LocationScoreResult,
+    OccupancyScoreResult,
+    PriceScoreResult,
+    TotalScoreResult,
+)
 
 
 class FilterColor(str, Enum):
@@ -108,6 +114,9 @@ class EnrichedCase(BaseModel):
 
     # 입지 점수 (Phase 6 — 1단 데이터만으로 산출)
     location_score: LocationScoreResult | None = None
+
+    # 명도 점수 (Phase 7 — 현황조사서 임차인 기반)
+    occupancy_score: OccupancyScoreResult | None = None
 
     # 통합 점수 (5E — 가용 pillar 가중 합산)
     total_score: TotalScoreResult | None = None
