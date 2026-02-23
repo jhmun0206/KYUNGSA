@@ -6,6 +6,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
+
+# 프로젝트 루트: config.py → prediction/ → services/ → app/ → backend/ → KYUNGSA/
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 
 
 # 물건유형 병합 매핑 (21 → 8)
@@ -102,7 +106,7 @@ class PredictionConfig:
 
     # ── 모델 저장 경로 ──
 
-    MODEL_DIR: str = "models/prediction"
+    MODEL_DIR: str = str(_PROJECT_ROOT / "models" / "prediction")
 
     # ── 결측치 기본값 ──
 
