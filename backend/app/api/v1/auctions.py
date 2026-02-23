@@ -20,6 +20,7 @@ from app.api.v1.schemas import (
     AuctionListResponse,
     MapItem,
     MapResponse,
+    MLPrediction,
     RoundItem,
     ScoreDetail,
 )
@@ -108,6 +109,61 @@ def _build_score_detail(score: Score | None) -> ScoreDetail | None:
         warnings=list(score.warnings or []),
         needs_expert_review=score.needs_expert_review,
     )
+
+
+def _build_ml_prediction(auction: Auction, db: Session) -> MLPrediction | None:
+    """Auction → ML 예측 결과 (감정가 없으면 None)"""
+    if not auction.appraised_value or auction.appraised_value <= 0:
+        return None
+    if not auction.minimum_bid or auction.minimum_bid <= 0:
+        return None
+
+    try:
+        from app.services.prediction.predictor import WinningBidPredictor
+        from app.services.prediction.rolling_helper import get_rolling_stats
+
+        # fail_count 추출
+        fail_count = max(auction.bid_count - 1, 0)
+        if auction.detail and isinstance(auction.detail, dict):
+            yuchal = auction.detail.get("yuchalCnt")
+            if yuchal is not None:
+                try:
+                    fail_count = int(yuchal)
+                except (ValueError, TypeError):
+                    pass
+
+        # rolling 통계 DB 조회
+        stats = get_rolling_stats(
+            db,
+            property_type=auction.property_type,
+            address=auction.address,
+        )
+
+        predictor = WinningBidPredictor.get_instance()
+        result = predictor.predict(
+            appraised_value=auction.appraised_value,
+            minimum_bid=auction.minimum_bid,
+            fail_count=fail_count,
+            property_type=auction.property_type,
+            court_office_code=auction.court_office_code,
+            address=auction.address,
+            rolling_avg=stats.avg,
+            rolling_count=stats.count,
+            tenant_count=auction.occupancy_tenant_count or 0,
+            total_deposit=0,  # 개별 보증금 합계는 별도 쿼리 필요 → 0 기본값
+        )
+
+        return MLPrediction(
+            predicted_ratio=result.predicted_ratio,
+            predicted_price=result.predicted_price,
+            confidence=result.confidence,
+            model_version=result.model_version,
+            top_factors=result.top_factors,
+            fallback_reason=result.fallback_reason,
+        )
+    except Exception:
+        logger.exception("ML 예측 실패: %s", auction.case_number)
+        return None
 
 
 def _auction_to_list_item(auction: Auction, score: Score | None) -> AuctionListItem:
@@ -264,6 +320,9 @@ def get_auction_detail(
         spec_remarks = auction.detail.get("specification_remarks", "") or ""
         location_data_raw = auction.detail.get("location_data")
 
+    # ML 낙찰가율 예측
+    ml_prediction = _build_ml_prediction(auction, db)
+
     return AuctionDetailResponse(
         case_number=auction.case_number,
         address=auction.address,
@@ -281,6 +340,7 @@ def get_auction_detail(
         lat=lat,
         lng=lng,
         score=_build_score_detail(score),
+        ml_prediction=ml_prediction,
         rounds=_parse_rounds(auction.detail),
         specification_remarks=spec_remarks,
         market_price_info=auction.market_price_info,

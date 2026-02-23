@@ -112,10 +112,24 @@ class AuctionDetailResponse(BaseModel):
     # 기일 내역 (detail JSONB 파싱)
     rounds: list[RoundItem]
 
+    # ML 예측 (모델 있으면 ml_v1, 없으면 rule_v1 fallback)
+    ml_prediction: MLPrediction | None
+
     # 추가 데이터
     specification_remarks: str        # gdsSpcfcRmk
     market_price_info: dict[str, Any] | None
     location_data: dict[str, Any] | None
+
+
+class MLPrediction(BaseModel):
+    """ML 낙찰가율 예측 결과 (Private → 상세 페이지용)"""
+
+    predicted_ratio: float          # 예측 낙찰가율 (0~1.5)
+    predicted_price: int            # 예측 낙찰가 (원)
+    confidence: str                 # "high" | "medium" | "low"
+    model_version: str              # "ml_v1" | "rule_v1"
+    top_factors: list[str]          # 상위 영향 피처 (최대 3개)
+    fallback_reason: str | None     # fallback 사유 (ML 사용 시 None)
 
 
 class MapItem(BaseModel):
