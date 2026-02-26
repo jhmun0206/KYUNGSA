@@ -1,0 +1,44 @@
+{
+  "dma_curstExmnMngInf": {
+    "curstExmndcDt": "2023년03월15일14시30분",
+    "lesDts": "채무자 및 임차인 면담 완료.<br />현장 확인함."
+  },
+  "dlt_spotExmnOrdCntLst": [],
+  "dlt_curstExmnDpcnMrg": [],
+  "dlt_ordTsRlet": [
+    {
+      "dspslGdsSeq": "1",
+      "printSt": "서울특별시 강남구 역삼로 123, 101호",
+      "lesCnt": "2",
+      "gdsPossCd": "05",
+      "gdsPossCtt": "채무자(소유자)점유, 임차인점유<br /><font color=\"red\">주의</font>"
+    }
+  ],
+  "dlt_ordTsPicDvs": [],
+  "dlt_ordTsLserLtn": [
+    {
+      "dspslGdsSeq": "1",
+      "intrpsNm": "박철수",
+      "intrpsCd": "01",
+      "occptnPrtDts": "101호 전체",
+      "usgCd": "01",
+      "usgNm": "주거",
+      "lesDposDts": "3억원",
+      "lesRntDts": "",
+      "mvinDtlCtt": "2021.05.10",
+      "fxdDtCtt": "2021.05.15"
+    },
+    {
+      "dspslGdsSeq": "1",
+      "intrpsNm": "미상",
+      "intrpsCd": "",
+      "occptnPrtDts": "",
+      "usgCd": "",
+      "usgNm": "",
+      "lesDposDts": "",
+      "lesRntDts": "",
+      "mvinDtlCtt": "",
+      "fxdDtCtt": ""
+    }
+  ]
+}

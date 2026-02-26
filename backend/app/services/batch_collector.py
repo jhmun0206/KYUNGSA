@@ -406,9 +406,13 @@ class BatchCollector:
             if not raw:
                 logger.info("현황조사서 빈 응답: %s", formatted_case_number)
                 return None
-            if "dlt_curstExmndcDtl" not in raw:
+            # v2(실제 API): dlt_ordTsLserLtn, v1(legacy): dlt_curstExmndcDtl
+            has_tenants = (
+                "dlt_ordTsLserLtn" in raw or "dlt_curstExmndcDtl" in raw
+            )
+            if not has_tenants:
                 logger.info(
-                    "현황조사서 키 없음: %s (keys=%s)",
+                    "현황조사서 임차인 키 없음: %s (keys=%s)",
                     formatted_case_number, list(raw.keys()),
                 )
                 return None

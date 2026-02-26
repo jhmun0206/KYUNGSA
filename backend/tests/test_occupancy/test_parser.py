@@ -170,3 +170,94 @@ class TestEdgeCases:
         dto = parser.parse(data, "TEST", "B000210")
         assert len(dto.tenants) == 1
         assert dto.tenants[0].tenant_name == "정OO"
+
+    def test_empty_v2_tenant_list(self, parser):
+        """v2 포맷: 임차인 빈 배열"""
+        data = {"dlt_ordTsLserLtn": [], "dlt_ordTsRlet": []}
+        dto = parser.parse(data, "2023타경100000", "B000210")
+        assert len(dto.tenants) == 0
+        assert len(dto.properties) == 0
+
+
+class TestParseV2:
+    """v2 포맷 (실제 API 응답) 파싱 테스트"""
+
+    @pytest.fixture
+    def v2_response(self):
+        with open(FIXTURE_DIR / "occupancy_response_v2.json", encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_v2_basic(self, parser, v2_response):
+        """v2 기본 파싱: 임차인 2명 + 물건 1개"""
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        assert dto.case_number == "2023타경100000"
+        assert len(dto.tenants) == 2
+        assert len(dto.properties) == 1
+
+    def test_v2_investigation_date(self, parser, v2_response):
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        assert dto.investigation_date == "2023년03월15일14시30분"
+
+    def test_v2_etc_note(self, parser, v2_response):
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        assert dto.etc_note is not None
+        assert "<br" not in dto.etc_note
+        assert "현장 확인함." in dto.etc_note
+
+    def test_v2_tenant_name(self, parser, v2_response):
+        """v2 임차인 이름 마스킹 (intrpsNm 필드)"""
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        assert dto.tenants[0].tenant_name == "박OO"
+
+    def test_v2_tenant_party_type(self, parser, v2_response):
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        assert dto.tenants[0].party_type == "임차인"
+        assert dto.tenants[0].party_type_code == "01"
+
+    def test_v2_tenant_deposit(self, parser, v2_response):
+        """v2 보증금 파싱 (lesDposDts 필드)"""
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        assert dto.tenants[0].deposit == 300_000_000
+        assert dto.tenants[0].deposit_raw == "3억원"
+        assert dto.tenants[0].monthly_rent is None  # 빈 문자열
+
+    def test_v2_tenant_dates(self, parser, v2_response):
+        """v2 전입일/확정일 파싱 (mvinDtlCtt/fxdDtCtt 필드)"""
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        t0 = dto.tenants[0]
+        assert t0.move_in_date == date(2021, 5, 10)
+        assert t0.fixed_date == date(2021, 5, 15)
+
+    def test_v2_tenant_unknown(self, parser, v2_response):
+        """v2 미상 임차인"""
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        t1 = dto.tenants[1]
+        assert t1.is_unknown is True
+        assert t1.tenant_name == "미상"
+        assert t1.deposit is None
+
+    def test_v2_tenant_usage(self, parser, v2_response):
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        assert dto.tenants[0].usage == "주거"
+        assert dto.tenants[0].usage_code == "01"
+
+    def test_v2_tenant_occupied_part(self, parser, v2_response):
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        assert dto.tenants[0].occupied_part == "101호 전체"
+
+    def test_v2_property_basic(self, parser, v2_response):
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        p = dto.properties[0]
+        assert p.property_index == 1
+        assert p.tenant_count == 2  # lesCnt 필드
+        assert p.possession_code == "05"
+
+    def test_v2_property_address(self, parser, v2_response):
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        assert "역삼로 123" in dto.properties[0].address
+
+    def test_v2_property_html_strip(self, parser, v2_response):
+        dto = parser.parse(v2_response, "2023타경100000", "B000210")
+        p = dto.properties[0]
+        assert "<br" not in p.possession_desc
+        assert "<font" not in p.possession_desc
