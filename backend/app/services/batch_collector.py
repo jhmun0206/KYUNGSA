@@ -74,6 +74,7 @@ class BatchCollector:
         force_update: bool = False,
         enrich_delay: float = 2.0,
         dry_run: bool = False,
+        skip_occupancy: bool = False,
     ) -> BatchResult:
         """배치 수집 실행
 
@@ -83,10 +84,12 @@ class BatchCollector:
             force_update: True면 기존 데이터 덮어쓰기
             enrich_delay: 물건 간 대기 시간 (초)
             dry_run: True면 DB 저장 없이 수집만
+            skip_occupancy: True면 현황조사서 조회 스킵
 
         Returns:
             BatchResult
         """
+        self._skip_occupancy = skip_occupancy
         now = datetime.now(timezone.utc)
         short_id = uuid.uuid4().hex[:8]
         run_id = f"{now.strftime('%Y%m%d_%H%M%S')}_{court_code}_{short_id}"
@@ -174,6 +177,9 @@ class BatchCollector:
         dry_run: bool,
     ) -> None:
         """실제 수집 루프"""
+        # 같은 사건번호의 다른 물건순서(property_sequence) 중복 처리 방지
+        self._seen_cases: set[str] = set()
+
         # 1페이지 검색 → 전체 건수 파악
         items, total_count = self._crawler.search_cases_with_total(
             court_code=court_code, page_no=1, page_size=PAGE_SIZE,
@@ -244,6 +250,13 @@ class BatchCollector:
             if not case_number:
                 continue
 
+            # 같은 배치 내 중복 스킵 (같은 사건번호, 다른 property_sequence)
+            if case_number in self._seen_cases:
+                result.skipped += 1
+                logger.debug("스킵 (배치 내 중복): %s", case_number)
+                continue
+            self._seen_cases.add(case_number)
+
             # skip-existing
             if not force_update and not dry_run:
                 existing = (
@@ -296,16 +309,21 @@ class BatchCollector:
             property_sequence=item.property_sequence or "1",
         )
 
+        # property_type fallback: 상세 API에 물건용도가 없으면 리스트 값 사용
+        if not detail.property_type and item.property_type:
+            detail.property_type = item.property_type
+
         # 보강 (항상 성공, partial result 가능)
         enriched = self._enricher.enrich(detail)
 
         # 현황조사서 수집 (Phase 7-3) — fail-open
-        tenants = self._fetch_occupancy_tenants(
-            internal_case_number=item.internal_case_number,
-            court_office_code=item.court_office_code,
-            property_sequence=item.property_sequence or "1",
-            formatted_case_number=detail.case_number,
-        )
+        tenants = None
+        if not self._skip_occupancy:
+            tenants = self._fetch_occupancy_tenants(
+                court_office_code=item.court_office_code,
+                property_sequence=item.property_sequence or "1",
+                formatted_case_number=detail.case_number,
+            )
 
         # 통합 평가 (필터 + 가격 + 명도 + 통합 점수)
         eval_result = self._rule_engine.evaluate(enriched, tenants=tenants)
@@ -366,7 +384,6 @@ class BatchCollector:
 
     def _fetch_occupancy_tenants(
         self,
-        internal_case_number: str,
         court_office_code: str,
         property_sequence: str,
         formatted_case_number: str,
@@ -379,7 +396,7 @@ class BatchCollector:
             from app.services.occupancy.parser import OccupancyParser
 
             raw = self._crawler.fetch_occupancy_report(
-                case_number=internal_case_number,
+                case_number=formatted_case_number,
                 court_office_code=court_office_code,
                 property_sequence=property_sequence,
             )

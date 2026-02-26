@@ -102,6 +102,7 @@ def run_single_court(
     force: bool,
     delay: float,
     dry_run: bool,
+    skip_occupancy: bool = False,
 ) -> BatchResult:
     """단일 법원 수집"""
     court_name = SEOUL_COURTS.get(court_code, court_code)
@@ -116,6 +117,7 @@ def run_single_court(
             force_update=force,
             enrich_delay=delay,
             dry_run=dry_run,
+            skip_occupancy=skip_occupancy,
         )
         print_result(result)
         return result
@@ -134,6 +136,10 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="기존 데이터 덮어쓰기")
     parser.add_argument("--delay", type=float, default=2.0, help="물건 간 대기 시간(초)")
     parser.add_argument("--dry-run", action="store_true", help="DB 저장 없이 수집만")
+    parser.add_argument(
+        "--skip-occupancy", action="store_true",
+        help="현황조사서 조회 스킵 (550 에러 회피용)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="상세 로깅")
 
     args = parser.parse_args()
@@ -151,6 +157,7 @@ def main() -> None:
                 force=args.force,
                 delay=args.delay,
                 dry_run=args.dry_run,
+                skip_occupancy=args.skip_occupancy,
             )
             results.append(result)
 
@@ -185,6 +192,7 @@ def main() -> None:
             force=args.force,
             delay=args.delay,
             dry_run=args.dry_run,
+            skip_occupancy=args.skip_occupancy,
         )
         # 텔레그램 알림 (단일 법원)
         if not args.dry_run:

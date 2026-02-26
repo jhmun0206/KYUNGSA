@@ -396,3 +396,175 @@ class TestMaxItems:
 
         assert result.processed <= 2
         assert db_session.query(Auction).count() <= 2
+
+
+class TestPropertyTypeFallback:
+    """property_type fallback: 상세 API에 없으면 리스트 값 사용"""
+
+    def test_fallback_from_list_item(self, db_session):
+        """상세 API가 property_type=""이면 리스트 아이템 값으로 대체"""
+        item = _make_list_item()  # property_type="아파트"
+
+        crawler = MagicMock(spec=CourtAuctionClient)
+        crawler.search_cases_with_total.return_value = ([item], 1)
+        # 상세 API는 property_type이 빈 문자열
+        detail = _make_detail()
+        detail.property_type = ""
+        crawler.fetch_case_detail.return_value = detail
+
+        enricher = MagicMock()
+        enricher.enrich.side_effect = lambda d: EnrichedCase(case=d)
+
+        collector = BatchCollector(
+            db=db_session, crawler=crawler, enricher=enricher,
+        )
+        collector.collect("B000210", enrich_delay=0)
+
+        auction = db_session.query(Auction).first()
+        assert auction is not None
+        assert auction.property_type == "아파트"
+
+    def test_detail_value_preserved(self, db_session):
+        """상세 API에 이미 property_type이 있으면 그 값 유지"""
+        item = _make_list_item()  # property_type="아파트"
+
+        crawler = MagicMock(spec=CourtAuctionClient)
+        crawler.search_cases_with_total.return_value = ([item], 1)
+        # 상세 API가 자체 값을 갖고 있음
+        detail = _make_detail()
+        detail.property_type = "다세대"
+        crawler.fetch_case_detail.return_value = detail
+
+        enricher = MagicMock()
+        enricher.enrich.side_effect = lambda d: EnrichedCase(case=d)
+
+        collector = BatchCollector(
+            db=db_session, crawler=crawler, enricher=enricher,
+        )
+        collector.collect("B000210", enrich_delay=0)
+
+        auction = db_session.query(Auction).first()
+        assert auction is not None
+        assert auction.property_type == "다세대"
+
+
+class TestDuplicateCaseNumber:
+    """같은 case_number, 다른 property_sequence 중복 방지"""
+
+    def test_same_case_different_seq_processed_once(self, db_session):
+        """같은 사건번호의 물건순서 1,2,3 → 1건만 처리"""
+        items = [
+            AuctionCaseListItem(
+                case_number="2026타경10001",
+                court="서울중앙지방법원",
+                property_type="아파트",
+                address="서울특별시 강남구 역삼동 123-4",
+                appraised_value=500_000_000,
+                minimum_bid=400_000_000,
+                court_office_code="B000210",
+                internal_case_number="20260130010001",
+                property_sequence=str(seq),
+            )
+            for seq in range(1, 4)
+        ]
+
+        crawler = MagicMock(spec=CourtAuctionClient)
+        crawler.search_cases_with_total.return_value = (items, 3)
+        crawler.fetch_case_detail.return_value = _make_detail("2026타경10001")
+
+        enricher = MagicMock()
+        enricher.enrich.side_effect = lambda d: EnrichedCase(case=d)
+
+        collector = BatchCollector(
+            db=db_session, crawler=crawler, enricher=enricher,
+        )
+        result = collector.collect("B000210", enrich_delay=0)
+
+        assert result.processed == 1
+        assert result.skipped == 2
+        assert db_session.query(Auction).count() == 1
+        # fetch_case_detail은 1번만 호출
+        assert crawler.fetch_case_detail.call_count == 1
+
+    def test_force_mode_dedup(self, db_session):
+        """--force 모드에서도 같은 사건번호 중복 처리 안 함"""
+        items = [
+            AuctionCaseListItem(
+                case_number="2026타경10001",
+                court="서울중앙지방법원",
+                property_type="아파트",
+                address="서울특별시 강남구 역삼동 123-4",
+                appraised_value=500_000_000,
+                minimum_bid=400_000_000,
+                court_office_code="B000210",
+                internal_case_number="20260130010001",
+                property_sequence=str(seq),
+            )
+            for seq in range(1, 3)
+        ]
+
+        crawler = MagicMock(spec=CourtAuctionClient)
+        crawler.search_cases_with_total.return_value = (items, 2)
+        crawler.fetch_case_detail.return_value = _make_detail("2026타경10001")
+
+        enricher = MagicMock()
+        enricher.enrich.side_effect = lambda d: EnrichedCase(case=d)
+
+        collector = BatchCollector(
+            db=db_session, crawler=crawler, enricher=enricher,
+        )
+        result = collector.collect("B000210", force_update=True, enrich_delay=0)
+
+        assert result.processed == 1
+        assert result.skipped == 1
+        assert crawler.fetch_case_detail.call_count == 1
+
+    def test_different_cases_all_processed(self, db_session):
+        """다른 사건번호는 모두 정상 처리"""
+        items = [
+            _make_list_item(f"2026타경1000{i}", f"2026013001000{i}")
+            for i in range(1, 4)
+        ]
+        crawler, enricher = _setup_mocks(items, total=3)
+
+        collector = BatchCollector(
+            db=db_session, crawler=crawler, enricher=enricher,
+        )
+        result = collector.collect("B000210", force_update=True, enrich_delay=0)
+
+        assert result.processed == 3
+        assert result.skipped == 0
+
+
+class TestSkipOccupancy:
+    """skip_occupancy 옵션"""
+
+    def test_skip_occupancy_no_fetch(self, db_session):
+        """skip_occupancy=True면 현황조사서 조회 안 함"""
+        items = [_make_list_item()]
+        crawler, enricher = _setup_mocks(items, total=1)
+
+        collector = BatchCollector(
+            db=db_session, crawler=crawler, enricher=enricher,
+        )
+        result = collector.collect(
+            "B000210", skip_occupancy=True, enrich_delay=0,
+        )
+
+        assert result.processed == 1
+        # fetch_occupancy_report는 호출되지 않아야 함
+        crawler.fetch_occupancy_report.assert_not_called()
+
+    def test_no_skip_occupancy_fetches(self, db_session):
+        """skip_occupancy=False(기본)면 현황조사서 조회 시도"""
+        items = [_make_list_item()]
+        crawler, enricher = _setup_mocks(items, total=1)
+
+        collector = BatchCollector(
+            db=db_session, crawler=crawler, enricher=enricher,
+        )
+        result = collector.collect("B000210", enrich_delay=0)
+
+        assert result.processed == 1
+        # fetch_occupancy_report가 호출되어야 함
+        crawler.fetch_occupancy_report.assert_called_once()

@@ -503,24 +503,28 @@ class CourtAuctionClient:
         self,
         case_number: str,
         court_office_code: str,
-        property_sequence: str,
+        property_sequence: str = "1",
     ) -> dict[str, Any]:
         """현황조사서 JSON 조회
 
         대법원 현황조사서(selectCurstExmndc) 엔드포인트를 호출한다.
-        기존 _build_detail_payload() 재사용 (csNo, cortOfcCd, dspslGdsSeq).
 
         Args:
-            case_number: 내부 사건번호 (예: "20220130112176")
+            case_number: 포맷된 사건번호 (예: "2022타경112169")
             court_office_code: 법원코드 (예: "B000210")
             property_sequence: 물건순서 (예: "1")
 
         Returns:
             현황조사서 raw JSON dict
         """
-        payload = self._build_detail_payload(
-            case_number, court_office_code, property_sequence
-        )
+        payload = {
+            "dma_srchCurstExmn": {
+                "cortOfcCd": court_office_code,
+                "csNo": case_number,
+                "auctnInfOriginDvsCd": "2",
+                "ordTsCnt": "",
+            },
+        }
 
         extra_headers = {
             "Referer": f"{BASE_URL}/pgj/ui/pgj100/PGJ151F00.xml",
