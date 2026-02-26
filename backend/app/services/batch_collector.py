@@ -359,6 +359,7 @@ class BatchCollector:
                 # Score 테이블 upsert
                 if enriched.total_score:
                     self._save_score(auction_orm.id, enriched, result.run_id)
+                    self._db.commit()
 
                 if is_update:
                     result.updated_count += 1
@@ -403,16 +404,20 @@ class BatchCollector:
                 property_sequence=property_sequence,
             )
             if not raw:
-                logger.debug("현황조사서 빈 응답: %s", formatted_case_number)
+                logger.info("현황조사서 빈 응답: %s", formatted_case_number)
                 return None
             if "dlt_curstExmndcDtl" not in raw:
-                logger.debug(
-                    "현황조사서 데이터 없음: %s (keys=%s)",
+                logger.info(
+                    "현황조사서 키 없음: %s (keys=%s)",
                     formatted_case_number, list(raw.keys()),
                 )
                 return None
             parser = OccupancyParser()
             dto = parser.parse(raw, formatted_case_number, court_office_code)
+            logger.info(
+                "현황조사서 파싱 완료: %s → 임차인 %d명",
+                formatted_case_number, len(dto.tenants),
+            )
             return dto.tenants
         except Exception as e:
             logger.warning(
