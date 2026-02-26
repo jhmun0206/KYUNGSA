@@ -390,7 +390,9 @@ class BatchCollector:
     ) -> list | None:
         """현황조사서에서 임차인 DTO 목록 추출 (fail-open)
 
-        실패 시 None 반환 → RuleEngineV2가 occupancy 스킵.
+        Returns:
+            list: 임차인 목록 (빈 리스트 = 임차인 없음 → scorer 호출됨)
+            None: 현황조사서 자체가 없음 → scorer 스킵
         """
         try:
             from app.services.occupancy.parser import OccupancyParser
@@ -400,10 +402,18 @@ class BatchCollector:
                 court_office_code=court_office_code,
                 property_sequence=property_sequence,
             )
-            if raw and raw.get("dlt_curstExmndcDtl"):
-                parser = OccupancyParser()
-                dto = parser.parse(raw, formatted_case_number, court_office_code)
-                return dto.tenants
+            if not raw:
+                logger.debug("현황조사서 빈 응답: %s", formatted_case_number)
+                return None
+            if "dlt_curstExmndcDtl" not in raw:
+                logger.debug(
+                    "현황조사서 데이터 없음: %s (keys=%s)",
+                    formatted_case_number, list(raw.keys()),
+                )
+                return None
+            parser = OccupancyParser()
+            dto = parser.parse(raw, formatted_case_number, court_office_code)
+            return dto.tenants
         except Exception as e:
             logger.warning(
                 "현황조사서 수집 실패 [%s]: %s", formatted_case_number, e
