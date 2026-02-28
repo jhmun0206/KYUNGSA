@@ -3,7 +3,7 @@
 import { ScoreRadar } from "@/components/auction/ScoreRadar"
 import { PriceComparison } from "@/components/auction/PriceComparison"
 import type { AuctionDetailResponse } from "@/lib/types"
-import { cn } from "@/lib/utils"
+import { cn, getScoreInterpretation } from "@/lib/utils"
 
 interface Props {
   auction: AuctionDetailResponse
@@ -13,14 +13,20 @@ function ScoreBar({ value, label }: { value: number | null; label: string }) {
   const pct = value ?? 0
   const color =
     pct >= 70 ? "bg-primary" : pct >= 50 ? "bg-amber-400" : "bg-red-400"
+  const interp = getScoreInterpretation(value)
 
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
-        <span className={cn("font-semibold tabular-nums", value == null ? "text-muted-foreground" : "text-foreground")}>
-          {value != null ? `${value.toFixed(0)}점` : "분석 대기"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={cn("text-xs", interp.colorClass)}>
+            {interp.text}
+          </span>
+          <span className={cn("font-semibold tabular-nums", value == null ? "text-muted-foreground" : "text-foreground")}>
+            {value != null ? `${value.toFixed(0)}점` : "분석 대기"}
+          </span>
+        </div>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
         <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${pct}%` }} />
@@ -74,7 +80,12 @@ export function PillarBreakdown({ auction }: Props) {
               )}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">점수 없음</p>
+            <div className="flex flex-col items-center justify-center gap-2 py-6">
+              <p className="text-sm font-medium text-muted-foreground">점수 분석 대기</p>
+              <p className="text-xs text-muted-foreground">
+                데이터 수집 완료 후 자동으로 업데이트됩니다
+              </p>
+            </div>
           )}
         </div>
       </div>

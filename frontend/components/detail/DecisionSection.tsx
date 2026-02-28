@@ -5,9 +5,34 @@ import { FavoriteButton } from "@/components/domain/FavoriteButton"
 import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
 import { PredictionPill } from "@/components/domain/PredictionPill"
 import { CoveragePill } from "@/components/domain/CoveragePill"
+import { CheckCircle2, Info, AlertTriangle, XCircle } from "lucide-react"
 import { formatPrice, calcDiscount, calcDday } from "@/lib/utils"
 import type { AuctionDetailResponse } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import type { LucideIcon } from "lucide-react"
+
+const GRADE_SUMMARIES: Record<string, { text: string; Icon: LucideIcon; bgClass: string }> = {
+  A: {
+    text: "주요 리스크 지표가 양호합니다",
+    Icon: CheckCircle2,
+    bgClass: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  },
+  B: {
+    text: "일부 확인이 필요한 항목이 있습니다",
+    Icon: Info,
+    bgClass: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+  },
+  C: {
+    text: "주의가 필요한 항목이 다수 있습니다",
+    Icon: AlertTriangle,
+    bgClass: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+  },
+  D: {
+    text: "상당한 리스크 요소가 확인됩니다",
+    Icon: XCircle,
+    bgClass: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+  },
+}
 
 interface Props {
   auction: AuctionDetailResponse
@@ -53,6 +78,20 @@ export function DecisionSection({ auction }: Props) {
           <FavoriteButton caseNumber={auction.case_number} />
         </div>
       </div>
+
+      {/* 등급 한 줄 요약 */}
+      {score?.grade && GRADE_SUMMARIES[score.grade] && (() => {
+        const summary = GRADE_SUMMARIES[score.grade]
+        return (
+          <div className={cn(
+            "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium",
+            summary.bgClass
+          )}>
+            <summary.Icon className="h-4 w-4 shrink-0" />
+            <span>{summary.text}</span>
+          </div>
+        )
+      })()}
 
       {/* 가격 3종 + D-day */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -100,7 +139,7 @@ export function DecisionSection({ auction }: Props) {
       {score && (
         <div className="flex flex-wrap items-center gap-3 rounded-md bg-muted px-3 py-2">
           <span className="text-xs text-muted-foreground">분석 커버리지</span>
-          <CoveragePill coverage={score.score_coverage} />
+          <CoveragePill coverage={score.score_coverage} variant="detail" />
           {score.grade_provisional && (
             <span className="text-xs text-amber-600 dark:text-amber-400">
               * 일부 항목 미분석으로 잠정 등급

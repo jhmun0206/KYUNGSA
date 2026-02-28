@@ -3,8 +3,9 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { fetchAuctions } from "@/lib/api"
 import { SearchFilters } from "@/components/search/SearchFilters"
-import { SearchResultsGrid } from "@/components/search/SearchResultsGrid"
+import { ClientFilteredResults } from "@/components/search/ClientFilteredResults"
 import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
+import type { ClientFilterParams } from "@/lib/client-filters"
 
 export const dynamic = "force-dynamic"
 
@@ -15,6 +16,12 @@ interface PageProps {
     type?: string
     sort?: string
     page?: string
+    // 클라이언트 필터 (cf_ 접두어)
+    cf_min?: string
+    cf_max?: string
+    cf_fail?: string
+    cf_from?: string
+    cf_to?: string
   }
 }
 
@@ -40,6 +47,15 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   const totalPages = Math.ceil(data.total / size)
 
+  // 클라이언트 필터 파라미터 구성
+  const clientFilters: ClientFilterParams = {
+    minPrice: searchParams.cf_min ? parseInt(searchParams.cf_min) : null,
+    maxPrice: searchParams.cf_max ? parseInt(searchParams.cf_max) : null,
+    failCount: searchParams.cf_fail ? parseInt(searchParams.cf_fail) : null,
+    dateFrom: searchParams.cf_from || null,
+    dateTo: searchParams.cf_to || null,
+  }
+
   return (
     <div className="mx-auto max-w-4xl pb-16">
       {/* 페이지 헤더 */}
@@ -62,9 +78,13 @@ export default async function SearchPage({ searchParams }: PageProps) {
         <SearchFilters />
       </Suspense>
 
-      {/* 결과 그리드 */}
+      {/* 결과 그리드 (클라이언트 필터 적용) */}
       <div className="mt-4">
-        <SearchResultsGrid items={data.items} total={data.total} />
+        <ClientFilteredResults
+          items={data.items}
+          serverTotal={data.total}
+          clientFilters={clientFilters}
+        />
       </div>
 
       {/* 페이지네이션 */}
@@ -98,6 +118,12 @@ function Pagination({
     if (searchParams.court) params.set("court", searchParams.court)
     if (searchParams.type) params.set("type", searchParams.type)
     if (searchParams.sort) params.set("sort", searchParams.sort)
+    // 클라이언트 필터 파라미터 보존
+    if (searchParams.cf_min) params.set("cf_min", searchParams.cf_min)
+    if (searchParams.cf_max) params.set("cf_max", searchParams.cf_max)
+    if (searchParams.cf_fail) params.set("cf_fail", searchParams.cf_fail)
+    if (searchParams.cf_from) params.set("cf_from", searchParams.cf_from)
+    if (searchParams.cf_to) params.set("cf_to", searchParams.cf_to)
     params.set("page", String(p))
     return `/search?${params.toString()}`
   }

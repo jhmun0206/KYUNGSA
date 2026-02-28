@@ -48,3 +48,15 @@ export function truncateAddress(addr: string, maxLen = 25): string {
   if (addr.length <= maxLen) return addr
   return addr.slice(0, maxLen) + "…"
 }
+
+/** 점수 구간별 해석 텍스트 + 색상 반환 */
+export function getScoreInterpretation(score: number | null): {
+  text: string
+  colorClass: string
+} {
+  if (score == null) return { text: "데이터 부족", colorClass: "text-muted-foreground" }
+  if (score >= 80) return { text: "매우 양호", colorClass: "text-emerald-600 dark:text-emerald-400" }
+  if (score >= 60) return { text: "양호", colorClass: "text-blue-600 dark:text-blue-400" }
+  if (score >= 40) return { text: "주의 필요", colorClass: "text-amber-600 dark:text-amber-400" }
+  return { text: "위험", colorClass: "text-red-600 dark:text-red-400" }
+}
