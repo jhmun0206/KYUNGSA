@@ -486,11 +486,12 @@ class BatchCollector:
         enrich_delay: float = 2.0,
         dry_run: bool = False,
         skip_occupancy: bool = False,
+        score_exists: bool = False,
     ) -> BatchResult:
         """DB 기반 재채점 모드
 
         대법원 API 검색 없이 DB에서 직접 물건을 가져와 재채점한다.
-        score_coverage < coverage_below 인 물건 (Score 없는 건 포함)만 처리.
+        score_coverage < coverage_below 인 물건만 처리.
 
         Args:
             court_code: 특정 법원만 처리 (None=전체)
@@ -499,6 +500,7 @@ class BatchCollector:
             enrich_delay: 물건 간 대기 시간 (초)
             dry_run: True면 DB 저장 없이 채점만
             skip_occupancy: True면 현황조사서 조회 스킵
+            score_exists: True면 Score가 이미 있는 물건만 처리 (Score 없는 건 제외)
 
         Returns:
             BatchResult
@@ -535,6 +537,7 @@ class BatchCollector:
                 max_items=max_items,
                 enrich_delay=enrich_delay,
                 dry_run=dry_run,
+                score_exists=score_exists,
             )
         except Exception as e:
             logger.error("DB 재채점 치명적 오류: %s", e)
@@ -584,16 +587,25 @@ class BatchCollector:
         max_items: int,
         enrich_delay: float,
         dry_run: bool,
+        score_exists: bool = False,
     ) -> None:
         """DB 재채점 루프"""
-        # coverage_below 미만인 물건만 선택 (Score 없는 건 포함)
-        query = (
-            self._db.query(Auction)
-            .outerjoin(Score, Auction.id == Score.auction_id)
-            .filter(
-                or_(Score.auction_id.is_(None), Score.score_coverage < coverage_below)
+        if score_exists:
+            # Score가 있는 물건 중 coverage 미달만 (INNER JOIN)
+            query = (
+                self._db.query(Auction)
+                .join(Score, Auction.id == Score.auction_id)
+                .filter(Score.score_coverage < coverage_below)
             )
-        )
+        else:
+            # Score 없는 건 포함 (OUTER JOIN)
+            query = (
+                self._db.query(Auction)
+                .outerjoin(Score, Auction.id == Score.auction_id)
+                .filter(
+                    or_(Score.auction_id.is_(None), Score.score_coverage < coverage_below)
+                )
+            )
         if court_code:
             query = query.filter(Auction.court_office_code == court_code)
 
@@ -602,10 +614,11 @@ class BatchCollector:
         result.total_pages = 1  # DB 모드에서는 페이지 없음
 
         logger.info(
-            "DB 재채점 대상: %d건 (coverage < %.2f%s)",
+            "DB 재채점 대상: %d건 (coverage < %.2f%s%s)",
             total,
             coverage_below,
             f", court={court_code}" if court_code else "",
+            ", score_exists=True" if score_exists else "",
         )
 
         if max_items > 0:

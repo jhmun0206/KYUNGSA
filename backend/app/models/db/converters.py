@@ -145,9 +145,17 @@ def registry_analysis_dto_to_orm(
 
 
 def auction_orm_to_detail(orm: Auction) -> AuctionCaseDetail:
-    """Auction ORM → AuctionCaseDetail (detail JSONB 스냅샷 복원)"""
+    """Auction ORM → AuctionCaseDetail (detail JSONB 스냅샷 복원)
+
+    detail JSONB가 AuctionCaseDetail.model_dump() 형식이 아닌 경우
+    (raw API JSON 등) ValidationError가 발생할 수 있으므로 try-except로 보호.
+    실패 시 정규화 컬럼에서 최소 복원한다.
+    """
     if orm.detail:
-        return AuctionCaseDetail.model_validate(orm.detail)
+        try:
+            return AuctionCaseDetail.model_validate(orm.detail)
+        except Exception:
+            pass  # detail JSONB 형식 불일치 → 정규화 컬럼으로 복원
     # fallback: 정규화 컬럼에서 최소 복원
     return AuctionCaseDetail(
         case_number=orm.case_number,

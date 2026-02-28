@@ -103,10 +103,12 @@ def run_rescore_db(
     delay: float,
     dry_run: bool,
     skip_occupancy: bool = False,
+    score_exists: bool = False,
 ) -> BatchResult:
     """DB 기반 재채점"""
     label = SEOUL_COURTS.get(court_code, court_code) if court_code else "전체"
-    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%})")
+    scope = "Score 보유 물건만" if score_exists else "Score 없는 건 포함"
+    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%}, {scope})")
 
     db = SessionLocal()
     try:
@@ -118,6 +120,7 @@ def run_rescore_db(
             enrich_delay=delay,
             dry_run=dry_run,
             skip_occupancy=skip_occupancy,
+            score_exists=score_exists,
         )
         print_result(result)
         return result
@@ -173,6 +176,10 @@ def main() -> None:
         "--coverage-below", type=float, default=0.30,
         help="--rescore-db 시 이 미만 coverage 물건만 재채점 (기본값 0.30)",
     )
+    parser.add_argument(
+        "--score-exists", action="store_true",
+        help="--rescore-db 시 Score가 이미 있는 물건만 처리 (Score 없는 건 제외)",
+    )
 
     parser.add_argument("--max", type=int, default=0, help="최대 처리 건수 (0=전체)")
     parser.add_argument("--force", action="store_true", help="기존 데이터 덮어쓰기")
@@ -204,6 +211,7 @@ def main() -> None:
             delay=args.delay,
             dry_run=args.dry_run,
             skip_occupancy=args.skip_occupancy,
+            score_exists=args.score_exists,
         )
         return
 
