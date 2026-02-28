@@ -590,6 +590,9 @@ class BatchCollector:
         score_exists: bool = False,
     ) -> None:
         """DB 재채점 루프"""
+        # 목록 검색 없이 바로 상세조회하면 세션 쿠키가 없어 실패하므로 워밍업
+        self._crawler.warm_up_session()
+
         if score_exists:
             # Score가 있는 물건 중 coverage 미달만 (INNER JOIN)
             query = (

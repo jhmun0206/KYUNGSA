@@ -535,6 +535,20 @@ class CourtAuctionClient:
         data = self._post(OCCUPANCY_URL, payload, extra_headers=extra_headers)
         return data
 
+    def warm_up_session(self) -> None:
+        """세션 워밍업 (상세조회 전 목록검색으로 쿠키 확보)
+
+        대법원 경매정보는 SEARCH_URL POST 응답에서 실제 세션 쿠키를 받는다.
+        INIT_URL(GET)만으로는 쿠키가 설정되지 않아 상세조회가 실패하므로,
+        목록 검색을 건너뛰는 모드(rescore-db 등)에서 미리 호출해야 한다.
+        """
+        logger.info("세션 워밍업: 더미 목록 검색으로 쿠키 초기화")
+        try:
+            self.search_cases_with_total(court_code="B000210", page_no=1, page_size=1)
+            logger.info("세션 워밍업 완료: 쿠키 %d개", len(self._cookies))
+        except Exception as e:
+            logger.warning("세션 워밍업 실패 (무시, fail-open): %s", e)
+
     def fetch_sale_results(
         self,
         court_code: str,
