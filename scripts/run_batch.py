@@ -96,6 +96,35 @@ def notify_result(result: BatchResult, *, court_label: str) -> None:
         send_telegram(msg)
 
 
+def run_rescore_db(
+    court_code: str | None,
+    coverage_below: float,
+    max_items: int,
+    delay: float,
+    dry_run: bool,
+    skip_occupancy: bool = False,
+) -> BatchResult:
+    """DB 기반 재채점"""
+    label = SEOUL_COURTS.get(court_code, court_code) if court_code else "전체"
+    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%})")
+
+    db = SessionLocal()
+    try:
+        collector = BatchCollector(db=db)
+        result = collector.rescore_db(
+            court_code=court_code,
+            coverage_below=coverage_below,
+            max_items=max_items,
+            enrich_delay=delay,
+            dry_run=dry_run,
+            skip_occupancy=skip_occupancy,
+        )
+        print_result(result)
+        return result
+    finally:
+        db.close()
+
+
 def run_single_court(
     court_code: str,
     max_items: int,
@@ -127,11 +156,24 @@ def run_single_court(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="KYUNGSA 배치 수집기")
-    group = parser.add_mutually_exclusive_group(required=True)
+
+    # --court / --all-seoul 은 서로 배타적
+    group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument("--court", type=str, help="법원코드 (예: B000210)")
     group.add_argument(
         "--all-seoul", action="store_true", help="서울 5개 법원 순차 수집"
     )
+
+    # --rescore-db 는 독립 플래그 (--court 와 조합 가능)
+    parser.add_argument(
+        "--rescore-db", action="store_true",
+        help="DB 기반 재채점 모드 (대법원 API 검색 없이 DB에서 직접 물건 재채점)",
+    )
+    parser.add_argument(
+        "--coverage-below", type=float, default=0.30,
+        help="--rescore-db 시 이 미만 coverage 물건만 재채점 (기본값 0.30)",
+    )
+
     parser.add_argument("--max", type=int, default=0, help="최대 처리 건수 (0=전체)")
     parser.add_argument("--force", action="store_true", help="기존 데이터 덮어쓰기")
     parser.add_argument("--delay", type=float, default=2.0, help="물건 간 대기 시간(초)")
@@ -145,8 +187,25 @@ def main() -> None:
     args = parser.parse_args()
     setup_logging(verbose=args.verbose)
 
+    # 모드 검증
+    if not (args.court or args.all_seoul or args.rescore_db):
+        parser.error("--court, --all-seoul, 또는 --rescore-db 중 하나를 지정하세요")
+    if args.all_seoul and args.rescore_db:
+        parser.error("--all-seoul 과 --rescore-db 는 함께 사용할 수 없습니다")
+
     if args.dry_run:
         print("*** DRY-RUN 모드: DB 저장 없이 수집만 수행 ***\n")
+
+    if args.rescore_db:
+        run_rescore_db(
+            court_code=args.court,  # None 이면 전체 법원
+            coverage_below=args.coverage_below,
+            max_items=args.max,
+            delay=args.delay,
+            dry_run=args.dry_run,
+            skip_occupancy=args.skip_occupancy,
+        )
+        return
 
     if args.all_seoul:
         results: list[BatchResult] = []

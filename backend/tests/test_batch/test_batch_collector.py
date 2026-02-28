@@ -14,6 +14,7 @@ from app.models.auction import AuctionCaseDetail, AuctionCaseListItem
 from app.models.db.auction import Auction
 from app.models.db.filter_result import FilterResultORM
 from app.models.db.pipeline_run import PipelineRun
+from app.models.db.score import Score
 from app.models.enriched_case import (
     EnrichedCase,
     FilterColor,
@@ -568,3 +569,200 @@ class TestSkipOccupancy:
         assert result.processed == 1
         # fetch_occupancy_report가 호출되어야 함
         crawler.fetch_occupancy_report.assert_called_once()
+
+
+# --- DB 재채점 테스트 헬퍼 ---
+
+
+def _insert_auction(
+    db_session,
+    case_number: str = "2026타경10001",
+    court_office_code: str = "B000210",
+) -> Auction:
+    """테스트용 Auction ORM 직접 삽입"""
+    auction = Auction(
+        case_number=case_number,
+        court="서울중앙지방법원",
+        court_office_code=court_office_code,
+        address="서울특별시 강남구 역삼동 123-4",
+        property_type="아파트",
+        appraised_value=500_000_000,
+        minimum_bid=400_000_000,
+        detail={
+            "case_number": case_number,
+            "court": "서울중앙지방법원",
+            "court_office_code": court_office_code,
+            "property_type": "아파트",
+            "address": "서울특별시 강남구 역삼동 123-4",
+            "appraised_value": 500_000_000,
+            "minimum_bid": 400_000_000,
+            "internal_case_number": "20260130010001",
+        },
+    )
+    db_session.add(auction)
+    db_session.flush()
+    return auction
+
+
+def _insert_score(db_session, auction_id: str, coverage: float = 0.20) -> Score:
+    """테스트용 Score ORM 직접 삽입"""
+    score = Score(
+        auction_id=auction_id,
+        score_coverage=coverage,
+        total_score=50.0,
+        property_category="아파트",
+    )
+    db_session.add(score)
+    db_session.flush()
+    return score
+
+
+class TestRescoreDb:
+    """DB 기반 재채점 모드"""
+
+    def _make_collector(self, db_session) -> tuple[BatchCollector, MagicMock, MagicMock]:
+        """재채점 전용 컬렉터 — fetch_case_detail 성공 mock"""
+        crawler = MagicMock(spec=CourtAuctionClient)
+        crawler.fetch_case_detail.return_value = _make_detail()
+
+        enricher = MagicMock()
+        enricher.enrich.side_effect = lambda detail: EnrichedCase(case=detail)
+
+        collector = BatchCollector(db=db_session, crawler=crawler, enricher=enricher)
+        return collector, crawler, enricher
+
+    def test_rescore_basic(self, db_session):
+        """DB에서 물건 로드 → 재채점 후 Score 업데이트"""
+        auction = _insert_auction(db_session, "2026타경10001")
+        _insert_score(db_session, auction.id, coverage=0.20)
+        db_session.commit()
+
+        collector, _, _ = self._make_collector(db_session)
+        result = collector.rescore_db(
+            coverage_below=0.30, enrich_delay=0, skip_occupancy=True,
+        )
+
+        assert result.total_searched == 1
+        assert result.processed == 1
+        assert result.updated_count == 1
+        assert len(result.errors) == 0
+
+    def test_rescore_coverage_filter(self, db_session):
+        """coverage_below 필터: 낮은 coverage만 재채점"""
+        a1 = _insert_auction(db_session, "2026타경10001")
+        a2 = _insert_auction(db_session, "2026타경10002")
+        _insert_score(db_session, a1.id, coverage=0.20)   # 재채점 대상
+        _insert_score(db_session, a2.id, coverage=0.80)   # coverage 충분 → 스킵
+        db_session.commit()
+
+        collector, _, _ = self._make_collector(db_session)
+        result = collector.rescore_db(
+            coverage_below=0.30, enrich_delay=0, skip_occupancy=True,
+        )
+
+        assert result.total_searched == 1   # a1만 해당
+        assert result.processed == 1
+
+    def test_rescore_no_score(self, db_session):
+        """Score 없는 물건도 재채점 대상에 포함"""
+        _insert_auction(db_session, "2026타경10001")
+        # Score 삽입 안 함
+        db_session.commit()
+
+        collector, _, _ = self._make_collector(db_session)
+        result = collector.rescore_db(
+            coverage_below=0.30, enrich_delay=0, skip_occupancy=True,
+        )
+
+        assert result.total_searched == 1
+        assert result.processed == 1
+
+    def test_rescore_court_filter(self, db_session):
+        """court_code 필터: 해당 법원만 처리"""
+        a1 = _insert_auction(db_session, "2026타경10001", court_office_code="B000210")
+        a2 = _insert_auction(db_session, "2026타경10002", court_office_code="B000211")
+        _insert_score(db_session, a1.id, coverage=0.20)
+        _insert_score(db_session, a2.id, coverage=0.20)
+        db_session.commit()
+
+        collector, _, _ = self._make_collector(db_session)
+        result = collector.rescore_db(
+            court_code="B000210", coverage_below=0.30,
+            enrich_delay=0, skip_occupancy=True,
+        )
+
+        assert result.total_searched == 1   # B000210만
+        assert result.processed == 1
+
+    def test_rescore_api_failure_fallback(self, db_session):
+        """대법원 API 갱신 실패해도 DB 데이터로 재채점 계속 (fail-open)"""
+        auction = _insert_auction(db_session, "2026타경10001")
+        _insert_score(db_session, auction.id, coverage=0.20)
+        db_session.commit()
+
+        crawler = MagicMock(spec=CourtAuctionClient)
+        crawler.fetch_case_detail.side_effect = Exception("API 연결 실패")
+
+        enricher = MagicMock()
+        enricher.enrich.side_effect = lambda detail: EnrichedCase(case=detail)
+
+        collector = BatchCollector(db=db_session, crawler=crawler, enricher=enricher)
+        result = collector.rescore_db(
+            coverage_below=0.30, enrich_delay=0, skip_occupancy=True,
+        )
+
+        # API 실패는 에러가 아님 (fail-open → DB 데이터로 계속)
+        assert result.processed == 1
+        assert len(result.errors) == 0
+
+    def test_rescore_dry_run(self, db_session):
+        """dry_run=True면 Score 업데이트 없음"""
+        auction = _insert_auction(db_session, "2026타경10001")
+        _insert_score(db_session, auction.id, coverage=0.20)
+        db_session.commit()
+
+        collector, _, _ = self._make_collector(db_session)
+        result = collector.rescore_db(
+            coverage_below=0.30, dry_run=True,
+            enrich_delay=0, skip_occupancy=True,
+        )
+
+        assert result.processed == 1
+        assert result.updated_count == 0   # dry_run이면 업데이트 없음
+
+        # Score는 여전히 원래 coverage 유지
+        score = db_session.query(Score).first()
+        assert abs(score.score_coverage - 0.20) < 0.01
+
+    def test_rescore_max_items(self, db_session):
+        """max_items 제한"""
+        for i in range(1, 6):
+            a = _insert_auction(db_session, f"2026타경1000{i}")
+            _insert_score(db_session, a.id, coverage=0.20)
+        db_session.commit()
+
+        collector, _, _ = self._make_collector(db_session)
+        result = collector.rescore_db(
+            coverage_below=0.30, max_items=3,
+            enrich_delay=0, skip_occupancy=True,
+        )
+
+        assert result.total_searched == 5   # 전체 대상은 5건
+        assert result.processed <= 3        # max_items=3 제한
+
+    def test_rescore_pipeline_run_created(self, db_session):
+        """재채점 시 PipelineRun이 RUNNING→COMPLETED으로 전이"""
+        auction = _insert_auction(db_session, "2026타경10001")
+        _insert_score(db_session, auction.id, coverage=0.20)
+        db_session.commit()
+
+        collector, _, _ = self._make_collector(db_session)
+        result = collector.rescore_db(
+            coverage_below=0.30, enrich_delay=0, skip_occupancy=True,
+        )
+
+        run = db_session.query(PipelineRun).first()
+        assert run is not None
+        assert "RESCORE" in run.run_id
+        assert run.status == "COMPLETED"
+        assert result.run_id == run.run_id

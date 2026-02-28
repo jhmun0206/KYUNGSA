@@ -14,10 +14,11 @@ import uuid
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.db.auction import Auction
-from app.models.db.converters import save_enriched_case
+from app.models.db.converters import auction_orm_to_detail, save_enriched_case
 from app.models.db.pipeline_run import PipelineRun
 from app.models.db.score import Score
 from app.models.enriched_case import FilterColor
@@ -471,3 +472,238 @@ class BatchCollector:
         )
         self._db.add(score_orm)
         self._db.flush()
+
+    # ──────────────────────────────────────────
+    # DB 기반 재채점 모드
+    # ──────────────────────────────────────────
+
+    def rescore_db(
+        self,
+        *,
+        court_code: str | None = None,
+        coverage_below: float = 0.30,
+        max_items: int = 0,
+        enrich_delay: float = 2.0,
+        dry_run: bool = False,
+        skip_occupancy: bool = False,
+    ) -> BatchResult:
+        """DB 기반 재채점 모드
+
+        대법원 API 검색 없이 DB에서 직접 물건을 가져와 재채점한다.
+        score_coverage < coverage_below 인 물건 (Score 없는 건 포함)만 처리.
+
+        Args:
+            court_code: 특정 법원만 처리 (None=전체)
+            coverage_below: 이 값 미만의 coverage를 가진 물건만 재채점 (0~1)
+            max_items: 최대 처리 건수 (0=전체)
+            enrich_delay: 물건 간 대기 시간 (초)
+            dry_run: True면 DB 저장 없이 채점만
+            skip_occupancy: True면 현황조사서 조회 스킵
+
+        Returns:
+            BatchResult
+        """
+        self._skip_occupancy = skip_occupancy
+        now = datetime.now(timezone.utc)
+        short_id = uuid.uuid4().hex[:8]
+        label = court_code or "ALL"
+        run_id = f"{now.strftime('%Y%m%d_%H%M%S')}_RESCORE_{label}_{short_id}"
+
+        result = BatchResult(
+            run_id=run_id,
+            court_code=f"RESCORE_{label}",
+            started_at=now,
+        )
+
+        # PipelineRun 생성 (RUNNING)
+        pipeline_run = None
+        if not dry_run:
+            pipeline_run = PipelineRun(
+                run_id=run_id,
+                court_code=f"RESCORE_{label}",
+                started_at=now,
+                status="RUNNING",
+            )
+            self._db.add(pipeline_run)
+            self._db.commit()
+
+        try:
+            self._do_rescore_db(
+                court_code=court_code,
+                coverage_below=coverage_below,
+                result=result,
+                max_items=max_items,
+                enrich_delay=enrich_delay,
+                dry_run=dry_run,
+            )
+        except Exception as e:
+            logger.error("DB 재채점 치명적 오류: %s", e)
+            result.errors.append(f"치명적 오류: {e}")
+
+        result.finished_at = datetime.now(timezone.utc)
+
+        if pipeline_run and not dry_run:
+            try:
+                try:
+                    self._db.rollback()
+                except Exception:
+                    pass
+                pipeline_run.finished_at = result.finished_at
+                pipeline_run.total_searched = result.total_searched
+                pipeline_run.total_enriched = result.processed
+                pipeline_run.total_filtered = result.processed
+                pipeline_run.red_count = result.red_count
+                pipeline_run.yellow_count = result.yellow_count
+                pipeline_run.green_count = result.green_count
+                pipeline_run.errors = result.errors or None
+                pipeline_run.status = "COMPLETED"
+                self._db.commit()
+            except Exception as e:
+                logger.error("PipelineRun 최종 커밋 실패 [%s]: %s", run_id, e)
+                try:
+                    self._db.rollback()
+                except Exception:
+                    pass
+
+        logger.info(
+            "DB 재채점 완료 [%s]: 대상=%d, 처리=%d, 업데이트=%d, 에러=%d",
+            run_id,
+            result.total_searched,
+            result.processed,
+            result.updated_count,
+            len(result.errors),
+        )
+        return result
+
+    def _do_rescore_db(
+        self,
+        court_code: str | None,
+        coverage_below: float,
+        result: BatchResult,
+        *,
+        max_items: int,
+        enrich_delay: float,
+        dry_run: bool,
+    ) -> None:
+        """DB 재채점 루프"""
+        # coverage_below 미만인 물건만 선택 (Score 없는 건 포함)
+        query = (
+            self._db.query(Auction)
+            .outerjoin(Score, Auction.id == Score.auction_id)
+            .filter(
+                or_(Score.auction_id.is_(None), Score.score_coverage < coverage_below)
+            )
+        )
+        if court_code:
+            query = query.filter(Auction.court_office_code == court_code)
+
+        total = query.count()
+        result.total_searched = total
+        result.total_pages = 1  # DB 모드에서는 페이지 없음
+
+        logger.info(
+            "DB 재채점 대상: %d건 (coverage < %.2f%s)",
+            total,
+            coverage_below,
+            f", court={court_code}" if court_code else "",
+        )
+
+        if max_items > 0:
+            query = query.limit(max_items)
+
+        auctions: list[Auction] = query.all()
+
+        for i, auction_orm in enumerate(auctions):
+            if i > 0:
+                time.sleep(enrich_delay)
+
+            try:
+                self._rescore_single_from_db(
+                    auction_orm=auction_orm,
+                    result=result,
+                    dry_run=dry_run,
+                )
+            except Exception as e:
+                try:
+                    self._db.rollback()
+                except Exception:
+                    pass
+                logger.error("재채점 실패 [%s]: %s", auction_orm.case_number, e)
+                result.errors.append(f"[{auction_orm.case_number}] {e}")
+
+    def _rescore_single_from_db(
+        self,
+        auction_orm: Auction,
+        result: BatchResult,
+        *,
+        dry_run: bool,
+    ) -> None:
+        """DB 물건 단건 재채점: ORM → 상세 복원 → (API 갱신 시도) → 보강 → 평가 → Score 저장"""
+        # 1. DB에서 상세 복원
+        detail = auction_orm_to_detail(auction_orm)
+
+        # 2. 대법원 API로 최신 상세 데이터 갱신 시도 (fail-open)
+        try:
+            fresh = self._crawler.fetch_case_detail(
+                case_number=detail.internal_case_number or detail.case_number,
+                court_office_code=auction_orm.court_office_code or detail.court_office_code or "",
+                property_sequence="1",
+            )
+            # property_type fallback
+            if not fresh.property_type and detail.property_type:
+                fresh.property_type = detail.property_type
+            detail = fresh
+            logger.debug("API 갱신 성공: %s", auction_orm.case_number)
+        except Exception as e:
+            logger.info(
+                "API 갱신 스킵 (fail-open) [%s]: %s", auction_orm.case_number, e
+            )
+
+        # 3. 보강 + 현황조사서 + 통합 평가
+        enriched = self._enricher.enrich(detail)
+
+        tenants = None
+        if not self._skip_occupancy:
+            tenants = self._fetch_occupancy_tenants(
+                court_office_code=auction_orm.court_office_code or detail.court_office_code or "",
+                property_sequence="1",
+                formatted_case_number=auction_orm.case_number,
+            )
+
+        eval_result = self._rule_engine.evaluate(enriched, tenants=tenants)
+        enriched.filter_result = eval_result.filter_result
+        enriched.price_score = eval_result.price
+        enriched.occupancy_score = eval_result.occupancy
+        enriched.total_score = eval_result.total
+
+        # 카운트 갱신
+        color = enriched.filter_result.color
+        if color == FilterColor.RED:
+            result.red_count += 1
+        elif color == FilterColor.YELLOW:
+            result.yellow_count += 1
+        else:
+            result.green_count += 1
+
+        result.processed += 1
+
+        # 4. Score 저장 (per-case commit)
+        if not dry_run:
+            if enriched.total_score:
+                try:
+                    self._save_score(auction_orm.id, enriched, result.run_id)
+                    self._db.commit()
+                    result.updated_count += 1
+                except Exception as e:
+                    self._db.rollback()
+                    raise RuntimeError(f"Score 저장 실패: {e}") from e
+            else:
+                result.skipped += 1
+
+        logger.info(
+            "재채점 완료 [%s]: coverage=%.2f grade=%s%s",
+            auction_orm.case_number,
+            enriched.total_score.score_coverage if enriched.total_score else 0.0,
+            enriched.total_score.grade if enriched.total_score else "-",
+            " (dry-run)" if dry_run else "",
+        )
