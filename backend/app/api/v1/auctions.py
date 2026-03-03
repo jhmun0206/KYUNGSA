@@ -253,7 +253,7 @@ def get_auctions(
     court_office_code: str | None = Query(None, description="법원 코드"),
     grade: str | None = Query(None, description="등급 필터 (콤마 구분: A,B,C)"),
     property_type: str | None = Query(None, description="물건 유형"),
-    sort: str = Query("grade", description="정렬 기준: grade|appraised_value|auction_date|predicted_winning_ratio"),
+    sort: str = Query("grade", description="정렬 기준: grade|appraised_value|auction_date|minimum_bid|bid_count|predicted_winning_ratio"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -285,6 +285,10 @@ def get_auctions(
         query = query.order_by(Auction.appraised_value.desc().nullslast())
     elif sort == "auction_date":
         query = query.order_by(Auction.auction_date.asc().nullslast())
+    elif sort == "minimum_bid":
+        query = query.order_by(Auction.minimum_bid.asc().nullslast())
+    elif sort == "bid_count":
+        query = query.order_by(Auction.bid_count.desc().nullslast())
     elif sort == "predicted_winning_ratio":
         query = query.order_by(Score.predicted_winning_ratio.asc().nullslast())
     else:

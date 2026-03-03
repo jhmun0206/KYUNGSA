@@ -10,6 +10,8 @@ const SORT_OPTIONS = [
   { value: "grade", label: "등급순" },
   { value: "auction_date", label: "매각기일순" },
   { value: "appraised_value", label: "감정가순" },
+  { value: "minimum_bid", label: "최저가순" },
+  { value: "bid_count", label: "유찰많은순" },
   { value: "predicted_winning_ratio", label: "낙찰가율순" },
 ]
 
@@ -46,6 +48,10 @@ export function SearchFilters() {
   const cfTo = searchParams.get("cf_to") ?? ""
 
   const hasClientFilters = !!(cfMin || cfMax || cfFail || cfFrom || cfTo)
+  const clientFilterCount =
+    ((cfMin || cfMax) ? 1 : 0) +
+    (cfFail ? 1 : 0) +
+    ((cfFrom || cfTo) ? 1 : 0)
   const [showAdvanced, setShowAdvanced] = useState(hasClientFilters)
 
   const update = useCallback(
@@ -158,7 +164,7 @@ export function SearchFilters() {
           {/* 상세 필터 토글 */}
           <button
             onClick={() => setShowAdvanced((v) => !v)}
-            className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+            className={`relative flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
               showAdvanced || hasClientFilters
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:text-foreground"
@@ -166,6 +172,11 @@ export function SearchFilters() {
           >
             <SlidersHorizontal className="h-3 w-3" />
             상세
+            {clientFilterCount > 0 && (
+              <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                {clientFilterCount}
+              </span>
+            )}
           </button>
 
           {/* 정렬 */}

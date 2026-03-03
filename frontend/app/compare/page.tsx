@@ -140,10 +140,11 @@ export default function ComparePage() {
   const bestLegal = bestIdx((i) => i.score?.legal_score)
   const bestPrice = bestIdx((i) => i.score?.price_score)
   const bestLocation = bestIdx((i) => i.score?.location_score)
+  const bestOccupancy = bestIdx((i) => i.score?.occupancy_score)
   const bestDiscount = bestIdx((i) => calcDiscount(i.minimum_bid, i.appraised_value))
 
   return (
-    <div>
+    <div className="pb-20 sm:pb-0">
       {/* 헤더 */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground">
@@ -164,6 +165,7 @@ export default function ComparePage() {
       <div className="space-y-4 sm:hidden">
         <AnimatePresence mode="popLayout">
           {items.map((item) => {
+
             const failCount = Math.max(0, item.bid_count - 1)
             const discount = calcDiscount(item.minimum_bid, item.appraised_value)
             const dday = calcDday(item.auction_date)
@@ -239,6 +241,15 @@ export default function ComparePage() {
             )
           })}
         </AnimatePresence>
+        {/* 빈 슬롯 (모바일) */}
+        {items.length < 3 && (
+          <Link
+            href="/search"
+            className="flex items-center justify-center rounded-lg border-2 border-dashed border-border py-14 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          >
+            <span className="text-2xl font-light">+</span>
+          </Link>
+        )}
       </div>
 
       {/* --- 데스크탑 뷰 (가로 비교 테이블) --- */}
@@ -311,8 +322,9 @@ export default function ComparePage() {
           />
           <CompareRow
             label="명도"
+            highlight={bestOccupancy}
             values={items.map((i, idx) => (
-              <MiniScoreBar key={idx} value={i.score?.occupancy_score ?? null} best={false} />
+              <MiniScoreBar key={idx} value={i.score?.occupancy_score ?? null} best={bestOccupancy === idx} />
             ))}
           />
 
@@ -367,7 +379,7 @@ export default function ComparePage() {
           {/* 액션 */}
           <div
             className="grid gap-3 pt-3"
-            style={{ gridTemplateColumns: `8rem repeat(${items.length}, 1fr)` }}
+            style={{ gridTemplateColumns: `8rem repeat(3, 1fr)` }}
           >
             <div />
             {items.map((item) => (
@@ -377,6 +389,15 @@ export default function ComparePage() {
                 className="block rounded-md bg-primary/10 px-3 py-2 text-center text-xs font-semibold text-primary hover:bg-primary/20"
               >
                 상세 보기
+              </Link>
+            ))}
+            {Array.from({ length: 3 - items.length }).map((_, i) => (
+              <Link
+                key={i}
+                href="/search"
+                className="flex items-center justify-center rounded-md border-2 border-dashed border-border py-2 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                <span className="text-sm font-light">+</span>
               </Link>
             ))}
           </div>

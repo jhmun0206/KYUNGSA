@@ -2,19 +2,34 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Search, Map, Heart } from "lucide-react"
+import { Home, Search, Map, Heart, Scale } from "lucide-react"
+import { useState, useEffect } from "react"
 import { ThemeToggle } from "./ThemeToggle"
 import { cn } from "@/lib/utils"
+import { getCompareCount } from "@/lib/compare"
 
 const NAV_ITEMS = [
   { label: "홈", href: "/", icon: Home },
   { label: "검색", href: "/search", icon: Search },
   { label: "지도", href: "/map", icon: Map },
+  { label: "비교", href: "/compare", icon: Scale },
   { label: "관심", href: "/favorites", icon: Heart },
 ]
 
 export function Header() {
   const pathname = usePathname()
+  const [compareCount, setCompareCount] = useState(0)
+
+  useEffect(() => {
+    setCompareCount(getCompareCount())
+    const handler = () => setCompareCount(getCompareCount())
+    window.addEventListener("compare-change", handler)
+    window.addEventListener("storage", handler)
+    return () => {
+      window.removeEventListener("compare-change", handler)
+      window.removeEventListener("storage", handler)
+    }
+  }, [])
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-sm">
@@ -29,12 +44,13 @@ export function Header() {
           <nav className="hidden items-center gap-0.5 sm:flex">
             {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
               const active = href === "/" ? pathname === "/" : pathname.startsWith(href)
+              const isCompare = href === "/compare"
               return (
                 <Link
                   key={href}
                   href={href}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    "relative flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                     active
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -42,6 +58,11 @@ export function Header() {
                 >
                   <Icon size={15} />
                   {label}
+                  {isCompare && compareCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-white">
+                      {compareCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}

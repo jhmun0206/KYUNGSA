@@ -34,3 +34,7 @@ export function isInCompare(caseNumber: string): boolean {
 export function clearCompare(): void {
   localStorage.removeItem(KEY)
 }
+
+export function getCompareCount(): number {
+  return getCompareList().length
+}
