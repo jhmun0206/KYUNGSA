@@ -1,6 +1,6 @@
 "use client"
 
-import { SearchResultsGrid } from "@/components/search/SearchResultsGrid"
+import { SearchResultsList } from "@/components/search/SearchResultsList"
 import {
   applyClientFilters,
   hasActiveClientFilters,
@@ -27,7 +27,7 @@ export function ClientFilteredResults({ items, serverTotal, clientFilters }: Pro
           현재 페이지 내 필터링 결과입니다 ({filtered.length}/{items.length}건)
         </p>
       )}
-      <SearchResultsGrid items={filtered} total={displayTotal} />
+      <SearchResultsList items={filtered} total={displayTotal} />
     </div>
   )
 }

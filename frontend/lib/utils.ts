@@ -49,6 +49,27 @@ export function truncateAddress(addr: string, maxLen = 25): string {
   return addr.slice(0, maxLen) + "…"
 }
 
+/** 매각기일까지 남은 일수 (숫자). 음수=지남, 0=오늘, 양수=미래 */
+export function calcDdayNumber(dateStr: string | null | undefined): number | null {
+  if (!dateStr) return null
+  const target = new Date(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  target.setHours(0, 0, 0, 0)
+  return Math.round((target.getTime() - today.getTime()) / 86400000)
+}
+
+/** D-day에 따른 Tailwind 색상 클래스 */
+export function getDdayColor(dateStr: string | null | undefined): string {
+  const dday = calcDdayNumber(dateStr)
+  if (dday === null) return "text-muted-foreground"
+  if (dday < 0) return "text-muted-foreground line-through"
+  if (dday === 0) return "text-destructive font-bold"
+  if (dday <= 3) return "text-destructive font-bold"
+  if (dday <= 7) return "text-orange-500 font-semibold"
+  return "text-muted-foreground"
+}
+
 /** 점수 구간별 해석 텍스트 + 색상 반환 */
 export function getScoreInterpretation(score: number | null): {
   text: string

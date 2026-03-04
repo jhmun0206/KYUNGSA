@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { ArrowRight, Building2 } from "lucide-react"
 import { fetchAuctions } from "@/lib/api"
-import { TopPicksGrid } from "@/components/landing/TopPicksGrid"
+import { AuctionListRow } from "@/components/domain/AuctionListRow"
 import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
 
 export const dynamic = "force-dynamic"
@@ -67,7 +67,11 @@ export default async function LandingPage() {
             </span>
           )}
         </div>
-        <TopPicksGrid items={topPicks.items.slice(0, 4)} />
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {topPicks.items.slice(0, 4).map((item) => (
+            <AuctionListRow key={item.case_number} item={item} />
+          ))}
+        </div>
       </section>
 
       {/* CTA */}

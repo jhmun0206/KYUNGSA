@@ -12,6 +12,7 @@ const SORT_OPTIONS = [
   { value: "appraised_value", label: "감정가순" },
   { value: "minimum_bid", label: "최저가순" },
   { value: "bid_count", label: "유찰많은순" },
+  { value: "discount_rate", label: "할인율순" },
   { value: "predicted_winning_ratio", label: "낙찰가율순" },
 ]
 

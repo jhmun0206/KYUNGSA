@@ -10,7 +10,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import case as sa_case, func
+from sqlalchemy import Float, case as sa_case, func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
@@ -289,6 +289,16 @@ def get_auctions(
         query = query.order_by(Auction.minimum_bid.asc().nullslast())
     elif sort == "bid_count":
         query = query.order_by(Auction.bid_count.desc().nullslast())
+    elif sort == "discount_rate":
+        # (감정가 - 최저가) / 감정가 DESC — 할인율 높은 순
+        query = query.order_by(
+            (
+                (Auction.appraised_value - Auction.minimum_bid).cast(Float)
+                / func.nullif(Auction.appraised_value.cast(Float), 0)
+            )
+            .desc()
+            .nullslast()
+        )
     elif sort == "predicted_winning_ratio":
         query = query.order_by(Score.predicted_winning_ratio.asc().nullslast())
     else:

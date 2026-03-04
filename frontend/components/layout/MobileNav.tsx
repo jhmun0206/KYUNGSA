@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Search, Map, Heart, Scale } from "lucide-react"
+import { Home, Search, Heart, Scale } from "lucide-react"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { getCompareCount } from "@/lib/compare"
@@ -10,7 +10,6 @@ import { getCompareCount } from "@/lib/compare"
 const NAV_ITEMS = [
   { label: "홈", href: "/", icon: Home },
   { label: "검색", href: "/search", icon: Search },
-  { label: "지도", href: "/map", icon: Map },
   { label: "비교", href: "/compare", icon: Scale },
   { label: "관심", href: "/favorites", icon: Heart },
 ]
