@@ -5,6 +5,7 @@ interface Props {
 }
 
 function formatAmount(v: number): string {
+  if (!v || v === 0) return "-"
   const uk = Math.round(v / 10000)
   if (uk >= 10000) return `${(uk / 10000).toFixed(1)}억`
   return `${uk.toLocaleString()}만`

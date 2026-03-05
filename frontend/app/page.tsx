@@ -7,20 +7,36 @@ import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
 export const dynamic = "force-dynamic"
 
 export default async function LandingPage() {
+  let upcoming = { items: [] as Awaited<ReturnType<typeof fetchAuctions>>["items"], total: 0 }
   let topPicks = { items: [] as Awaited<ReturnType<typeof fetchAuctions>>["items"], total: 0 }
   let totalCount = 0
   let apiError = false
 
   try {
-    const [picks, all] = await Promise.all([
-      fetchAuctions({ grade: "A,B", sort: "grade", size: 4 }),
+    const [upcomingRes, topPicksRes, allStats] = await Promise.all([
+      fetchAuctions({ grade: "A,B", sort: "auction_date", size: 20 }),
+      fetchAuctions({ grade: "A,B", sort: "grade", size: 12 }),
       fetchAuctions({ size: 1 }),
     ])
-    topPicks = picks
-    totalCount = all.total
+    upcoming = upcomingRes
+    topPicks = topPicksRes
+    totalCount = allStats.total
   } catch {
     apiError = true
   }
+
+  // 섹션 1: 오늘~7일 이내 매각기일 필터링 (서버 컴포넌트에서)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const in7days = new Date(today)
+  in7days.setDate(today.getDate() + 7)
+  const thisWeek = upcoming.items
+    .filter((item) => {
+      if (!item.auction_date) return false
+      const d = new Date(item.auction_date)
+      return d >= today && d <= in7days
+    })
+    .slice(0, 8)
 
   const abCount = topPicks.total
 
@@ -46,46 +62,67 @@ export default async function LandingPage() {
         <p className="mt-3 text-base text-muted-foreground sm:text-lg">
           70%를 먼저 걸러내고, 볼 가치 있는 물건만 큐레이션합니다
         </p>
-
-        {/* 통계 strip */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-6 sm:gap-10">
-          <Stat label="수집 물건" value={totalCount > 0 ? `${totalCount.toLocaleString()}건` : "–"} />
-          <div className="h-8 w-px bg-border" />
-          <Stat label="A/B등급" value={abCount > 0 ? `${abCount.toLocaleString()}건` : "–"} accent />
-          <div className="h-8 w-px bg-border" />
-          <Stat label="서울 5개 법원" value="수집 중" />
-        </div>
       </section>
 
-      {/* Top Picks */}
-      <section className="space-y-4">
+      {/* 섹션 1: 이번 주 매각기일 */}
+      {thisWeek.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-foreground">이번 주 매각기일</h2>
+              <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                {thisWeek.length}건
+              </span>
+            </div>
+            <Link
+              href="/search?sort=auction_date&grade=A,B"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              검색에서 더 보기
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            {thisWeek.map((item) => (
+              <AuctionListRow key={item.case_number} item={item} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 섹션 2: 높은 평가 물건 */}
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-foreground">이번 주 주목할 만한 물건</h2>
-          {abCount > 4 && (
-            <span className="text-xs text-muted-foreground">
-              A/B등급 {abCount}건 중 상위 4건
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-foreground">높은 평가 물건</h2>
+            {abCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                A/B등급 {abCount.toLocaleString()}건
+              </span>
+            )}
+          </div>
+          <Link
+            href="/search?sort=grade&grade=A,B"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            전체 보기
+            <ArrowRight className="h-3 w-3" />
+          </Link>
         </div>
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {topPicks.items.slice(0, 4).map((item) => (
+          {topPicks.items.slice(0, 12).map((item) => (
             <AuctionListRow key={item.case_number} item={item} />
           ))}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="text-center">
-        <Link
-          href="/search"
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          전체 물건 검색하기
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-        <p className="mt-3 text-xs text-muted-foreground">
-          등급 · 법원 · 물건종류로 필터링할 수 있습니다
-        </p>
+      {/* 섹션 3: 통계 위젯 */}
+      <section className="flex flex-wrap items-center justify-center gap-6 sm:gap-10">
+        <Stat label="수집 물건" value={totalCount > 0 ? `${totalCount.toLocaleString()}건` : "–"} />
+        <div className="h-8 w-px bg-border" />
+        <Stat label="A/B등급" value={abCount > 0 ? `${abCount.toLocaleString()}건` : "–"} accent />
+        <div className="h-8 w-px bg-border" />
+        <Stat label="서울 5개 법원" value="수집 중" />
       </section>
 
       <DisclaimerBanner />

@@ -1,15 +1,27 @@
 "use client"
 
+import { useState } from "react"
+import { ChevronDown } from "lucide-react"
 import { ScoreRadar } from "@/components/auction/ScoreRadar"
 import { PriceComparison } from "@/components/auction/PriceComparison"
 import type { AuctionDetailResponse } from "@/lib/types"
-import { cn, getScoreInterpretation } from "@/lib/utils"
+import { cn, getScoreInterpretation, calcDiscount } from "@/lib/utils"
 
 interface Props {
   auction: AuctionDetailResponse
 }
 
-function ScoreBar({ value, label }: { value: number | null; label: string }) {
+function ScoreBarWithBreakdown({
+  value,
+  label,
+  children,
+}: {
+  value: number | null
+  label: string
+  children?: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const hasBreakdown = !!children
   const pct = value ?? 0
   const color =
     pct >= 70 ? "bg-primary" : pct >= 50 ? "bg-amber-400" : "bg-red-400"
@@ -17,26 +29,73 @@ function ScoreBar({ value, label }: { value: number | null; label: string }) {
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{label}</span>
-        <div className="flex items-center gap-2">
-          <span className={cn("text-xs", interp.colorClass)}>
-            {interp.text}
+      <button
+        className="w-full text-left"
+        onClick={() => hasBreakdown && setOpen((v) => !v)}
+      >
+        <div className="flex items-center justify-between text-sm">
+          <span className="flex items-center gap-1 text-muted-foreground">
+            {label}
+            {hasBreakdown && (
+              <ChevronDown
+                size={12}
+                className={cn("transition-transform", open && "rotate-180")}
+              />
+            )}
           </span>
-          <span className={cn("font-semibold tabular-nums", value == null ? "text-muted-foreground" : "text-foreground")}>
-            {value != null ? `${value.toFixed(0)}점` : "분석 대기"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={cn("text-xs", interp.colorClass)}>{interp.text}</span>
+            <span
+              className={cn(
+                "font-semibold tabular-nums",
+                value == null ? "text-muted-foreground" : "text-foreground"
+              )}
+            >
+              {value != null ? `${value.toFixed(0)}점` : "분석 대기"}
+            </span>
+          </div>
         </div>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${pct}%` }} />
-      </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted mt-1">
+          <div
+            className={cn("h-full rounded-full transition-all", color)}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </button>
+      {open && hasBreakdown && (
+        <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+          {children}
+        </div>
+      )}
     </div>
   )
 }
 
+function fmtDist(m: number): string {
+  return m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`
+}
+
 export function PillarBreakdown({ auction }: Props) {
   const score = auction.score
+
+  // 수익성 근거
+  const discount = calcDiscount(auction.minimum_bid, auction.appraised_value)
+  const failCount = Math.max(0, auction.bid_count - 1)
+  const predictedRatio =
+    auction.ml_prediction?.predicted_ratio ?? score?.predicted_winning_ratio
+
+  // 입지 근거 (location_data — 현재 DB 미저장, 대부분 null)
+  const locData = auction.location_data
+  const stationM =
+    typeof locData?.nearest_station_m === "number" ? locData.nearest_station_m : null
+  const amenityCount =
+    typeof locData?.amenity_count_500m === "number" ? locData.amenity_count_500m : null
+  const schoolM =
+    typeof locData?.nearest_school_m === "number" ? locData.nearest_school_m : null
+  const hasLocationData = stationM != null || amenityCount != null || schoolM != null
+
+  // 명도 근거
+  const hasReport = !!auction.specification_remarks
 
   return (
     <section className="space-y-4">
@@ -59,10 +118,48 @@ export function PillarBreakdown({ auction }: Props) {
           <p className="mb-4 text-sm font-semibold text-card-foreground">항목별 점수</p>
           {score ? (
             <div className="space-y-3">
-              <ScoreBar value={score.legal_score} label="권리분석" />
-              <ScoreBar value={score.price_score} label="수익성" />
-              <ScoreBar value={score.location_score} label="입지" />
-              <ScoreBar value={score.occupancy_score} label="명도" />
+              {/* 권리분석 */}
+              <ScoreBarWithBreakdown value={score.legal_score} label="권리분석">
+                <p>· 등기부등본 미수집 (유료 항목)</p>
+                <p>· 수동 조회 후 업데이트됩니다</p>
+              </ScoreBarWithBreakdown>
+
+              {/* 수익성 */}
+              <ScoreBarWithBreakdown value={score.price_score} label="수익성">
+                {discount != null && <p>· 할인율: {Math.round(discount * 100)}%</p>}
+                <p>· 유찰 횟수: {failCount}회</p>
+                {predictedRatio != null && (
+                  <p>· 추정 낙찰가율: {(predictedRatio * 100).toFixed(0)}%</p>
+                )}
+                <p className="text-[10px] mt-1 opacity-70">
+                  자동 수집 데이터 기반, 실제와 다를 수 있습니다
+                </p>
+              </ScoreBarWithBreakdown>
+
+              {/* 입지 — location_data 없으면 accordion 숨김 */}
+              <ScoreBarWithBreakdown value={score.location_score} label="입지">
+                {hasLocationData ? (
+                  <>
+                    {stationM != null && <p>· 지하철: {fmtDist(stationM)}</p>}
+                    {amenityCount != null && (
+                      <p>· 편의시설 500m 이내: {amenityCount}개</p>
+                    )}
+                    {schoolM != null && <p>· 학교: {fmtDist(schoolM)}</p>}
+                    <p className="text-[10px] mt-1 opacity-70">
+                      자동 수집 데이터 기반, 실제와 다를 수 있습니다
+                    </p>
+                  </>
+                ) : undefined}
+              </ScoreBarWithBreakdown>
+
+              {/* 명도 */}
+              <ScoreBarWithBreakdown value={score.occupancy_score} label="명도">
+                <p>· 현황조사서: {hasReport ? "수집 완료" : "데이터 없음"}</p>
+                <p className="text-[10px] mt-1 opacity-70">
+                  자동 수집 데이터 기반, 실제와 다를 수 있습니다
+                </p>
+              </ScoreBarWithBreakdown>
+
               <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
                 <span className="text-sm font-semibold text-foreground">종합</span>
                 <span className="text-xl font-black tabular-nums text-primary">
@@ -98,7 +195,12 @@ export function PillarBreakdown({ auction }: Props) {
             <span className="text-xs text-muted-foreground">
               모델 추정 낙찰가율:{" "}
               <span className="font-semibold text-foreground">
-                {((auction.ml_prediction?.predicted_ratio ?? score?.predicted_winning_ratio ?? 0) * 100).toFixed(0)}%
+                {(
+                  (auction.ml_prediction?.predicted_ratio ??
+                    score?.predicted_winning_ratio ??
+                    0) * 100
+                ).toFixed(0)}
+                %
               </span>{" "}
               (참고)
               <span className="ml-1 text-[10px] text-muted-foreground">
