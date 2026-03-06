@@ -131,6 +131,7 @@ export interface AuctionListParams {
   court_office_code?: string
   grade?: string        // "A,B,C"
   property_type?: string
+  q?: string            // 주소 키워드 검색
   sort?: string
   page?: number
   size?: number

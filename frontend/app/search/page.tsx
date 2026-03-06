@@ -15,6 +15,7 @@ interface PageProps {
     grade?: string
     court?: string
     type?: string
+    q?: string
     sort?: string
     page?: string
     // 클라이언트 필터 (cf_ 접두어)
@@ -38,6 +39,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       grade: searchParams.grade,
       court_office_code: searchParams.court,
       property_type: searchParams.type,
+      q: searchParams.q,
       sort: searchParams.sort ?? "grade",
       page,
       size,
@@ -123,6 +125,7 @@ function Pagination({
     if (searchParams.grade) params.set("grade", searchParams.grade)
     if (searchParams.court) params.set("court", searchParams.court)
     if (searchParams.type) params.set("type", searchParams.type)
+    if (searchParams.q) params.set("q", searchParams.q)
     if (searchParams.sort) params.set("sort", searchParams.sort)
     // 클라이언트 필터 파라미터 보존
     if (searchParams.cf_min) params.set("cf_min", searchParams.cf_min)

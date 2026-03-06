@@ -256,6 +256,7 @@ def get_auctions(
     court_office_code: str | None = Query(None, description="법원 코드"),
     grade: str | None = Query(None, description="등급 필터 (콤마 구분: A,B,C)"),
     property_type: str | None = Query(None, description="물건 유형"),
+    q: str | None = Query(None, description="주소 키워드 검색"),
     sort: str = Query("grade", description="정렬 기준: grade|appraised_value|auction_date|minimum_bid|bid_count|predicted_winning_ratio"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -279,6 +280,9 @@ def get_auctions(
 
     if property_type:
         query = query.filter(Auction.property_type.contains(property_type))
+
+    if q:
+        query = query.filter(Auction.address.ilike(f"%{q}%"))
 
     # 전체 건수 (페이지네이션 전)
     total = query.count()

@@ -3,7 +3,9 @@ import Link from "next/link"
 import { fetchAuctionDetail, ApiNotFoundError } from "@/lib/api"
 import { DecisionSection } from "@/components/detail/DecisionSection"
 import { PillarBreakdown } from "@/components/detail/PillarBreakdown"
+import { InvestmentCalculator } from "@/components/detail/InvestmentCalculator"
 import { BasicInfo } from "@/components/detail/BasicInfo"
+import { MobileActionBar } from "@/components/detail/MobileActionBar"
 
 interface PageProps {
   params: { caseNumber: string }
@@ -43,21 +45,38 @@ export default async function AuctionDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 pb-16">
+    <div className="mx-auto max-w-4xl space-y-8 pb-24 sm:pb-16">
       {/* 섹션 1: 의사결정 — 등급 + 가격 + D-day + 면책 */}
       <DecisionSection auction={auction} />
 
-      {/* 섹션 2: 상세 분석 — 레이더 + 바차트 + 가격비교 */}
-      <PillarBreakdown auction={auction} />
+      {/* 앵커 네비게이션 */}
+      <nav className="flex gap-4 border-b border-border pb-2 text-sm overflow-x-auto">
+        <a href="#analysis" className="text-primary font-medium whitespace-nowrap">상세 분석</a>
+        <a href="#investment" className="text-muted-foreground hover:text-primary whitespace-nowrap">투자 분석</a>
+        <a href="#raw-data" className="text-muted-foreground hover:text-primary whitespace-nowrap">원본 데이터</a>
+      </nav>
 
-      {/* 섹션 3: 원본 데이터 — 기일내역 + 기본정보 */}
-      <BasicInfo auction={auction} />
+      {/* 섹션 2: 상세 분석 — 레이더 + 바차트 + 가격비교 */}
+      <div id="analysis">
+        <PillarBreakdown auction={auction} />
+      </div>
+
+      {/* 섹션 3: 투자 분석 시뮬레이터 */}
+      <InvestmentCalculator auction={auction} />
+
+      {/* 섹션 4: 원본 데이터 — 기일내역 + 기본정보 */}
+      <div id="raw-data">
+        <BasicInfo auction={auction} />
+      </div>
 
       <div className="text-center">
         <Link href="/" className="text-sm text-primary hover:underline">
           ← 목록으로 돌아가기
         </Link>
       </div>
+
+      {/* 모바일 하단 액션바 */}
+      <MobileActionBar caseNumber={auction.case_number} address={auction.address} />
     </div>
   )
 }

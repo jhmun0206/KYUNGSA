@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { useCallback, useState } from "react"
-import { X, SlidersHorizontal } from "lucide-react"
+import { X, SlidersHorizontal, Search } from "lucide-react"
 import { COURT_OPTIONS, GRADE_OPTIONS, PROPERTY_TYPE_OPTIONS } from "@/lib/constants"
 import { formatPrice } from "@/lib/utils"
 
@@ -48,6 +48,17 @@ export function SearchFilters() {
   const cfFrom = searchParams.get("cf_from") ?? ""
   const cfTo = searchParams.get("cf_to") ?? ""
 
+  // 키워드 검색
+  const [keyword, setKeyword] = useState(searchParams.get("q") ?? "")
+
+  const handleKeywordSearch = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (keyword.trim()) params.set("q", keyword.trim())
+    else params.delete("q")
+    params.delete("page")
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
   const hasClientFilters = !!(cfMin || cfMax || cfFail || cfFrom || cfTo)
   const clientFilterCount =
     ((cfMin || cfMax) ? 1 : 0) +
@@ -76,7 +87,8 @@ export function SearchFilters() {
     update("grade", next.join(","))
   }
 
-  const hasFilters = selectedGrades.length > 0 || selectedCourt || selectedType || hasClientFilters
+  const currentQ = searchParams.get("q") ?? ""
+  const hasFilters = selectedGrades.length > 0 || selectedCourt || selectedType || currentQ || hasClientFilters
 
   const resetFilters = () => {
     const params = new URLSearchParams()
@@ -109,6 +121,21 @@ export function SearchFilters() {
 
   return (
     <div className="sticky top-14 z-40 -mx-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6">
+      {/* 키워드 검색 */}
+      <div className="relative mb-2">
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="주소, 건물명 검색..."
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleKeywordSearch()
+          }}
+          className="w-full rounded-lg border border-border bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
       {/* 메인 필터 행 */}
       <div className="flex flex-wrap items-center gap-2">
         {/* 등급 토글 */}
@@ -272,6 +299,15 @@ export function SearchFilters() {
       {/* 활성 필터 chips */}
       {hasFilters && (
         <div className="mt-2 flex flex-wrap gap-1.5">
+          {currentQ && (
+            <FilterChip
+              label={`"${currentQ}"`}
+              onRemove={() => {
+                setKeyword("")
+                update("q", "")
+              }}
+            />
+          )}
           {selectedGrades.map((g) => (
             <FilterChip key={g} label={`${g}등급`} onRemove={() => toggleGrade(g)} />
           ))}
