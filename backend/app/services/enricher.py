@@ -79,8 +79,8 @@ class CaseEnricher:
             enriched.land_use = self._fetch_land_use(x, y)
             enriched.location_data = self._fetch_location_data(x, y)
 
-        # 3. 건축물대장 조회 (좌표와 독립)
-        enriched.building = self._fetch_building(case)
+        # 3. 건축물대장 조회 (geocode 결과의 지번 정보 활용)
+        enriched.building = self._fetch_building(case, enriched.coordinates)
 
         # 4. 시세 조회
         enriched.market_price = self._fetch_market_price(case)
@@ -139,9 +139,11 @@ class CaseEnricher:
             logger.warning("용도지역 조회 실패: %s", e)
             return None
 
-    def _fetch_building(self, case: AuctionCaseDetail) -> BuildingInfo | None:
+    def _fetch_building(
+        self, case: AuctionCaseDetail, coords: dict | None = None
+    ) -> BuildingInfo | None:
         """건축물대장 조회"""
-        params = self._extract_building_params(case)
+        params = self._extract_building_params(case, coords)
         if not params:
             logger.debug("건축물대장 params 추출 실패 [%s]", case.case_number)
             return None
@@ -268,9 +270,42 @@ class CaseEnricher:
         return case.address.strip() if case.address else ""
 
     @staticmethod
-    def _extract_building_params(case: AuctionCaseDetail) -> dict | None:
-        """건축물대장 API 파라미터 추출"""
+    def _extract_building_params(
+        case: AuctionCaseDetail, coords: dict | None = None
+    ) -> dict | None:
+        """건축물대장 API 파라미터 추출
+
+        우선순위:
+        1. geocode 결과의 b_code + main/sub_address_no (가장 정확)
+        2. case.lot_number / property_objects[0].lot_number (크롤러 rprsLtnoAddr)
+        3. 주소 문자열 regex fallback (지번 주소만 매칭)
+        """
+        import re
+
         address = case.address
+
+        # --- 방법 1: geocode 결과의 지번 정보 (도로명 주소에서도 동작) ---
+        if coords:
+            b_code = coords.get("b_code", "")
+            main_no = coords.get("main_address_no", "")
+            if b_code and len(b_code) >= 10 and main_no:
+                sigungu_cd = b_code[:5]
+                bjdong_cd = b_code[5:10]
+                bun = main_no.zfill(4)
+                sub_no = coords.get("sub_address_no", "")
+                ji = sub_no.zfill(4) if sub_no else "0000"
+                logger.debug(
+                    "건축물대장 params (geocode): %s-%s %s-%s [%s]",
+                    sigungu_cd, bjdong_cd, bun, ji, case.case_number,
+                )
+                return {
+                    "sigungu_cd": sigungu_cd,
+                    "bjdong_cd": bjdong_cd,
+                    "bun": bun,
+                    "ji": ji,
+                }
+
+        # --- SIGUNGU 코드 (방법 2, 3에서 사용) ---
         sigungu_cd = None
         for gu_name, code in SIGUNGU_CODE_MAP.items():
             if gu_name in address:
@@ -279,16 +314,22 @@ class CaseEnricher:
         if not sigungu_cd:
             return None
 
-        # 지번에서 본번/부번 추출
+        # --- 방법 2: 크롤러 lot_number (rprsLtnoAddr) ---
         lot = case.lot_number
         if not lot and case.property_objects:
             lot = case.property_objects[0].lot_number
-        # fallback: 주소 문자열에서 지번 추출 (동 뒤의 숫자-숫자)
+
+        # --- 방법 3: 주소 regex fallback (지번 주소) ---
         if not lot:
-            import re
-            m = re.search(r"[동리가]\s+(산?\d+(?:-\d+)?)", address)
+            # "동 421-21", "리 산15" 패턴 매칭
+            # 오탐 방지: "동" 뒤에 숫자가 바로 오는 경우만 (층/호 제외)
+            m = re.search(r"[동리]\s+(산?\d+(?:-\d+)?)\b", address)
             if m:
-                lot = m.group(1)
+                # 매칭된 지번 뒤에 "층", "호"가 오면 오탐 (예: "다동 3층")
+                after = address[m.end():]
+                if not re.match(r"\s*[층호]", after):
+                    lot = m.group(1)
+
         if not lot:
             return None
 
@@ -298,7 +339,7 @@ class CaseEnricher:
 
         return {
             "sigungu_cd": sigungu_cd,
-            "bjdong_cd": "00000",  # MVP: 전체 조회
+            "bjdong_cd": "00000",  # 방법 2,3은 bjdong 불명 → 전체 조회
             "bun": bun,
             "ji": ji,
         }

@@ -57,12 +57,20 @@ class GeoClient:
             return None
 
         doc = documents[0]
-        result = {
+        result: dict[str, Any] = {
             "address": doc.get("address_name", ""),
             "x": doc.get("x", ""),
             "y": doc.get("y", ""),
             "address_type": doc.get("address_type", ""),
         }
+
+        # 지번 주소 정보 추출 (건축물대장 조회용)
+        jibun = doc.get("address")
+        if isinstance(jibun, dict):
+            result["b_code"] = jibun.get("b_code", "")
+            result["main_address_no"] = jibun.get("main_address_no", "")
+            result["sub_address_no"] = jibun.get("sub_address_no", "")
+
         logger.info("Geocode 성공: %s → (%s, %s)", address, result["x"], result["y"])
         return result
 
