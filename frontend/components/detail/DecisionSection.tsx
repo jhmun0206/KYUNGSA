@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { GradeBadge } from "@/components/domain/GradeBadge"
 import { FavoriteButton } from "@/components/domain/FavoriteButton"
 import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
@@ -44,6 +45,13 @@ export function DecisionSection({ auction }: Props) {
   const discount = calcDiscount(auction.minimum_bid, auction.appraised_value)
   const dday = calcDday(auction.auction_date)
 
+  const [showGradeInfo, setShowGradeInfo] = useState(false)
+  const [showMlInfo, setShowMlInfo] = useState(false)
+
+  const predictedRatio =
+    auction.ml_prediction?.predicted_ratio ?? score?.predicted_winning_ratio
+  const isML = auction.ml_prediction?.predicted_ratio != null
+
   return (
     <section className="space-y-4">
       {/* 등급 + 주소 + 태그 */}
@@ -57,6 +65,14 @@ export function DecisionSection({ auction }: Props) {
                 size="lg"
               />
             )}
+            {score?.grade && (
+              <button
+                onClick={() => setShowGradeInfo((v) => !v)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Info size={14} />
+              </button>
+            )}
             <span className="rounded-full bg-secondary px-2.5 py-1 text-sm font-medium text-secondary-foreground">
               {auction.property_type}
             </span>
@@ -66,6 +82,19 @@ export function DecisionSection({ auction }: Props) {
               </span>
             )}
           </div>
+
+          {/* 등급 설명 Tooltip */}
+          {showGradeInfo && (
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">등급 기준</p>
+              <p>· <span className="font-medium">A등급</span>: 종합 80점 이상 — 주요 리스크 지표 양호</p>
+              <p>· <span className="font-medium">B등급</span>: 종합 60~79점 — 일부 확인 필요</p>
+              <p>· <span className="font-medium">C등급</span>: 종합 40~59점 — 복합 리스크 존재</p>
+              <p>· <span className="font-medium">D등급</span>: 종합 40점 미만 — 신중한 검토 필요</p>
+              <p className="mt-1 opacity-70">* 커버리지 40% 미만은 잠정 등급 (분석 완료 시 변동 가능)</p>
+            </div>
+          )}
+
           <h1 className="text-xl font-bold leading-snug text-foreground sm:text-2xl">
             {auction.address}
           </h1>
@@ -125,7 +154,17 @@ export function DecisionSection({ auction }: Props) {
           />
         ) : (
           <div className="flex flex-col gap-1 rounded-md bg-muted p-3">
-            <span className="text-xs text-muted-foreground">모델 추정 범위 (참고)</span>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">모델 추정 범위 (참고)</span>
+              {predictedRatio != null && (
+                <button
+                  onClick={() => setShowMlInfo((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Info size={12} />
+                </button>
+              )}
+            </div>
             <PredictionPill
               mlPrediction={auction.ml_prediction}
               ratio={score?.predicted_winning_ratio}
@@ -134,6 +173,27 @@ export function DecisionSection({ auction }: Props) {
           </div>
         )}
       </div>
+
+      {/* ML 근거 Tooltip */}
+      {showMlInfo && predictedRatio != null && (
+        <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+          <p className="font-medium text-foreground">추정 근거</p>
+          <p>· {isML ? "동일 지역/유형 낙찰 사례 기반 ML 모델" : "통계 기반 추정"}</p>
+          {isML && auction.ml_prediction?.top_factors && auction.ml_prediction.top_factors.length > 0 && (
+            <p>
+              · 주요 변수:{" "}
+              {auction.ml_prediction.top_factors.slice(0, 3).map((f) => f.feature).join(" · ")}
+            </p>
+          )}
+          {discount != null && <p>· 할인율: {Math.round(discount * 100)}%</p>}
+          <p>· 유찰 횟수: {failCount}회</p>
+          {auction.property_type && <p>· 물건 유형: {auction.property_type}</p>}
+          {isML && auction.ml_prediction?.confidence && (
+            <p>· 신뢰도: {auction.ml_prediction.confidence === "high" ? "높음" : auction.ml_prediction.confidence === "medium" ? "보통" : "낮음"}</p>
+          )}
+          <p className="mt-1 opacity-70">* 모델 추정치이며, 실제 낙찰가와 다를 수 있습니다</p>
+        </div>
+      )}
 
       {/* 커버리지 */}
       {score && (

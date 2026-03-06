@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Lock } from "lucide-react"
 import { ScoreRadar } from "@/components/auction/ScoreRadar"
 import { PriceComparison } from "@/components/auction/PriceComparison"
 import type { AuctionDetailResponse } from "@/lib/types"
@@ -71,12 +71,37 @@ function ScoreBarWithBreakdown({
   )
 }
 
+/** 권리분석 잠금 상태 전용 UI */
+function LegalLockedBar({ onCta }: { onCta: () => void }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <span className="flex items-center gap-1 text-muted-foreground">
+          <Lock size={12} />
+          권리분석
+        </span>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+          잠금
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-muted" />
+      <button
+        onClick={onCta}
+        className="text-xs text-primary hover:text-primary/80"
+      >
+        등기부등본 열람 시 자동 분석됩니다 →
+      </button>
+    </div>
+  )
+}
+
 function fmtDist(m: number): string {
   return m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`
 }
 
 export function PillarBreakdown({ auction }: Props) {
   const score = auction.score
+  const [showLegalModal, setShowLegalModal] = useState(false)
 
   // 수익성 근거
   const discount = calcDiscount(auction.minimum_bid, auction.appraised_value)
@@ -96,6 +121,8 @@ export function PillarBreakdown({ auction }: Props) {
 
   // 명도 근거
   const hasReport = !!auction.specification_remarks
+
+  const legalLocked = score?.legal_score == null
 
   return (
     <section className="space-y-4">
@@ -118,11 +145,14 @@ export function PillarBreakdown({ auction }: Props) {
           <p className="mb-4 text-sm font-semibold text-card-foreground">항목별 점수</p>
           {score ? (
             <div className="space-y-3">
-              {/* 권리분석 */}
-              <ScoreBarWithBreakdown value={score.legal_score} label="권리분석">
-                <p>· 등기부등본 미수집 (유료 항목)</p>
-                <p>· 수동 조회 후 업데이트됩니다</p>
-              </ScoreBarWithBreakdown>
+              {/* 권리분석 — 잠금/정상 분기 */}
+              {legalLocked ? (
+                <LegalLockedBar onCta={() => setShowLegalModal(true)} />
+              ) : (
+                <ScoreBarWithBreakdown value={score.legal_score} label="권리분석">
+                  <p>· 등기부 분석 완료</p>
+                </ScoreBarWithBreakdown>
+              )}
 
               {/* 수익성 */}
               <ScoreBarWithBreakdown value={score.price_score} label="수익성">
@@ -187,6 +217,22 @@ export function PillarBreakdown({ auction }: Props) {
         </div>
       </div>
 
+      {/* 등기부 열람 CTA */}
+      {score && legalLocked && (
+        <button
+          onClick={() => setShowLegalModal(true)}
+          className="w-full rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-center hover:border-primary/50 hover:bg-primary/10 transition-colors"
+        >
+          <div className="flex items-center justify-center gap-2">
+            <Lock size={16} className="text-primary" />
+            <span className="text-sm font-medium text-primary">등기부 열람하기</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            권리분석 점수가 자동으로 채워집니다
+          </p>
+        </button>
+      )}
+
       {/* 가격 차트 */}
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -211,6 +257,53 @@ export function PillarBreakdown({ auction }: Props) {
         </div>
         <PriceComparison auction={auction} />
       </div>
+
+      {/* 등기부 열람 모달 */}
+      {showLegalModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowLegalModal(false)}
+        >
+          <div
+            className="mx-4 w-full max-w-sm rounded-xl bg-card p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Lock size={24} className="text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">등기부 열람 서비스</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                등기부등본을 자동으로 열람하고
+                <br />
+                권리분석 점수를 산출합니다.
+              </p>
+              <div className="mt-4 rounded-lg bg-muted p-3">
+                <p className="text-sm font-medium text-foreground">현재 준비 중입니다</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  서비스 출시 시 알림을 받으시겠습니까?
+                </p>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => setShowLegalModal(false)}
+                  className="flex-1 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-accent"
+                >
+                  닫기
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLegalModal(false)
+                  }}
+                  className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+                >
+                  알림 받기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
