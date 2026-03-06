@@ -312,10 +312,15 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
         auction.auction_date = enriched.case.auction_date
         auction.status = enriched.case.status
         auction.bid_count = enriched.case.bid_count
-        auction.coordinates = enriched.coordinates
-        auction.building_info = enriched.building.model_dump() if enriched.building else None
-        auction.land_use_info = enriched.land_use.model_dump() if enriched.land_use else None
-        auction.market_price_info = enriched.market_price.model_dump() if enriched.market_price else None
+        if enriched.coordinates is not None:
+            auction.coordinates = enriched.coordinates
+        # enrichment 데이터: 새 값이 있으면 업데이트, None이면 기존 값 유지
+        if enriched.building is not None:
+            auction.building_info = enriched.building.model_dump()
+        if enriched.land_use is not None:
+            auction.land_use_info = enriched.land_use.model_dump()
+        if enriched.market_price is not None:
+            auction.market_price_info = enriched.market_price.model_dump()
         auction.detail = enriched.case.model_dump(mode="json")
         # 하위 삭제 후 재생성 (FK 순서: analysis → events → filter)
         if auction.registry_analysis:

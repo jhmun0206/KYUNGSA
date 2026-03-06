@@ -133,6 +133,30 @@ export function InvestmentCalculator({ auction }: Props) {
 
       {open && (
         <div className="space-y-4 pt-2">
+          {/* 건축물대장 기본 정보 */}
+          {auction.building_info && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
+              {auction.building_info.main_purpose && (
+                <span>{auction.building_info.main_purpose}</span>
+              )}
+              {auction.building_info.exclusive_area_m2 != null && (
+                <span>전용 {auction.building_info.exclusive_area_m2.toFixed(1)}㎡</span>
+              )}
+              {auction.building_info.total_area != null && auction.building_info.exclusive_area_m2 == null && (
+                <span>연면적 {auction.building_info.total_area.toFixed(1)}㎡</span>
+              )}
+              {auction.building_info.ground_floors != null && (
+                <span>지상 {auction.building_info.ground_floors}층</span>
+              )}
+              {auction.building_info.build_year != null && (
+                <span>{auction.building_info.build_year}년</span>
+              )}
+              {auction.building_info.units_count != null && auction.building_info.units_count > 0 && (
+                <span>{auction.building_info.units_count}세대</span>
+              )}
+            </div>
+          )}
+
           {/* 입찰가 슬라이더 */}
           <div className="rounded-lg border border-border bg-card p-4 space-y-3">
             <p className="text-sm font-semibold text-card-foreground">

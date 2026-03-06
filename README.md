@@ -7,9 +7,9 @@
 | 항목 | 상태 |
 |------|------|
 | 프로젝트명 | KYUNGSA |
-| 현재 단계 | `Phase 9 완료` → 다음: Phase 7 (명도 데이터) |
-| 최종 업데이트 | 2026-02-22 |
-| 테스트 | 588개 통과 |
+| 현재 단계 | `Phase H-1 완료` (투자 시뮬레이터 + 건축물대장 표시) |
+| 최종 업데이트 | 2026-03-06 |
+| 테스트 | 763개 통과 |
 | 배포 | https://kyungsa.com (Vercel) / https://api.kyungsa.com (Cloudflare Tunnel) |
 | 개발 도구 | Claude Code |
 | 개발자 | 경희대학교 컴퓨터공학과 4학년 |
@@ -64,6 +64,7 @@ Cache:      인메모리 (dict/lru_cache) → Redis (필요 시)
 Scheduler:  systemd timer (cron 대체)
 Crawling:   httpx + Playwright (대법원 E2E)
 Registry:   CODEF API (등기부등본 자동 조회) + PyMuPDF (PDF 백업)
+ML:         CatBoost (낙찰가율 예측) + pandas + numpy
 Crypto:     pycryptodome (CODEF RSA 암호화)
 Geo/API:    카카오 Geocode+카테고리, Vworld, data.go.kr (실거래가, 건축물대장)
 LLM:        OpenAI API (리스크 설명 생성, 미착수)
@@ -98,13 +99,15 @@ KYUNGSA/
 │   │   │   ├── auction.py       # 대법원 경매 DTO (8개)
 │   │   │   ├── enriched_case.py # ⭐ 1단+2단 통합 모델 + LocationData
 │   │   │   ├── registry.py      # 등기부 모델 (EventType 19종)
-│   │   │   ├── scores.py        # ⭐ 점수 모델 (Legal/Price/Location/Total)
+│   │   │   ├── scores.py        # ⭐ 점수 모델 (Legal/Price/Location/Occupancy/Total)
+│   │   │   ├── occupancy_dto.py # 현황조사서 DTO (OccupancyTenantDTO, OccupancyReportDTO)
 │   │   │   └── db/
 │   │   │       ├── base.py      # Base + JSONBOrJSON + Mixin
 │   │   │       ├── auction.py   # Auction ORM
 │   │   │       ├── score.py     # ⭐ Score ORM (낙찰가율 포함)
 │   │   │       ├── filter_result.py
 │   │   │       ├── registry.py  # RegistryEventORM + RegistryAnalysisORM
+│   │   │       ├── occupancy.py  # ⭐ OccupancyReport + OccupancyTenant + OccupancyProperty ORM
 │   │   │       ├── pipeline_run.py
 │   │   │       └── converters.py # ⭐ Pydantic↔ORM 변환 + upsert
 │   │   └── services/
@@ -123,10 +126,21 @@ KYUNGSA/
 │   │       │   ├── codef_mapper.py          # CODEF JSON → RegistryDocument (✅)
 │   │       │   ├── matcher.py               # CODEF 검색결과 매칭
 │   │       │   └── pipeline.py              # 주소→등기부→분석 파이프라인 (✅)
+│   │       ├── occupancy/                   # ⭐ 명도 데이터 수집/파싱
+│   │       │   ├── parser.py                # 현황조사서 JSON 파서 (대법원 API)
+│   │       │   └── service.py               # 수집→파싱→DB 저장 오케스트레이터
+│   │       ├── prediction/                  # ⭐ ML 낙찰가율 예측 (Private)
+│   │       │   ├── config.py                # 하이퍼파라미터, 피처, 병합 매핑
+│   │       │   ├── data_pipeline.py         # DB → DataFrame 추출
+│   │       │   ├── feature_engineer.py      # 파생 피처 생성 (21개)
+│   │       │   ├── trainer.py               # CatBoost 학습 (5-fold CV)
+│   │       │   ├── predictor.py             # ⭐ WinningBidPredictor 싱글톤 (추론)
+│   │       │   └── rolling_helper.py        # Rolling 통계 DB 조회 헬퍼
 │   │       ├── rules/                       # ⭐ 점수 엔진 (핵심 자산)
 │   │       │   ├── legal_scorer.py          # 법률 점수 (근저당/가압류/인수권리)
 │   │       │   ├── price_scorer.py          # 가격 매력도 점수 (할인율/시세/유찰)
 │   │       │   ├── location_scorer.py       # 입지 점수 (역/상권/학교/용도지역)
+│   │       │   ├── occupancy_scorer.py      # 명도 점수 (임차인/보증금/대항력)
 │   │       │   ├── total_scorer.py          # 종합 점수 + 등급 A/B/C/D
 │   │       │   └── engine.py                # RuleEngineV2 (통합 평가 오케스트레이터)
 │   │       ├── address_parser.py            # 주소 파싱 (경매주소→CODEF 파라미터)
@@ -139,12 +153,17 @@ KYUNGSA/
 │   │       ├── sale_result_collector.py     # ⭐ 전국 낙찰 완료 건 수집기
 │   │       └── registry_rules.py            # HardStop 룰 정의 (HS001~HS008)
 │   ├── alembic/versions/        # DB 마이그레이션 이력
-│   └── tests/                   # 588개 테스트 전체 통과
+│   └── tests/                   # 763개 테스트 전체 통과
 ├── scripts/
 │   ├── run_batch.py             # 배치 수집기 CLI
 │   ├── collect_winning_bids.py  # 낙찰가 추적 CLI
 │   ├── collect_sale_results.py  # 낙찰 완료 건 수집 CLI
 │   ├── backtest_scores.py       # ⭐ 백테스트 + 캘리브레이션 (stdlib만)
+│   ├── train_model.py           # ⭐ CatBoost 모델 학습 + 교차검증
+│   ├── evaluate_model.py        # 모델 평가 + rule_v1 비교
+│   ├── retrain_model.py         # 월간 자동 재학습 (개선 시만 교체)
+│   ├── eda_prediction.py        # ML 학습 데이터 EDA
+│   ├── collect_occupancy.py     # 현황조사서 수집 CLI (단건/backfill)
 │   ├── run_pipeline.py          # 1단 파이프라인 실행
 │   ├── parse_registry.py        # 등기부 파싱 CLI
 │   ├── test_codef_registry.py   # CODEF 등기부 실 API 테스트
@@ -165,7 +184,7 @@ KYUNGSA/
     ├── components/
     │   ├── layout/              # Header, Footer, MobileNav, ThemeProvider, ThemeToggle
     │   ├── domain/              # AuctionCard, GradeBadge, CoveragePill, PredictionPill, DisclaimerBanner
-    │   ├── detail/              # DecisionSection, PillarBreakdown, BasicInfo
+    │   ├── detail/              # DecisionSection, PillarBreakdown, BasicInfo, InvestmentCalculator, MobileActionBar
     │   ├── landing/             # TopPicksGrid (Framer Motion stagger)
     │   └── search/              # SearchFilters (스티키 필터바), SearchResultsGrid
     └── lib/
@@ -233,19 +252,24 @@ KYUNGSA/
 - [x] **6.5a: WinningBidCollector** — 기수집 물건 낙찰가 사후 추적 (매주 일 07:00)
 - [x] **6.5b: SaleResultCollector** — 전국 낙찰 완료 건 자동 수집 (매일 06:00, 12,906건 대상)
 
-### 7단계: 명도 데이터 ← **다음 목표**
+### 7단계: 명도 데이터 ✅ 완료
 
-- [ ] 대법원 PDF 크롤러 (매각물건명세서 + 현황조사서)
-- [ ] 임차인 파서 (정규식 기반)
-- [ ] 명도 점수 엔진 (OccupancyScorer)
-- [ ] Hard Stop 확장: HS-F01 유치권, HS-F02 점유 분쟁
+- [x] **7-1: DB 스키마** — OccupancyReport + OccupancyTenant + OccupancyProperty ORM (3개 테이블)
+- [x] **7-2: 현황조사서 수집/파싱** — 대법원 JSON API(selectCurstExmndc.on) fetcher + parser + DB 저장 서비스
+- [x] **7-3: 명도 점수 엔진** — OccupancyScorer (임차인복잡도/보증금부담도/대항력위험도, 유형별 가중합, 신뢰도 감쇠)
+- [x] **7-4: RuleEngineV2 통합** — 4 pillar 완전 가동 (Legal + Price + Location + Occupancy)
+- [ ] Hard Stop 확장: HS-F01 유치권, HS-F02 점유 분쟁 — **미구현** (매각물건명세서 파싱 필요)
 
-### 8단계: 대시보드 ✅ 완료
+### 8단계: 대시보드 + ML 예측 ✅ 완료
 
 - [x] FastAPI v1 API (DB 기반, GET `/api/v1/auctions`, `/api/v1/auctions/{id}`, `/api/v1/auctions/map`)
 - [x] Next.js 14 — 물건 목록 + 상세 + 즐겨찾기 + 지도 (카카오맵 + 등급 마커)
 - [x] 디자인 시스템: shadcn/ui + Pretendard CDN + next-themes (다크모드) + CSS 토큰
 - [x] 배포: kyungsa.com (Vercel) + api.kyungsa.com (Cloudflare Tunnel)
+- [x] **8-1: ML 데이터 파이프라인** — PredictionDataPipeline (DB→DataFrame) + FeatureEngineer (21개 피처, 시간 누수 방지 rolling)
+- [x] **8-2: CatBoost 학습** — ModelTrainer (5-fold CV, early stopping, 모델 저장/로드) + train_model.py + evaluate_model.py
+- [x] **8-3: ML 추론 API** — WinningBidPredictor 싱글톤 (모델 메모리 유지, rule_v1 fallback) + retrain_model.py (월간 자동 재학습)
+- [x] **8-4: 프론트엔드 ML 통합** — MLPrediction 타입 + PredictionPill 신뢰도 뱃지 + top_factors 영향 요인 표시
 - [ ] 알림 기능 (텔레그램/이메일 — 조건 저장 → 신규 물건 알림)
 
 ### 9단계: UX 재설계 ✅ 완료
@@ -258,6 +282,26 @@ KYUNGSA/
 - [x] 대법원 링크 제거 (개별 물건 직접 링크 불가)
 - [x] framer-motion 패키지 추가
 
+### Phase D~F: 프론트엔드 UX 개선 ✅ 완료
+
+- [x] **Phase D: 리스트 뷰 + 네비게이션 정리** — AuctionListRow + SearchResultsList + 할인율순 정렬 + 모바일 4탭
+- [x] **Phase E: 홈 3섹션 개편 + 점수 근거 Accordion** — 이번 주 기일 / 높은 평가 / 통계 + pillar 근거 토글
+- [x] **Phase F: 권리분석 잠금 UI + 등급 근거 Tooltip** — 등기부 열람 CTA + 등급/ML 근거 Tooltip
+
+### Phase G: 투자 분석 시뮬레이터 ✅ 완료
+
+- [x] InvestmentCalculator (낙찰 희망가 슬라이더 + 취등록세/대출/수익률 3칸 그리드)
+- [x] MobileActionBar (모바일 하단 관심/비교/공유 액션바)
+- [x] 상세 페이지 앵커 네비게이션 (#analysis, #investment, #raw-data)
+- [x] 키워드 검색 (`q` 파라미터, 백엔드 ILIKE 필터)
+
+### Phase H: 투자 분석 자동 채움 (진행 중)
+
+- [x] **H-1: 건축물대장 저장 수정** — BuildingInfo 모델 확장 (전용면적/층수/세대수/건축년도) + converter 보존 로직 + API building_info 응답 + InvestmentCalculator 건물 정보 자동 표시
+- [ ] **H-2: 월 임대수익 API** — 예정 (주변 실거래 임대료 자동 채움)
+- [ ] **H-3: 대출 금리 자동 채움** — 예정 (한국은행 기준금리 연동)
+- [ ] **H-4: InvestmentCalculator 자동 채움** — 예정 (H-2, H-3 데이터 연결)
+
 ### 10단계 이후: 미착수
 
 - [ ] **비교 페이지** (`/compare`) — `lib/compare.ts` 구현 완료, UI만 없음
@@ -265,8 +309,9 @@ KYUNGSA/
 - [ ] **Validator 레이어** — ParseValidator, RuleValidator (`services/validator/` 플레이스홀더)
 - [ ] **Report 모듈** — 구조화 리포트 출력 (`services/report/` 플레이스홀더)
 - [ ] **Private 대시보드** — 입찰 제안 + 수익률 시뮬레이션 (비공개)
-- [ ] **Nginx 리버스프록시** — 현재 uvicorn 직접 노출 중
-- [ ] **알림 기능** — 텔레그램/이메일
+- [ ] **Nginx 리버스프록시** — 현재 uvicorn 직접 노출 중 (Cloudflare Tunnel 경유)
+- [ ] **알림 기능** — 텔레그램/이메일 (조건 저장 → 신규 물건 알림)
+- [ ] **ML 모델 고도화** — 피처 확장 (시계열, 지역 이벤트), 앙상블, A/B 테스트
 
 ---
 
@@ -291,7 +336,8 @@ KYUNGSA/
 | `grade` | 등급 필터 (콤마 구분) | `A,B` |
 | `court_office_code` | 법원 코드 | `B000210` |
 | `property_type` | 물건 유형 | `아파트` |
-| `sort` | 정렬 기준 | `grade` / `appraised_value` / `auction_date` / `predicted_winning_ratio` |
+| `q` | 주소 키워드 검색 | `강남` |
+| `sort` | 정렬 기준 | `grade` / `appraised_value` / `auction_date` / `discount_rate` / `predicted_winning_ratio` |
 | `page` / `size` | 페이지네이션 | `page=1&size=20` |
 
 ### v0 — 크롤러 직접 실행 API (레거시)
@@ -336,9 +382,9 @@ KYUNGSA/
 | 법률 리스크 | 20% | 35% | 25% | ✅ LegalScorer |
 | 가격 매력도 | 25% | 20% | 15% | ✅ PriceScorer |
 | 입지 점수 | 30% | 15% | 50% | ✅ LocationScorer |
-| 명도 리스크 | 25% | 30% | 10% | ❌ **미구현** (Phase 7) |
+| 명도 리스크 | 25% | 30% | 10% | ✅ OccupancyScorer |
 
-> 명도 점수 미구보 상태에서는 재정규화 후 잠정 등급 표시 (`grade_provisional=True`).
+> 4개 pillar 모두 가동. 현황조사서 미수집 물건은 재정규화 후 잠정 등급 표시 (`grade_provisional=True`).
 
 ### 등급 기준
 
@@ -377,10 +423,14 @@ enricher → filter_engine           (말소기준, 인수/소멸, HardStop 8종
      │
      ▼
   RuleEngineV2 → EvaluationResult
-  (Legal + Price + Location + Total → 등급 A/B/C/D)
+  (Legal + Price + Location + Occupancy + Total → 등급 A/B/C/D)
      │
      ▼
-  DB 저장 (Auction + Score + FilterResultORM)
+  WinningBidPredictor (CatBoost ml_v1, fallback rule_v1)
+  → predicted_ratio + predicted_price + confidence + top_factors
+     │
+     ▼
+  DB 저장 (Auction + Score + FilterResultORM + OccupancyReport)
 
 [낙찰 추적: 사후 수집] ✅
 SaleResultCollector (매일 06:00) → 전국 낙찰 완료 건 수집 (statNum="5")
@@ -401,6 +451,20 @@ WinningBidCollector (매주 일 07:00) → 기수집 물건 낙찰가 사후 추
 | 1회 | 0.90 | 0.80 | 0.75 |
 | 2회 | 0.80 | 0.70 | 0.65 |
 | 3회+ | 0.70 이하 | 0.60 이하 | 0.55 이하 |
+
+**ML 낙찰가율 예측 (Phase 8-1~8-4):**
+
+| 항목 | 내용 |
+|------|------|
+| 모델 | CatBoost Regressor (`ml_v1`) |
+| 피처 | 21개 (할인율, 유찰횟수, 4개 점수, 입지, 임차인, rolling 통계 등) |
+| 학습 데이터 | 서버 DB 낙찰 완료 건 (auctions + scores + occupancy_tenants JOIN) |
+| 추론 | WinningBidPredictor 싱글톤 (서버 메모리 상주, 모델 없으면 rule_v1 fallback) |
+| 신뢰도 | high (학습 표본 충분) / medium / low (외삽 구간) |
+| 재학습 | `retrain_model.py` (월 1회 권장, 개선 시에만 모델 교체) |
+| 프론트엔드 | PredictionPill 신뢰도 뱃지 + 주요 영향 요인 top 3 표시 |
+
+> "모델 추정 범위 (참고)" — Public API/UI에서 사용하는 표현. "예측"/"AI 예측" 등 금지.
 
 ---
 
@@ -508,4 +572,15 @@ chore: 빌드, 설정 변경
 | 2026-02-18 | 6.5b SaleResultCollector + 전국 확장 | 매일 06:00 전국 낙찰 완료 건 수집 |
 | 2026-02-18 | cron 자동화 3종 systemd timer 추가 | **588개 통과** |
 | 2026-02-19 | Phase 8 프론트엔드 완료 | kyungsa.com + api.kyungsa.com 배포 |
+| 2026-02-20 | Phase 7-1~7-4 명도 데이터 완료 | 현황조사서 파서 + OccupancyScorer + 4 pillar 완전 가동, **668개 통과** |
+| 2026-02-21 | Phase 8-1 ML 데이터 파이프라인 | FeatureEngineer (21개 피처) + PredictionDataPipeline |
+| 2026-02-21 | Phase 8-2 CatBoost 학습 | ModelTrainer (5-fold CV) + train/evaluate 스크립트 |
+| 2026-02-22 | Phase 8-3 ML 추론 API | WinningBidPredictor 싱글톤 + retrain_model.py + 서버 배포 |
 | 2026-02-22 | Phase 9 UX 재설계 완료 (lovable 벤치마킹) | 랜딩/검색 분리, MobileNav, Framer Motion |
+| 2026-02-23 | Phase 8-4 프론트엔드 ML 통합 | MLPrediction 타입 + PredictionPill 신뢰도 + top_factors, **734개 통과** |
+| 2026-03-04 | Phase B-1 + C UX 개선 | CoveragePill variant + 클라이언트 필터 + 비교 탭 |
+| 2026-03-05 | Phase D 리스트 뷰 + 네비게이션 | AuctionListRow + SearchResultsList + 할인율순 + 모바일 4탭 |
+| 2026-03-05 | Phase E 홈 3섹션 + 점수 근거 | 이번 주 기일/높은 평가 + pillar Accordion + 기일 0원 필터링 |
+| 2026-03-05 | Phase F 권리분석 잠금 + 등급 근거 | 등기부 열람 CTA + 등급/ML Tooltip + 검색 등급 범례 |
+| 2026-03-06 | Phase G 투자 시뮬레이터 | InvestmentCalculator + MobileActionBar + 키워드 검색 |
+| 2026-03-06 | Phase H-1 건축물대장 표시 수정 | BuildingInfo 모델 확장 + converter 보존 + 건물 정보 자동 표시, **763개 통과** |

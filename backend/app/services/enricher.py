@@ -143,19 +143,29 @@ class CaseEnricher:
         """건축물대장 조회"""
         params = self._extract_building_params(case)
         if not params:
+            logger.debug("건축물대장 params 추출 실패 [%s]", case.case_number)
             return None
         try:
             items = self._public.fetch_building_register(**params)
             if not items:
+                logger.debug("건축물대장 응답 비어있음 [%s]", case.case_number)
                 return None
             first = items[0]
             # 위반건축물 여부: 관련 필드에서 "위반" 키워드 탐색
             violation = any("위반" in str(v) for v in first.values())
+            # 건축년도 (사용승인일 앞 4자리)
+            use_apr = first.get("useAprDay", "")
+            build_year = _safe_int(use_apr[:4]) if len(use_apr) >= 4 else None
             return BuildingInfo(
                 main_purpose=first.get("mainPurpsCdNm", ""),
                 structure=first.get("strctCdNm", ""),
                 total_area=_safe_float(first.get("totArea", "")),
-                use_approve_date=first.get("useAprDay", ""),
+                exclusive_area_m2=_safe_float(first.get("platArea", "")),
+                ground_floors=_safe_int(first.get("grndFlrCnt", "")),
+                underground_floors=_safe_int(first.get("ugrndFlrCnt", "")),
+                units_count=_safe_int(first.get("hhldCnt", "")) or _safe_int(first.get("hoCnt", "")),
+                build_year=build_year,
+                use_approve_date=use_apr,
                 violation=violation,
                 raw_items=items,
             )
@@ -355,5 +365,16 @@ def _safe_float(text: str) -> float | None:
         return None
     try:
         return float(str(text).replace(",", "").strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def _safe_int(text: str) -> int | None:
+    """문자열 → int (실패 시 None, 0이면 None)"""
+    if not text:
+        return None
+    try:
+        v = int(str(text).replace(",", "").strip())
+        return v if v > 0 else None
     except (ValueError, TypeError):
         return None

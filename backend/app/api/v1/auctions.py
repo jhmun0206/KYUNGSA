@@ -367,6 +367,7 @@ def get_auction_detail(
         ml_prediction=ml_prediction,
         rounds=_parse_rounds(auction.detail),
         specification_remarks=spec_remarks,
+        building_info=auction.building_info,
         market_price_info=auction.market_price_info,
         location_data=location_data_raw,
     )

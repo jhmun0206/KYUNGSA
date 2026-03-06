@@ -122,6 +122,7 @@ class AuctionDetailResponse(BaseModel):
 
     # 추가 데이터
     specification_remarks: str        # gdsSpcfcRmk
+    building_info: dict[str, Any] | None
     market_price_info: dict[str, Any] | None
     location_data: dict[str, Any] | None
 

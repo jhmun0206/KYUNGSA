@@ -53,6 +53,11 @@ class BuildingInfo(BaseModel):
     main_purpose: str = ""  # 주용도 ("업무시설", "공동주택" 등)
     structure: str = ""  # 구조 ("철근콘크리트구조")
     total_area: float | None = None  # 연면적 (㎡)
+    exclusive_area_m2: float | None = None  # 전용면적 (㎡, platArea)
+    ground_floors: int | None = None  # 지상 층수 (grndFlrCnt)
+    underground_floors: int | None = None  # 지하 층수 (ugrndFlrCnt)
+    units_count: int | None = None  # 세대/호수 (hhldCnt or hoCnt)
+    build_year: int | None = None  # 건축년도 (사용승인일 기준)
     use_approve_date: str = ""  # 사용승인일
     violation: bool = False  # 위반건축물 여부
     raw_items: list[dict] = Field(default_factory=list)

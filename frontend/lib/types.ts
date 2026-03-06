@@ -107,8 +107,22 @@ export interface AuctionDetailResponse {
   ml_prediction: MLPrediction | null
 
   specification_remarks: string
+  building_info: BuildingInfo | null
   market_price_info: Record<string, unknown> | null
   location_data: Record<string, unknown> | null
+}
+
+export interface BuildingInfo {
+  main_purpose: string
+  structure: string
+  total_area: number | null
+  exclusive_area_m2: number | null
+  ground_floors: number | null
+  underground_floors: number | null
+  units_count: number | null
+  build_year: number | null
+  use_approve_date: string
+  violation: boolean
 }
 
 export interface MapItem {
