@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { fetchAuctions } from "@/lib/api"
 import { SearchFilters } from "@/components/search/SearchFilters"
+import { GradeLegend } from "@/components/search/GradeLegend"
 import { ClientFilteredResults } from "@/components/search/ClientFilteredResults"
 import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
 import type { ClientFilterParams } from "@/lib/client-filters"
@@ -78,7 +79,12 @@ export default async function SearchPage({ searchParams }: PageProps) {
         <SearchFilters />
       </Suspense>
 
-      {/* 결과 그리드 (클라이언트 필터 적용) */}
+      {/* 등급 범례 */}
+      <div className="mt-3">
+        <GradeLegend />
+      </div>
+
+      {/* 결과 리스트 (클라이언트 필터 적용) */}
       <div className="mt-4">
         <ClientFilteredResults
           items={data.items}

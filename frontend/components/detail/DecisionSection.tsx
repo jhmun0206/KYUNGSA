@@ -6,8 +6,8 @@ import { FavoriteButton } from "@/components/domain/FavoriteButton"
 import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
 import { PredictionPill } from "@/components/domain/PredictionPill"
 import { CoveragePill } from "@/components/domain/CoveragePill"
-import { CheckCircle2, Info, AlertTriangle, XCircle } from "lucide-react"
-import { formatPrice, calcDiscount, calcDday } from "@/lib/utils"
+import { CheckCircle2, Info, AlertTriangle, XCircle, Lock } from "lucide-react"
+import { formatPrice, calcDiscount, calcDday, getScoreInterpretation } from "@/lib/utils"
 import type { AuctionDetailResponse } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
@@ -45,7 +45,6 @@ export function DecisionSection({ auction }: Props) {
   const discount = calcDiscount(auction.minimum_bid, auction.appraised_value)
   const dday = calcDday(auction.auction_date)
 
-  const [showGradeInfo, setShowGradeInfo] = useState(false)
   const [showMlInfo, setShowMlInfo] = useState(false)
 
   const predictedRatio =
@@ -65,14 +64,6 @@ export function DecisionSection({ auction }: Props) {
                 size="lg"
               />
             )}
-            {score?.grade && (
-              <button
-                onClick={() => setShowGradeInfo((v) => !v)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Info size={14} />
-              </button>
-            )}
             <span className="rounded-full bg-secondary px-2.5 py-1 text-sm font-medium text-secondary-foreground">
               {auction.property_type}
             </span>
@@ -82,18 +73,6 @@ export function DecisionSection({ auction }: Props) {
               </span>
             )}
           </div>
-
-          {/* 등급 설명 Tooltip */}
-          {showGradeInfo && (
-            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
-              <p className="font-medium text-foreground">등급 기준</p>
-              <p>· <span className="font-medium">A등급</span>: 종합 80점 이상 — 주요 리스크 지표 양호</p>
-              <p>· <span className="font-medium">B등급</span>: 종합 60~79점 — 일부 확인 필요</p>
-              <p>· <span className="font-medium">C등급</span>: 종합 40~59점 — 복합 리스크 존재</p>
-              <p>· <span className="font-medium">D등급</span>: 종합 40점 미만 — 신중한 검토 필요</p>
-              <p className="mt-1 opacity-70">* 커버리지 40% 미만은 잠정 등급 (분석 완료 시 변동 가능)</p>
-            </div>
-          )}
 
           <h1 className="text-xl font-bold leading-snug text-foreground sm:text-2xl">
             {auction.address}
@@ -108,16 +87,36 @@ export function DecisionSection({ auction }: Props) {
         </div>
       </div>
 
-      {/* 등급 한 줄 요약 */}
+      {/* 등급 요약 + pillar 근거 */}
       {score?.grade && GRADE_SUMMARIES[score.grade] && (() => {
         const summary = GRADE_SUMMARIES[score.grade]
+        const pillars = [
+          { label: "수익성", value: score.price_score },
+          { label: "입지", value: score.location_score },
+          { label: "명도", value: score.occupancy_score },
+        ]
         return (
-          <div className={cn(
-            "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium",
-            summary.bgClass
-          )}>
-            <summary.Icon className="h-4 w-4 shrink-0" />
-            <span>{summary.text}</span>
+          <div className={cn("rounded-lg px-4 py-2.5", summary.bgClass)}>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <summary.Icon className="h-4 w-4 shrink-0" />
+              <span>{summary.text}</span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs opacity-80">
+              {pillars.map((p) => {
+                const interp = getScoreInterpretation(p.value)
+                return (
+                  <span key={p.label}>
+                    {p.label}: <span className="font-medium">{interp.text}</span>
+                  </span>
+                )
+              })}
+              {score.legal_score == null && (
+                <span className="flex items-center gap-0.5">
+                  <Lock size={10} />
+                  권리분석: 등기부 열람 필요
+                </span>
+              )}
+            </div>
           </div>
         )
       })()}

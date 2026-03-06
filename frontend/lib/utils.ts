@@ -70,6 +70,28 @@ export function getDdayColor(dateStr: string | null | undefined): string {
   return "text-muted-foreground"
 }
 
+/** pillar 점수 기반 간략 리스크 요약 (리스트 행에 표시)
+ *  70+ → 양호, 50-69 → 보통, <50 → 주의 */
+export function getPillarSummary(scores: {
+  price_score: number | null
+  location_score: number | null
+  occupancy_score: number | null
+}): { text: string; colorClass: string }[] {
+  const PILLARS = [
+    { key: "price_score" as const, label: "수익성" },
+    { key: "location_score" as const, label: "입지" },
+    { key: "occupancy_score" as const, label: "명도" },
+  ]
+  return PILLARS
+    .filter((p) => scores[p.key] != null)
+    .map((p) => {
+      const v = scores[p.key]!
+      if (v >= 70) return { text: `${p.label} 양호`, colorClass: "text-emerald-600 dark:text-emerald-400" }
+      if (v >= 50) return { text: `${p.label} 보통`, colorClass: "text-amber-600 dark:text-amber-400" }
+      return { text: `${p.label} 주의`, colorClass: "text-red-500 dark:text-red-400" }
+    })
+}
+
 /** 점수 구간별 해석 텍스트 + 색상 반환 */
 export function getScoreInterpretation(score: number | null): {
   text: string

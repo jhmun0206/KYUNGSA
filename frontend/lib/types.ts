@@ -21,6 +21,11 @@ export interface AuctionListItem {
   grade_provisional: boolean
   predicted_winning_ratio: number | null
 
+  // pillar 점수 (리스크 요약 표시용)
+  price_score: number | null
+  location_score: number | null
+  occupancy_score: number | null
+
   // 좌표
   lat: number | null
   lng: number | null

@@ -188,6 +188,9 @@ def _auction_to_list_item(auction: Auction, score: Score | None) -> AuctionListI
         score_coverage=score.score_coverage if score else None,
         grade_provisional=score.grade_provisional if score else False,
         predicted_winning_ratio=score.predicted_winning_ratio if score else None,
+        price_score=score.price_score if score else None,
+        location_score=score.location_score if score else None,
+        occupancy_score=score.occupancy_score if score else None,
         lat=lat,
         lng=lng,
     )

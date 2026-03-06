@@ -33,6 +33,11 @@ class AuctionListItem(BaseModel):
     grade_provisional: bool
     predicted_winning_ratio: float | None
 
+    # pillar 점수 (리스트 카드에서 리스크 요약 표시용)
+    price_score: float | None
+    location_score: float | None
+    occupancy_score: float | None
+
     # 좌표 (coordinates JSONB → float 변환)
     lat: float | None
     lng: float | None
