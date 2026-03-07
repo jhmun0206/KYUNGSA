@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Float, ForeignKey, Index, String
+from sqlalchemy import BigInteger, Boolean, Float, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.db.base import Base, JSONBOrJSON, PrimaryKeyMixin
@@ -54,7 +54,7 @@ class Score(PrimaryKeyMixin, Base):
     scored_at: Mapped[datetime | None] = mapped_column(
         nullable=True,
     )
-    pipeline_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    pipeline_run_id: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # 관계
     auction: Mapped[Auction] = relationship("Auction", back_populates="score")
