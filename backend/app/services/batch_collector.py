@@ -703,17 +703,31 @@ class BatchCollector:
 
         result.processed += 1
 
-        # 4. Score 저장 (per-case commit)
+        # 4. 보강 데이터 + Score 저장 (per-case commit)
         if not dry_run:
-            if enriched.total_score:
-                try:
+            try:
+                # 보강 데이터를 Auction ORM에 반영 (None이면 기존 값 유지)
+                if enriched.coordinates is not None:
+                    auction_orm.coordinates = enriched.coordinates
+                if enriched.building is not None:
+                    auction_orm.building_info = enriched.building.model_dump()
+                if enriched.land_use is not None:
+                    auction_orm.land_use_info = enriched.land_use.model_dump()
+                if enriched.market_price is not None:
+                    auction_orm.market_price_info = enriched.market_price.model_dump()
+
+                if enriched.total_score:
                     self._save_score(auction_orm.id, enriched, result.run_id)
                     self._db.commit()
                     result.updated_count += 1
-                except Exception as e:
-                    self._db.rollback()
-                    raise RuntimeError(f"Score 저장 실패: {e}") from e
-            else:
+                else:
+                    self._db.commit()
+                    result.skipped += 1
+            except Exception as e:
+                self._db.rollback()
+                raise RuntimeError(f"Score 저장 실패: {e}") from e
+        else:
+            if not enriched.total_score:
                 result.skipped += 1
 
         logger.info(

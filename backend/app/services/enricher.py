@@ -150,15 +150,16 @@ class CaseEnricher:
         try:
             items = self._public.fetch_building_register(**params)
             if not items:
-                logger.debug("건축물대장 응답 비어있음 [%s]", case.case_number)
+                logger.info("건축물대장 응답 비어있음 [%s] params=%s", case.case_number, params)
                 return None
+            logger.info("건축물대장 %d건 수신 [%s]", len(items), case.case_number)
             first = items[0]
             # 위반건축물 여부: 관련 필드에서 "위반" 키워드 탐색
             violation = any("위반" in str(v) for v in first.values())
             # 건축년도 (사용승인일 앞 4자리)
             use_apr = first.get("useAprDay", "")
             build_year = _safe_int(use_apr[:4]) if len(use_apr) >= 4 else None
-            return BuildingInfo(
+            info = BuildingInfo(
                 main_purpose=first.get("mainPurpsCdNm", ""),
                 structure=first.get("strctCdNm", ""),
                 total_area=_safe_float(first.get("totArea", "")),
@@ -171,6 +172,15 @@ class CaseEnricher:
                 violation=violation,
                 raw_items=items,
             )
+            logger.info(
+                "BuildingInfo 생성 [%s]: purpose=%s area=%.1f floors=%s year=%s",
+                case.case_number,
+                info.main_purpose,
+                info.total_area or 0,
+                info.ground_floors,
+                info.build_year,
+            )
+            return info
         except Exception as e:
             logger.warning("건축물대장 조회 실패 [%s]: %s", case.case_number, e)
             return None
