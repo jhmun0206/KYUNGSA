@@ -111,6 +111,9 @@ export interface AuctionDetailResponse {
   market_price_info: Record<string, unknown> | null
   rent_price_info: RentPriceInfo | null
   location_data: Record<string, unknown> | null
+
+  // 투자 분석 시뮬레이터 기본값 (서버 설정값)
+  default_loan_rate?: number
 }
 
 export interface RentPriceInfo {

@@ -14,6 +14,7 @@ from sqlalchemy import Float, case as sa_case, func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
+from app.config import settings
 from app.api.v1.schemas import (
     AuctionDetailResponse,
     AuctionListItem,
@@ -371,4 +372,5 @@ def get_auction_detail(
         market_price_info=auction.market_price_info,
         rent_price_info=auction.rent_price_info,
         location_data=location_data_raw,
+        default_loan_rate=settings.DEFAULT_LOAN_RATE,
     )

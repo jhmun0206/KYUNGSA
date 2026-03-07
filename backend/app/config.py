@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # OPENAI API (LLM 설명 생성용)
     OPENAI_API_KEY: str = ""
 
+    # 투자 분석 시뮬레이터 기본값
+    DEFAULT_LOAN_RATE: float = 0.045   # 대출 금리 기본값 (4.5%)
+
     # 텔레그램 알림 (배치 수집 결과 알림)
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""

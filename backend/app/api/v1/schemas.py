@@ -127,6 +127,9 @@ class AuctionDetailResponse(BaseModel):
     rent_price_info: dict[str, Any] | None
     location_data: dict[str, Any] | None
 
+    # 투자 분석 시뮬레이터 기본값 (서버 설정값 전달)
+    default_loan_rate: float = 0.045
+
 
 class MLPredictionFactor(BaseModel):
     """ML 예측 영향 요인 1건"""

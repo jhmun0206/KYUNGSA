@@ -37,8 +37,8 @@ export function InvestmentCalculator({ auction }: Props) {
   const residential = isResidential(auction.property_type)
   const [loanRatio, setLoanRatio] = useState(residential ? 0.8 : 0.6)
 
-  // 대출 금리
-  const [interestRate, setInterestRate] = useState(0.045)
+  // 대출 금리 (서버 설정값 우선, 없으면 4.5%)
+  const [interestRate, setInterestRate] = useState(auction.default_loan_rate ?? 0.045)
 
   // 임대수익 (만원)
   const rentInfo = auction.rent_price_info
