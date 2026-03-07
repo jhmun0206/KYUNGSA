@@ -124,6 +124,7 @@ class AuctionDetailResponse(BaseModel):
     specification_remarks: str        # gdsSpcfcRmk
     building_info: dict[str, Any] | None
     market_price_info: dict[str, Any] | None
+    rent_price_info: dict[str, Any] | None
     location_data: dict[str, Any] | None
 
 

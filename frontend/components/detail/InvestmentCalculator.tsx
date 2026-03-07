@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { ChevronDown, AlertTriangle } from "lucide-react"
+import { useState, useMemo, useEffect } from "react"
+import { ChevronDown, AlertTriangle, Info } from "lucide-react"
 import { cn, formatPrice } from "@/lib/utils"
 import {
   isResidential,
@@ -41,9 +41,24 @@ export function InvestmentCalculator({ auction }: Props) {
   const [interestRate, setInterestRate] = useState(0.045)
 
   // 임대수익 (만원)
-  const [monthlyRentMan, setMonthlyRentMan] = useState(0)
-  const [depositMan, setDepositMan] = useState(0)
+  const rentInfo = auction.rent_price_info
+  const [monthlyRentMan, setMonthlyRentMan] = useState(
+    rentInfo?.avg_monthly_rent ? Math.round(rentInfo.avg_monthly_rent) : 0
+  )
+  const [depositMan, setDepositMan] = useState(
+    rentInfo?.avg_deposit ? Math.round(rentInfo.avg_deposit) : 0
+  )
   const [monthlyExpenseMan, setMonthlyExpenseMan] = useState(0)
+
+  // rent_price_info 업데이트 시 자동 채움
+  useEffect(() => {
+    if (rentInfo?.avg_monthly_rent) {
+      setMonthlyRentMan(Math.round(rentInfo.avg_monthly_rent))
+    }
+    if (rentInfo?.avg_deposit) {
+      setDepositMan(Math.round(rentInfo.avg_deposit))
+    }
+  }, [rentInfo?.avg_monthly_rent, rentInfo?.avg_deposit])
 
   // ML 추정 낙찰가
   const predictedRatio =
@@ -331,9 +346,20 @@ export function InvestmentCalculator({ auction }: Props) {
 
           {/* 임대수익 입력 */}
           <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-            <p className="text-sm font-semibold text-card-foreground">
-              월 임대수익 (선택 입력)
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-card-foreground">
+                월 임대수익 (선택 입력)
+              </p>
+              {rentInfo && rentInfo.sample_count >= 3 && (
+                <span
+                  className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600 dark:bg-blue-950 dark:text-blue-400"
+                  title={`최근 3개월 인근 ${rentInfo.sample_count}건 실거래 평균`}
+                >
+                  <Info size={10} />
+                  실거래 평균 {rentInfo.sample_count}건
+                </span>
+              )}
+            </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <EditableRow
                 label="월세 수입"
@@ -354,6 +380,11 @@ export function InvestmentCalculator({ auction }: Props) {
                 suffix="만원"
               />
             </div>
+            {rentInfo && rentInfo.sample_count >= 3 && (
+              <p className="text-[10px] text-muted-foreground">
+                ※ 인근 {rentInfo.avg_area_m2 ? `${rentInfo.avg_area_m2.toFixed(0)}㎡ 기준 ` : ""}실거래 평균 자동입력. 직접 수정 가능.
+              </p>
+            )}
           </div>
 
           {/* 면책 문구 */}

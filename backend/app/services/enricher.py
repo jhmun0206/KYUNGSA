@@ -6,7 +6,7 @@ EnrichedCase를 생성한다. 모든 API 호출은 fail-open (실패해도 진�
 
 import logging
 import time
-from datetime import date
+from datetime import date, timedelta
 
 from app.models.auction import AuctionCaseDetail
 from app.models.enriched_case import (
@@ -15,6 +15,7 @@ from app.models.enriched_case import (
     LandUseInfo,
     LocationData,
     MarketPriceInfo,
+    RentPriceInfo,
 )
 from app.services.crawler.geo_client import GeoClient
 from app.services.crawler.public_api import PublicDataClient
@@ -84,6 +85,14 @@ class CaseEnricher:
 
         # 4. 시세 조회
         enriched.market_price = self._fetch_market_price(case)
+
+        # 5. 월세 실거래가 조회 (좌표 있을 때만)
+        if enriched.coordinates:
+            enriched.rent_price = self._fetch_rent_price_info(
+                case,
+                enriched.coordinates,
+                enriched.building,
+            )
 
         return enriched
 
@@ -240,6 +249,126 @@ class CaseEnricher:
             school_count_1km=school_count_1km,
             amenity_count_500m=amenity_count_500m,
             categories_fetched=fetched,
+        )
+
+    def _fetch_rent_price_info(
+        self,
+        case: AuctionCaseDetail,
+        coords: dict,
+        building: BuildingInfo | None,
+    ) -> RentPriceInfo | None:
+        """월세 실거래가 조회
+
+        좌표의 b_code 앞 5자리를 lawd_cd로 사용하여 최근 3개월 조회.
+        property_type에 따라 API 선택:
+          아파트 → apt_rent, 다세대/연립/빌라 → rh_rent, 오피스텔 → office_rent
+          기타 → rh_rent + office_rent 모두
+        building_info의 exclusive_area_m2 ± 20% 범위로 필터링.
+        sample_count < 3이면 None 반환.
+        """
+        # lawd_cd 추출 (b_code 앞 5자리)
+        b_code = coords.get("b_code", "")
+        if not b_code or len(b_code) < 5:
+            return None
+        lawd_cd = b_code[:5]
+
+        # 조회 월 목록 (현재월 + 직전 2개월)
+        today = date.today()
+        months: list[str] = []
+        for i in range(3):
+            d = (today.replace(day=1) - timedelta(days=1) * (i * 31)).replace(day=1)
+            months.append(d.strftime("%Y%m"))
+        # 중복 제거 + 최신 순
+        months = sorted(set(months), reverse=True)[:3]
+
+        # property_type 기반 API 선택
+        pt = case.property_type or ""
+        raw_rows: list[dict[str, str]] = []
+        try:
+            if "아파트" in pt:
+                for ym in months:
+                    raw_rows.extend(self._public.fetch_apt_rent(lawd_cd, ym))
+            elif any(k in pt for k in ("오피스텔",)):
+                for ym in months:
+                    raw_rows.extend(self._public.fetch_office_rent(lawd_cd, ym))
+            elif any(k in pt for k in ("다세대", "연립", "빌라", "단독", "다가구")):
+                for ym in months:
+                    raw_rows.extend(self._public.fetch_rh_rent(lawd_cd, ym))
+            else:
+                # 기타: 연립다세대 + 오피스텔 모두
+                for ym in months:
+                    raw_rows.extend(self._public.fetch_rh_rent(lawd_cd, ym))
+                    raw_rows.extend(self._public.fetch_office_rent(lawd_cd, ym))
+        except Exception as e:
+            logger.warning("월세 실거래가 조회 실패 [%s]: %s", case.case_number, e)
+            return None
+
+        if not raw_rows:
+            logger.debug("월세 실거래가 없음 [%s] lawd_cd=%s", case.case_number, lawd_cd)
+            return None
+
+        # 월세(보증금+월세) 거래만 필터링 (전세는 월세=0)
+        rent_rows = [r for r in raw_rows if _safe_int_str(r.get("monthlyRent", "0")) or 0 > 0]
+
+        # 면적 필터링: building_info.exclusive_area_m2 ± 20%
+        if building and building.exclusive_area_m2 and building.exclusive_area_m2 > 0:
+            target_area = building.exclusive_area_m2
+            lo, hi = target_area * 0.8, target_area * 1.2
+            filtered = [
+                r for r in rent_rows
+                if lo <= (_safe_float_str(r.get("excluUseAr", "") or r.get("exclusiveArea", "")) or target_area) <= hi
+            ]
+            if filtered:
+                rent_rows = filtered
+
+        if len(rent_rows) < 3:
+            logger.debug(
+                "월세 샘플 부족 [%s]: %d건 (최소 3건 필요)", case.case_number, len(rent_rows)
+            )
+            return None
+
+        # 통계 산출
+        monthly_rents: list[float] = []
+        deposits: list[float] = []
+        areas: list[float] = []
+        recent: list[dict] = []
+        for r in rent_rows:
+            mr = _safe_float_str(r.get("monthlyRent", ""))
+            dep = _safe_float_str(r.get("deposit", "") or r.get("leaseAmount", ""))
+            area = _safe_float_str(r.get("excluUseAr", "") or r.get("exclusiveArea", ""))
+            if mr is not None:
+                monthly_rents.append(mr)
+            if dep is not None:
+                deposits.append(dep)
+            if area is not None:
+                areas.append(area)
+            recent.append({
+                "area_m2": area,
+                "floor": _safe_int_str(r.get("floor", "")),
+                "deposit": dep,
+                "monthly_rent": mr,
+                "contract_date": f"{r.get('dealYear', '')}-{r.get('dealMonth', '').zfill(2)}",
+            })
+
+        avg_rent = sum(monthly_rents) / len(monthly_rents) if monthly_rents else None
+        avg_dep = sum(deposits) / len(deposits) if deposits else None
+        avg_area = sum(areas) / len(areas) if areas else None
+
+        logger.info(
+            "월세 정보 [%s]: avg=%.0f만원 deposit=%.0f만원 n=%d",
+            case.case_number,
+            avg_rent or 0,
+            avg_dep or 0,
+            len(rent_rows),
+        )
+        return RentPriceInfo(
+            recent_rents=recent[:10],
+            avg_monthly_rent=round(avg_rent, 1) if avg_rent is not None else None,
+            avg_deposit=round(avg_dep, 0) if avg_dep is not None else None,
+            avg_area_m2=round(avg_area, 1) if avg_area is not None else None,
+            sample_count=len(rent_rows),
+            lawd_cd=lawd_cd,
+            queried_months=months,
         )
 
     def _fetch_market_price(self, case: AuctionCaseDetail) -> MarketPriceInfo | None:
@@ -408,6 +537,28 @@ def _calc_avg_price_per_m2(trades: list[dict]) -> float | None:
     if not prices:
         return None
     return sum(prices) / len(prices)
+
+
+def _safe_float_str(text: str | None) -> float | None:
+    """문자열 → float (실패 또는 None 입력 시 None, 0이면 None)"""
+    if not text:
+        return None
+    try:
+        v = float(str(text).replace(",", "").strip())
+        return v if v > 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _safe_int_str(text: str | None) -> int | None:
+    """문자열 → int (실패 또는 None 입력 시 None, 0이면 None)"""
+    if not text:
+        return None
+    try:
+        v = int(str(text).replace(",", "").strip())
+        return v if v > 0 else None
+    except (ValueError, TypeError):
+        return None
 
 
 def _safe_float(text: str) -> float | None:

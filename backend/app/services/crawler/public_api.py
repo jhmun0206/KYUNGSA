@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 ENDPOINTS = {
     "apt_trade": "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev",
     "apt_rent": "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent",
+    "rh_rent": "https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent",
+    "office_rent": "https://apis.data.go.kr/1613000/RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent",
     "commercial_trade": "https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade",
     "building_register": "https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo",
     "land_price": "https://apis.data.go.kr/1611000/nsdi/IndvdLandPriceService/attr/getIndvdLandPriceAttr",
@@ -91,6 +93,40 @@ class PublicDataClient:
         params = {"LAWD_CD": lawd_cd, "DEAL_YMD": deal_ymd, "numOfRows": "100", "pageNo": "1"}
         logger.info("아파트 전월세 실거래가 조회: %s / %s", lawd_cd, deal_ymd)
         response = self._get(ENDPOINTS["apt_rent"], params)
+        return self._parse_xml_items(response.text)
+
+    # === 연립다세대 전월세 실거래가 ===
+
+    def fetch_rh_rent(self, lawd_cd: str, deal_ymd: str) -> list[dict[str, str]]:
+        """연립다세대 전월세 실거래가 조회
+
+        Args:
+            lawd_cd: 법정동코드 앞 5자리
+            deal_ymd: 계약년월
+
+        Returns:
+            연립다세대 전월세 거래 목록
+        """
+        params = {"LAWD_CD": lawd_cd, "DEAL_YMD": deal_ymd, "numOfRows": "100", "pageNo": "1"}
+        logger.info("연립다세대 전월세 조회: %s / %s", lawd_cd, deal_ymd)
+        response = self._get(ENDPOINTS["rh_rent"], params)
+        return self._parse_xml_items(response.text)
+
+    # === 오피스텔 전월세 실거래가 ===
+
+    def fetch_office_rent(self, lawd_cd: str, deal_ymd: str) -> list[dict[str, str]]:
+        """오피스텔 전월세 실거래가 조회
+
+        Args:
+            lawd_cd: 법정동코드 앞 5자리
+            deal_ymd: 계약년월
+
+        Returns:
+            오피스텔 전월세 거래 목록
+        """
+        params = {"LAWD_CD": lawd_cd, "DEAL_YMD": deal_ymd, "numOfRows": "100", "pageNo": "1"}
+        logger.info("오피스텔 전월세 조회: %s / %s", lawd_cd, deal_ymd)
+        response = self._get(ENDPOINTS["office_rent"], params)
         return self._parse_xml_items(response.text)
 
     # === 상업업무용 매매 실거래가 ===

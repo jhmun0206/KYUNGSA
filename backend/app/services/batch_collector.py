@@ -715,6 +715,8 @@ class BatchCollector:
                     auction_orm.land_use_info = enriched.land_use.model_dump()
                 if enriched.market_price is not None:
                     auction_orm.market_price_info = enriched.market_price.model_dump()
+                if enriched.rent_price is not None:
+                    auction_orm.rent_price_info = enriched.rent_price.model_dump()
 
                 if enriched.total_score:
                     self._save_score(auction_orm.id, enriched, result.run_id)

@@ -22,6 +22,7 @@ from app.models.enriched_case import (
     LandUseInfo,
     MarketPriceInfo,
     PipelineResult,
+    RentPriceInfo,
     RuleMatch,
 )
 from app.models.registry import (
@@ -49,6 +50,7 @@ def auction_detail_to_orm(
     building: BuildingInfo | None = None,
     land_use: LandUseInfo | None = None,
     market_price: MarketPriceInfo | None = None,
+    rent_price: RentPriceInfo | None = None,
 ) -> Auction:
     """AuctionCaseDetail (+ enrichment) → Auction ORM"""
     return Auction(
@@ -66,6 +68,7 @@ def auction_detail_to_orm(
         building_info=building.model_dump() if building else None,
         land_use_info=land_use.model_dump() if land_use else None,
         market_price_info=market_price.model_dump() if market_price else None,
+        rent_price_info=rent_price.model_dump() if rent_price else None,
         detail=detail.model_dump(mode="json"),
     )
 
@@ -321,6 +324,8 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
             auction.land_use_info = enriched.land_use.model_dump()
         if enriched.market_price is not None:
             auction.market_price_info = enriched.market_price.model_dump()
+        if enriched.rent_price is not None:
+            auction.rent_price_info = enriched.rent_price.model_dump()
         auction.detail = enriched.case.model_dump(mode="json")
         # 하위 삭제 후 재생성 (FK 순서: analysis → events → filter)
         if auction.registry_analysis:
@@ -338,6 +343,7 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
             building=enriched.building,
             land_use=enriched.land_use,
             market_price=enriched.market_price,
+            rent_price=enriched.rent_price,
         )
         db.add(auction)
         db.flush()  # id 확보

@@ -50,6 +50,7 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
     building_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
     land_use_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
     market_price_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
+    rent_price_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
     detail: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
 
     # 관계

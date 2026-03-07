@@ -92,6 +92,18 @@ class MarketPriceInfo(BaseModel):
     lawd_cd: str = ""  # 조회한 법정동코드
 
 
+class RentPriceInfo(BaseModel):
+    """월세 실거래가 정보 (국토부 API)"""
+
+    recent_rents: list[dict] = Field(default_factory=list)  # 최근 거래 (최대 10건)
+    avg_monthly_rent: float | None = None   # 평균 월세 (만원)
+    avg_deposit: float | None = None        # 평균 보증금 (만원)
+    avg_area_m2: float | None = None        # 평균 전용면적 (㎡)
+    sample_count: int = 0                   # 샘플 수
+    lawd_cd: str = ""                       # 조회한 법정동코드
+    queried_months: list[str] = Field(default_factory=list)  # 조회 월 목록
+
+
 class EnrichedCase(BaseModel):
     """공공 API 데이터가 결합된 경매 물건"""
 
@@ -100,6 +112,7 @@ class EnrichedCase(BaseModel):
     building: BuildingInfo | None = None
     land_use: LandUseInfo | None = None
     market_price: MarketPriceInfo | None = None
+    rent_price: RentPriceInfo | None = None
     filter_result: FilterResult | None = None
 
     # 2단 등기부 분석 결과 (Optional — 1단 통과 건만 채워짐)

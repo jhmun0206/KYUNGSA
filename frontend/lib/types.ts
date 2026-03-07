@@ -109,7 +109,24 @@ export interface AuctionDetailResponse {
   specification_remarks: string
   building_info: BuildingInfo | null
   market_price_info: Record<string, unknown> | null
+  rent_price_info: RentPriceInfo | null
   location_data: Record<string, unknown> | null
+}
+
+export interface RentPriceInfo {
+  recent_rents: Array<{
+    area_m2: number | null
+    floor: number | null
+    deposit: number | null
+    monthly_rent: number | null
+    contract_date: string
+  }>
+  avg_monthly_rent: number | null
+  avg_deposit: number | null
+  avg_area_m2: number | null
+  sample_count: number
+  lawd_cd: string
+  queried_months: string[]
 }
 
 export interface BuildingInfo {
