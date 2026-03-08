@@ -116,18 +116,21 @@ export interface AuctionDetailResponse {
   default_loan_rate?: number
 }
 
+export interface RentAreaRange {
+  range: string       // "20~40㎡"
+  min_m2: number
+  max_m2: number
+  avg_rent: number    // 평균 월세 (만원)
+  avg_deposit: number // 평균 보증금 (만원)
+  count: number
+}
+
 export interface RentPriceInfo {
-  recent_rents: Array<{
-    area_m2: number | null
-    floor: number | null
-    deposit: number | null
-    monthly_rent: number | null
-    contract_date: string
-  }>
-  avg_monthly_rent: number | null
-  avg_deposit: number | null
-  avg_area_m2: number | null
+  by_area_range: RentAreaRange[]
+  overall_avg_rent: number | null   // 전체 평균 (fallback)
+  overall_avg_deposit: number | null
   sample_count: number
+  source: string                    // "연립다세대", "오피스텔" 등
   lawd_cd: string
   queried_months: string[]
 }

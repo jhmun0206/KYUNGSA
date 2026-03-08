@@ -92,16 +92,27 @@ class MarketPriceInfo(BaseModel):
     lawd_cd: str = ""  # 조회한 법정동코드
 
 
-class RentPriceInfo(BaseModel):
-    """월세 실거래가 정보 (국토부 API)"""
+class RentAreaRange(BaseModel):
+    """면적 구간별 월세 통계 (1개 구간)"""
 
-    recent_rents: list[dict] = Field(default_factory=list)  # 최근 거래 (최대 10건)
-    avg_monthly_rent: float | None = None   # 평균 월세 (만원)
-    avg_deposit: float | None = None        # 평균 보증금 (만원)
-    avg_area_m2: float | None = None        # 평균 전용면적 (㎡)
-    sample_count: int = 0                   # 샘플 수
-    lawd_cd: str = ""                       # 조회한 법정동코드
-    queried_months: list[str] = Field(default_factory=list)  # 조회 월 목록
+    range: str           # "20~40㎡"
+    min_m2: float        # 구간 하한 (이상)
+    max_m2: float        # 구간 상한 (미만, 마지막 구간은 9999)
+    avg_rent: float      # 평균 월세 (만원)
+    avg_deposit: float   # 평균 보증금 (만원, 없으면 0)
+    count: int           # 샘플 수
+
+
+class RentPriceInfo(BaseModel):
+    """월세 실거래가 정보 (국토부 API) — 면적 구간별 분류"""
+
+    by_area_range: list[RentAreaRange] = Field(default_factory=list)  # 구간별 통계
+    overall_avg_rent: float | None = None      # 전체 평균 월세 (만원, fallback)
+    overall_avg_deposit: float | None = None   # 전체 평균 보증금 (만원, fallback)
+    sample_count: int = 0                      # 전체 샘플 수
+    source: str = ""                           # 데이터 출처 (연립다세대, 오피스텔 등)
+    lawd_cd: str = ""                          # 조회한 법정동코드
+    queried_months: list[str] = Field(default_factory=list)
 
 
 class EnrichedCase(BaseModel):

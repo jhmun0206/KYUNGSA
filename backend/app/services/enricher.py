@@ -15,12 +15,23 @@ from app.models.enriched_case import (
     LandUseInfo,
     LocationData,
     MarketPriceInfo,
+    RentAreaRange,
     RentPriceInfo,
 )
 from app.services.crawler.geo_client import GeoClient
 from app.services.crawler.public_api import PublicDataClient
 
 logger = logging.getLogger(__name__)
+
+# 면적 구간 기준 (label, min_m2 이상, max_m2 미만)
+_AREA_RANGES: list[tuple[str, float, float]] = [
+    ("10㎡ 미만", 0.0, 10.0),
+    ("10~20㎡", 10.0, 20.0),
+    ("20~40㎡", 20.0, 40.0),
+    ("40~60㎡", 40.0, 60.0),
+    ("60~85㎡", 60.0, 85.0),
+    ("85㎡ 초과", 85.0, 9999.0),
+]
 
 # 서울 25개 구 시군구코드 (MVP: 서울만)
 SIGUNGU_CODE_MAP: dict[str, str] = {
@@ -257,14 +268,14 @@ class CaseEnricher:
         coords: dict,
         building: BuildingInfo | None,
     ) -> RentPriceInfo | None:
-        """월세 실거래가 조회
+        """월세 실거래가 조회 (면적 구간별 분류)
 
         좌표의 b_code 앞 5자리를 lawd_cd로 사용하여 최근 3개월 조회.
         property_type에 따라 API 선택:
-          아파트 → apt_rent, 다세대/연립/빌라 → rh_rent, 오피스텔 → office_rent
+          아파트 → apt_rent, 오피스텔 → office_rent, 다세대/연립/빌라 → rh_rent
           기타 → rh_rent + office_rent 모두
-        building_info의 exclusive_area_m2 ± 20% 범위로 필터링.
-        sample_count < 3이면 None 반환.
+        면적 구간별로 그룹화 (count < 2인 구간은 제외).
+        전체 sample_count < 3이면 None 반환.
         """
         # lawd_cd 추출 (b_code 앞 5자리)
         b_code = coords.get("b_code", "")
@@ -278,7 +289,6 @@ class CaseEnricher:
         for i in range(3):
             d = (today.replace(day=1) - timedelta(days=1) * (i * 31)).replace(day=1)
             months.append(d.strftime("%Y%m"))
-        # 중복 제거 + 최신 순
         months = sorted(set(months), reverse=True)[:3]
 
         # property_type 기반 API 선택
@@ -288,17 +298,20 @@ class CaseEnricher:
             if "아파트" in pt:
                 for ym in months:
                     raw_rows.extend(self._public.fetch_apt_rent(lawd_cd, ym))
-            elif any(k in pt for k in ("오피스텔",)):
+                source = "아파트"
+            elif "오피스텔" in pt:
                 for ym in months:
                     raw_rows.extend(self._public.fetch_office_rent(lawd_cd, ym))
+                source = "오피스텔"
             elif any(k in pt for k in ("다세대", "연립", "빌라", "단독", "다가구")):
                 for ym in months:
                     raw_rows.extend(self._public.fetch_rh_rent(lawd_cd, ym))
+                source = "연립다세대"
             else:
-                # 기타: 연립다세대 + 오피스텔 모두
                 for ym in months:
                     raw_rows.extend(self._public.fetch_rh_rent(lawd_cd, ym))
                     raw_rows.extend(self._public.fetch_office_rent(lawd_cd, ym))
+                source = "연립다세대+오피스텔"
         except Exception as e:
             logger.warning("월세 실거래가 조회 실패 [%s]: %s", case.case_number, e)
             return None
@@ -307,19 +320,8 @@ class CaseEnricher:
             logger.debug("월세 실거래가 없음 [%s] lawd_cd=%s", case.case_number, lawd_cd)
             return None
 
-        # 월세(보증금+월세) 거래만 필터링 (전세는 월세=0)
-        rent_rows = [r for r in raw_rows if _safe_int_str(r.get("monthlyRent", "0")) or 0 > 0]
-
-        # 면적 필터링: building_info.exclusive_area_m2 ± 20%
-        if building and building.exclusive_area_m2 and building.exclusive_area_m2 > 0:
-            target_area = building.exclusive_area_m2
-            lo, hi = target_area * 0.8, target_area * 1.2
-            filtered = [
-                r for r in rent_rows
-                if lo <= (_safe_float_str(r.get("excluUseAr", "") or r.get("exclusiveArea", "")) or target_area) <= hi
-            ]
-            if filtered:
-                rent_rows = filtered
+        # 월세 거래만 필터링 (월세=0은 전세)
+        rent_rows = [r for r in raw_rows if (_safe_int_str(r.get("monthlyRent", "0")) or 0) > 0]
 
         if len(rent_rows) < 3:
             logger.debug(
@@ -327,46 +329,45 @@ class CaseEnricher:
             )
             return None
 
-        # 통계 산출
-        monthly_rents: list[float] = []
-        deposits: list[float] = []
-        areas: list[float] = []
-        recent: list[dict] = []
-        for r in rent_rows:
-            mr = _safe_float_str(r.get("monthlyRent", ""))
-            dep = _safe_float_str(r.get("deposit", "") or r.get("leaseAmount", ""))
-            area = _safe_float_str(r.get("excluUseAr", "") or r.get("exclusiveArea", ""))
-            if mr is not None:
-                monthly_rents.append(mr)
-            if dep is not None:
-                deposits.append(dep)
-            if area is not None:
-                areas.append(area)
-            recent.append({
-                "area_m2": area,
-                "floor": _safe_int_str(r.get("floor", "")),
-                "deposit": dep,
-                "monthly_rent": mr,
-                "contract_date": f"{r.get('dealYear', '')}-{r.get('dealMonth', '').zfill(2)}",
-            })
+        # 면적 구간별 그룹화
+        by_area_range: list[RentAreaRange] = []
+        for label, lo, hi in _AREA_RANGES:
+            bucket: list[dict] = []
+            for r in rent_rows:
+                area = _safe_float_str(r.get("excluUseAr", "") or r.get("exclusiveArea", ""))
+                if area is not None and lo <= area < hi:
+                    bucket.append(r)
+            if len(bucket) < 2:
+                continue
+            rents = [v for v in (_safe_float_str(r.get("monthlyRent", "")) for r in bucket) if v is not None]
+            deps = [v for v in (_safe_float_str(r.get("deposit", "") or r.get("leaseAmount", "")) for r in bucket) if v is not None]
+            if not rents:
+                continue
+            by_area_range.append(RentAreaRange(
+                range=label,
+                min_m2=lo,
+                max_m2=hi,
+                avg_rent=round(sum(rents) / len(rents), 1),
+                avg_deposit=round(sum(deps) / len(deps), 0) if deps else 0.0,
+                count=len(bucket),
+            ))
 
-        avg_rent = sum(monthly_rents) / len(monthly_rents) if monthly_rents else None
-        avg_dep = sum(deposits) / len(deposits) if deposits else None
-        avg_area = sum(areas) / len(areas) if areas else None
+        # 전체 평균 (fallback)
+        all_rents = [v for v in (_safe_float_str(r.get("monthlyRent", "")) for r in rent_rows) if v is not None]
+        all_deps = [v for v in (_safe_float_str(r.get("deposit", "") or r.get("leaseAmount", "")) for r in rent_rows) if v is not None]
+        overall_avg_rent = round(sum(all_rents) / len(all_rents), 1) if all_rents else None
+        overall_avg_deposit = round(sum(all_deps) / len(all_deps), 0) if all_deps else None
 
         logger.info(
-            "월세 정보 [%s]: avg=%.0f만원 deposit=%.0f만원 n=%d",
-            case.case_number,
-            avg_rent or 0,
-            avg_dep or 0,
-            len(rent_rows),
+            "월세 정보 [%s]: 구간=%d개 전체=%d건 avg=%.0f만원",
+            case.case_number, len(by_area_range), len(rent_rows), overall_avg_rent or 0,
         )
         return RentPriceInfo(
-            recent_rents=recent[:10],
-            avg_monthly_rent=round(avg_rent, 1) if avg_rent is not None else None,
-            avg_deposit=round(avg_dep, 0) if avg_dep is not None else None,
-            avg_area_m2=round(avg_area, 1) if avg_area is not None else None,
+            by_area_range=by_area_range,
+            overall_avg_rent=overall_avg_rent,
+            overall_avg_deposit=overall_avg_deposit,
             sample_count=len(rent_rows),
+            source=source,
             lawd_cd=lawd_cd,
             queried_months=months,
         )
