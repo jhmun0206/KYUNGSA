@@ -24,6 +24,7 @@ export function Header() {
   const [compareCount, setCompareCount] = useState(0)
   const { data: session, status } = useSession()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [imgError, setImgError] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // 비교 카운트
@@ -106,13 +107,14 @@ export function Header() {
                   onClick={() => setDropdownOpen((v) => !v)}
                   className="flex items-center gap-1.5 rounded-full border border-border p-0.5 pr-2 text-sm hover:bg-accent transition-colors"
                 >
-                  {session.user?.image ? (
+                  {session.user?.image && !imgError ? (
                     <Image
                       src={session.user.image}
                       alt={session.user.name ?? ""}
                       width={28}
                       height={28}
                       className="rounded-full"
+                      onError={() => setImgError(true)}
                     />
                   ) : (
                     <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
