@@ -7,8 +7,8 @@
 | 항목 | 상태 |
 |------|------|
 | 프로젝트명 | KYUNGSA |
-| 현재 단계 | `Phase H-1 완료` (투자 시뮬레이터 + 건축물대장 표시) |
-| 최종 업데이트 | 2026-03-06 |
+| 현재 단계 | `Phase I 완료` (사용자 로그인/인증 시스템) |
+| 최종 업데이트 | 2026-03-08 |
 | 테스트 | 763개 통과 |
 | 배포 | https://kyungsa.com (Vercel) / https://api.kyungsa.com (Cloudflare Tunnel) |
 | 개발 도구 | Claude Code |
@@ -58,7 +58,7 @@
 ## 2. 기술 스택
 
 ```
-Backend:    Python 3.11+ / FastAPI / Pydantic v2 / SQLAlchemy 2.0 / Alembic
+Backend:    Python 3.11+ / FastAPI / Pydantic v2 / SQLAlchemy 2.0 / Alembic / PyJWT
 DB:         PostgreSQL 16 (홈서버 확정)
 Cache:      인메모리 (dict/lru_cache) → Redis (필요 시)
 Scheduler:  systemd timer (cron 대체)
@@ -70,7 +70,8 @@ Geo/API:    카카오 Geocode+카테고리, Vworld, data.go.kr (실거래가, �
 LLM:        OpenAI API (리스크 설명 생성, 미착수)
 Server:     Ubuntu Server 24.04 LTS + systemd + Nginx — MSI GP75 홈서버
 Infra:      Cloudflare Tunnel (api.kyungsa.com) + Vercel (kyungsa.com)
-Frontend:   Next.js 14 (App Router) + TypeScript + shadcn/ui + Framer Motion
+Frontend:   Next.js 14 (App Router) + TypeScript + shadcn/ui + Framer Motion + NextAuth.js v5
+Auth:       Google OAuth (NextAuth.js v5) + 백엔드 JWT (HS256)
 Dev Tool:   Claude Code
 ```
 
@@ -86,28 +87,31 @@ KYUNGSA/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py              # ⭐ FastAPI 엔트리 (uvicorn app.main:app)
-│   │   ├── config.py            # 환경변수 설정
+│   │   ├── config.py            # 환경변수 설정 (JWT_SECRET, DEFAULT_LOAN_RATE 등)
 │   │   ├── database.py          # ⭐ SQLAlchemy engine + SessionLocal
 │   │   ├── api/
 │   │   │   ├── auctions.py      # v0 크롤러 직접 실행 API (4 엔드포인트)
 │   │   │   ├── v1/
 │   │   │   │   ├── auctions.py  # ⭐ v1 DB 기반 대시보드 API (3 엔드포인트)
+│   │   │   │   ├── auth.py      # ⭐ Phase I: OAuth upsert + JWT 발급
+│   │   │   │   ├── users.py     # ⭐ Phase I: 즐겨찾기 + 저장 검색 CRUD
 │   │   │   │   └── schemas.py   # v1 응답 스키마
 │   │   │   ├── schemas.py       # v0 응답/요청 스키마
 │   │   │   └── dependencies.py  # 의존성 주입
 │   │   ├── models/
 │   │   │   ├── auction.py       # 대법원 경매 DTO (8개)
-│   │   │   ├── enriched_case.py # ⭐ 1단+2단 통합 모델 + LocationData
+│   │   │   ├── enriched_case.py # ⭐ 1단+2단 통합 모델 + RentPriceInfo (면적구간별)
 │   │   │   ├── registry.py      # 등기부 모델 (EventType 19종)
 │   │   │   ├── scores.py        # ⭐ 점수 모델 (Legal/Price/Location/Occupancy/Total)
-│   │   │   ├── occupancy_dto.py # 현황조사서 DTO (OccupancyTenantDTO, OccupancyReportDTO)
+│   │   │   ├── occupancy_dto.py # 현황조사서 DTO
 │   │   │   └── db/
 │   │   │       ├── base.py      # Base + JSONBOrJSON + Mixin
 │   │   │       ├── auction.py   # Auction ORM
 │   │   │       ├── score.py     # ⭐ Score ORM (낙찰가율 포함)
 │   │   │       ├── filter_result.py
 │   │   │       ├── registry.py  # RegistryEventORM + RegistryAnalysisORM
-│   │   │       ├── occupancy.py  # ⭐ OccupancyReport + OccupancyTenant + OccupancyProperty ORM
+│   │   │       ├── occupancy.py # OccupancyReport + OccupancyTenant + OccupancyProperty ORM
+│   │   │       ├── user.py      # ⭐ Phase I: User + UserFavorite + UserSavedSearch ORM
 │   │   │       ├── pipeline_run.py
 │   │   │       └── converters.py # ⭐ Pydantic↔ORM 변환 + upsert
 │   │   └── services/
@@ -144,7 +148,7 @@ KYUNGSA/
 │   │       │   ├── total_scorer.py          # 종합 점수 + 등급 A/B/C/D
 │   │       │   └── engine.py                # RuleEngineV2 (통합 평가 오케스트레이터)
 │   │       ├── address_parser.py            # 주소 파싱 (경매주소→CODEF 파라미터)
-│   │       ├── enricher.py                  # 1단 데이터 보강 (geocode→용도→건물→시세→입지)
+│   │       ├── enricher.py                  # 1단 데이터 보강 (geocode→용도→건물→시세→임대료)
 │   │       ├── filter_engine.py             # FilterEngine + CostGate
 │   │       ├── filter_rules.py              # RED(R001~R003) + YELLOW(Y001~Y003)
 │   │       ├── pipeline.py                  # 1단+2단 통합 AuctionPipeline
@@ -153,9 +157,19 @@ KYUNGSA/
 │   │       ├── sale_result_collector.py     # ⭐ 전국 낙찰 완료 건 수집기
 │   │       └── registry_rules.py            # HardStop 룰 정의 (HS001~HS008)
 │   ├── alembic/versions/        # DB 마이그레이션 이력
+│   │   ├── a0c347536398_initial_5a_schema.py
+│   │   ├── b1d458637499_5e_scores_table.py
+│   │   ├── c3e891a47f20_5_5_scores_add_predicted_winning_ratio.py
+│   │   ├── d4f721839b6c_phase6_scores_add_grade_provisional.py
+│   │   ├── e5a2c947f310_phase65_winning_columns.py
+│   │   ├── f7a1b2c3d4e5_phase7_occupancy_tables.py
+│   │   ├── a8f3c2d1e9b7_phase_h2_rent_price_info.py
+│   │   ├── b1c2d3e4f5a6_fix_pipeline_run_id_text.py
+│   │   ├── d2e3f4a5b6c7_phase_i_users.py   # ⭐ Phase I: users 3개 테이블
+│   │   └── 4d0e491c6f8f_merge_b1c2_and_d2e3.py  # merge head
 │   └── tests/                   # 763개 테스트 전체 통과
 ├── scripts/
-│   ├── run_batch.py             # 배치 수집기 CLI
+│   ├── run_batch.py             # 배치 수집기 CLI (--rescore-db 포함)
 │   ├── collect_winning_bids.py  # 낙찰가 추적 CLI
 │   ├── collect_sale_results.py  # 낙찰 완료 건 수집 CLI
 │   ├── backtest_scores.py       # ⭐ 백테스트 + 캘리브레이션 (stdlib만)
@@ -164,6 +178,7 @@ KYUNGSA/
 │   ├── retrain_model.py         # 월간 자동 재학습 (개선 시만 교체)
 │   ├── eda_prediction.py        # ML 학습 데이터 EDA
 │   ├── collect_occupancy.py     # 현황조사서 수집 CLI (단건/backfill)
+│   ├── backfill_bcode.py        # b_code 역채움 CLI (geocode 기반)
 │   ├── run_pipeline.py          # 1단 파이프라인 실행
 │   ├── parse_registry.py        # 등기부 파싱 CLI
 │   ├── test_codef_registry.py   # CODEF 등기부 실 API 테스트
@@ -175,25 +190,38 @@ KYUNGSA/
 │   ├── kyungsa-winning-bids.service/.timer # 매주 일 07:00 낙찰가 추적
 │   └── DEPLOY.md                # 서버 배포 명령어
 └── frontend/                    # Next.js 14 (App Router)
+    ├── auth.ts                  # ⭐ Phase I: NextAuth.js v5 설정 (Google OAuth)
     ├── app/
-    │   ├── page.tsx             # ⭐ 랜딩 (Hero + 통계 + Top Picks + CTA)
-    │   ├── search/page.tsx      # ⭐ 검색 전용 (스티키 필터 + AnimatePresence)
-    │   ├── auction/[caseNumber]/page.tsx  # 물건 상세
+    │   ├── page.tsx             # ⭐ 랜딩 (Hero + 이번주 기일 + 높은 평가 + 통계)
+    │   ├── search/page.tsx      # ⭐ 검색 전용 (스티키 필터 + 리스트 뷰)
+    │   ├── auction/[caseNumber]/page.tsx  # 물건 상세 (4단 앵커)
     │   ├── map/page.tsx         # 지도 뷰 (카카오맵 + 등급 마커)
-    │   └── favorites/page.tsx   # 관심 목록 (요약 스트립 + 정렬 + 애니메이션)
+    │   ├── favorites/page.tsx   # 관심 목록 (정렬 + 애니메이션)
+    │   ├── compare/page.tsx     # 비교 페이지 (최대 3건)
+    │   └── api/auth/[...nextauth]/route.ts  # ⭐ Phase I: NextAuth 핸들러
     ├── components/
-    │   ├── layout/              # Header, Footer, MobileNav, ThemeProvider, ThemeToggle
-    │   ├── domain/              # AuctionCard, GradeBadge, CoveragePill, PredictionPill, DisclaimerBanner
-    │   ├── detail/              # DecisionSection, PillarBreakdown, BasicInfo, InvestmentCalculator, MobileActionBar
-    │   ├── landing/             # TopPicksGrid (Framer Motion stagger)
-    │   └── search/              # SearchFilters (스티키 필터바), SearchResultsGrid
-    └── lib/
-        ├── api.ts               # fetchAuctions, fetchAuctionDetail
-        ├── types.ts             # TypeScript 타입 정의
-        ├── constants.ts         # 등급 색상, 법원 코드, API_BASE
-        ├── utils.ts             # formatPrice, calcDiscount, calcDday
-        ├── favorites.ts         # localStorage 즐겨찾기
-        └── compare.ts           # localStorage 비교 (최대 3건, UI 미착수)
+    │   ├── layout/              # Header (로그인/아바타), Footer, MobileNav, ThemeProvider,
+    │   │                        #   ThemeToggle, AuthSessionProvider
+    │   ├── domain/              # AuctionListRow, AuctionCard, GradeBadge, CoveragePill,
+    │   │                        #   PredictionPill, DisclaimerBanner, FavoriteButton(DB동기화),
+    │   │                        #   CompareButton, CompareBar
+    │   ├── detail/              # DecisionSection, PillarBreakdown(Accordion 근거),
+    │   │                        #   BasicInfo, InvestmentCalculator(룸테이블+임대료참고),
+    │   │                        #   MobileActionBar
+    │   ├── landing/             # (레거시, TopPicksGrid)
+    │   └── search/              # SearchFilters(조건저장버튼), SearchResultsList,
+    │                            #   ClientFilteredResults
+    ├── lib/
+    │   ├── api.ts               # fetchAuctions, fetchAuctionDetail
+    │   ├── auth-api.ts          # ⭐ Phase I: Bearer 토큰 인증 API (favorites + saved-searches)
+    │   ├── types.ts             # TypeScript 타입 정의 (RentAreaRange, AuctionDetailResponse 등)
+    │   ├── constants.ts         # 등급 색상, 법원 코드, API_BASE
+    │   ├── utils.ts             # formatPrice, calcDiscount, calcDday, getDdayColor
+    │   ├── investment.ts        # 투자 계산 유틸 (IRR, 수익률 등)
+    │   ├── favorites.ts         # ⭐ localStorage + DB 하이브리드 즐겨찾기
+    │   └── compare.ts           # localStorage 비교 (최대 3건)
+    └── types/
+        └── next-auth.d.ts       # ⭐ Phase I: Session 타입 확장 (backendToken, userId)
 ```
 
 ---
@@ -270,7 +298,6 @@ KYUNGSA/
 - [x] **8-2: CatBoost 학습** — ModelTrainer (5-fold CV, early stopping, 모델 저장/로드) + train_model.py + evaluate_model.py
 - [x] **8-3: ML 추론 API** — WinningBidPredictor 싱글톤 (모델 메모리 유지, rule_v1 fallback) + retrain_model.py (월간 자동 재학습)
 - [x] **8-4: 프론트엔드 ML 통합** — MLPrediction 타입 + PredictionPill 신뢰도 뱃지 + top_factors 영향 요인 표시
-- [ ] 알림 기능 (텔레그램/이메일 — 조건 저장 → 신규 물건 알림)
 
 ### 9단계: UX 재설계 ✅ 완료
 
@@ -279,14 +306,13 @@ KYUNGSA/
 - [x] 모바일 하단 탭바 (MobileNav, sm:hidden)
 - [x] Header: 아이콘 + 활성 상태 + 모바일 숨김
 - [x] 관심목록 개선: 요약 스트립 + 정렬 + 퇴장 애니메이션 + Empty State
-- [x] 대법원 링크 제거 (개별 물건 직접 링크 불가)
 - [x] framer-motion 패키지 추가
 
 ### Phase D~F: 프론트엔드 UX 개선 ✅ 완료
 
 - [x] **Phase D: 리스트 뷰 + 네비게이션 정리** — AuctionListRow + SearchResultsList + 할인율순 정렬 + 모바일 4탭
 - [x] **Phase E: 홈 3섹션 개편 + 점수 근거 Accordion** — 이번 주 기일 / 높은 평가 / 통계 + pillar 근거 토글
-- [x] **Phase F: 권리분석 잠금 UI + 등급 근거 Tooltip** — 등기부 열람 CTA + 등급/ML 근거 Tooltip
+- [x] **Phase F: 권리분석 잠금 UI + 등급 근거 Tooltip** — 등기부 열람 CTA + 등급/ML 근거 Tooltip + 검색 등급 범례
 
 ### Phase G: 투자 분석 시뮬레이터 ✅ 완료
 
@@ -295,22 +321,38 @@ KYUNGSA/
 - [x] 상세 페이지 앵커 네비게이션 (#analysis, #investment, #raw-data)
 - [x] 키워드 검색 (`q` 파라미터, 백엔드 ILIKE 필터)
 
-### Phase H: 투자 분석 자동 채움 (진행 중)
+### Phase H: 투자 분석 자동 채움 ✅ 완료
 
-- [x] **H-1: 건축물대장 저장 수정** — BuildingInfo 모델 확장 (전용면적/층수/세대수/건축년도) + converter 보존 로직 + API building_info 응답 + InvestmentCalculator 건물 정보 자동 표시
-- [ ] **H-2: 월 임대수익 API** — 예정 (주변 실거래 임대료 자동 채움)
-- [ ] **H-3: 대출 금리 자동 채움** — 예정 (한국은행 기준금리 연동)
-- [ ] **H-4: InvestmentCalculator 자동 채움** — 예정 (H-2, H-3 데이터 연결)
+- [x] **H-1: 건축물대장 저장 수정** — BuildingInfo 모델 확장 (전용면적/층수/세대수/건축년도) + converter 보존 + API building_info 응답 + InvestmentCalculator 건물 정보 자동 표시
+- [x] **H-2: 월세 실거래가 API** — `rent_price_info` 컬럼 추가 + Enricher 면적구간별 임대료 집계 (6 bins: 10미만~85초과, count<2 bucket 제외) + b_code 기반 읍면동 단위 조회
+- [x] **H-3: 대출 금리 자동 채움** — `DEFAULT_LOAN_RATE` 환경변수 → API 응답 `default_loan_rate` → InvestmentCalculator 초기값 자동 주입
+- [x] **H-4: InvestmentCalculator 전면 개편** — 룸 테이블 (building_info有) / 단일 입력 (無) 분기, 면적구간별 참고 임대료 표시, 다방/네이버 부동산 외부 링크
 
-### 10단계 이후: 미착수
+### Phase I: 사용자 로그인/인증 시스템 ✅ 완료
 
-- [ ] **비교 페이지** (`/compare`) — `lib/compare.ts` 구현 완료, UI만 없음
+- [x] **Alembic migration** — `users`, `user_favorites`, `user_saved_searches` 3개 테이블 (d2e3f4a5b6c7)
+- [x] **Backend JWT** — PyJWT HS256, `JWT_SECRET` 환경변수, 30일 만료
+- [x] **`POST /api/v1/auth/upsert`** — Google OAuth 사용자 email 기준 upsert + backend JWT 발급
+- [x] **`/api/v1/users/me/favorites`** — GET(목록) / PUT(추가) / DELETE(제거) / POST bulk(마이그레이션)
+- [x] **`/api/v1/users/me/saved-searches`** — GET(목록) / POST(저장, 최대20개) / DELETE(삭제)
+- [x] **NextAuth.js v5** — `auth.ts` + `app/api/auth/[...nextauth]/route.ts` + Google provider auto env-binding
+- [x] **`jwt()` 콜백** — 최초 로그인 시 백엔드 upsert 호출 → `session.backendToken` 저장
+- [x] **Header 로그인 UI** — LogIn 버튼 / 아바타 드롭다운 (이름/이메일/관심목록/로그아웃)
+- [x] **FavoriteButton DB 동기화** — 로그인 시 DB 낙관적 업데이트, 비로그인 시 localStorage
+- [x] **localStorage → DB 마이그레이션** — 로그인 시 1회 자동 bulk-sync
+- [x] **SearchFilters 조건 저장** — "저장" 버튼, 비로그인 시 Google 로그인 유도
+
+### 미착수 / 백로그
+
+- [ ] **Phase J: 알림 시스템** — 저장된 검색 조건으로 신규 물건 매칭 시 알림 (텔레그램/이메일)
+- [ ] **Phase H-5: 상가 임대료 레퍼런스** — 한국부동산원 상업용부동산임대동향조사 API + 수익률 밴드 시각화
+- [ ] **비교 페이지 고도화** — 현재 기본 UI만, 데이터 시각화 없음
 - [ ] **LLM 연동** — 자연어 리스크 설명 생성 (OpenAI GPT-4o, `services/llm/` 플레이스홀더)
 - [ ] **Validator 레이어** — ParseValidator, RuleValidator (`services/validator/` 플레이스홀더)
 - [ ] **Report 모듈** — 구조화 리포트 출력 (`services/report/` 플레이스홀더)
 - [ ] **Private 대시보드** — 입찰 제안 + 수익률 시뮬레이션 (비공개)
 - [ ] **Nginx 리버스프록시** — 현재 uvicorn 직접 노출 중 (Cloudflare Tunnel 경유)
-- [ ] **알림 기능** — 텔레그램/이메일 (조건 저장 → 신규 물건 알림)
+- [ ] **Hard Stop 확장** — HS-F01 유치권, HS-F02 점유 분쟁 (매각물건명세서 파싱 필요)
 - [ ] **ML 모델 고도화** — 피처 확장 (시계열, 지역 이벤트), 앙상블, A/B 테스트
 
 ---
@@ -326,7 +368,16 @@ KYUNGSA/
 |--------|-----------|------|------|
 | GET | `/api/v1/auctions` | 물건 목록 (DB, 필터/정렬/페이지네이션) | ✅ |
 | GET | `/api/v1/auctions/map` | 지도용 좌표 목록 (좌표 있는 물건만, 최대 2000건) | ✅ |
-| GET | `/api/v1/auctions/{case_number}` | 물건 상세 (DB 기반, 등급/점수/낙찰 포함) | ✅ |
+| GET | `/api/v1/auctions/{case_number}` | 물건 상세 (DB 기반, 등급/점수/낙찰/임대료/default_loan_rate 포함) | ✅ |
+| POST | `/api/v1/auth/upsert` | OAuth 사용자 upsert + JWT 발급 | ✅ Phase I |
+| GET | `/api/v1/users/me` | 현재 사용자 정보 | ✅ Phase I |
+| GET | `/api/v1/users/me/favorites` | 즐겨찾기 목록 | ✅ Phase I |
+| PUT | `/api/v1/users/me/favorites/{case_number}` | 즐겨찾기 추가 | ✅ Phase I |
+| DELETE | `/api/v1/users/me/favorites/{case_number}` | 즐겨찾기 제거 | ✅ Phase I |
+| POST | `/api/v1/users/me/favorites/bulk` | localStorage→DB 일괄 동기화 | ✅ Phase I |
+| GET | `/api/v1/users/me/saved-searches` | 저장된 검색 조건 목록 | ✅ Phase I |
+| POST | `/api/v1/users/me/saved-searches` | 검색 조건 저장 (최대 20개) | ✅ Phase I |
+| DELETE | `/api/v1/users/me/saved-searches/{id}` | 저장 검색 삭제 | ✅ Phase I |
 | GET | `/health` | 헬스 체크 | ✅ |
 
 **주요 쿼리 파라미터 (GET `/api/v1/auctions`)**
@@ -337,7 +388,7 @@ KYUNGSA/
 | `court_office_code` | 법원 코드 | `B000210` |
 | `property_type` | 물건 유형 | `아파트` |
 | `q` | 주소 키워드 검색 | `강남` |
-| `sort` | 정렬 기준 | `grade` / `appraised_value` / `auction_date` / `discount_rate` / `predicted_winning_ratio` |
+| `sort` | 정렬 기준 | `grade` / `appraised_value` / `auction_date` / `minimum_bid` / `bid_count` / `discount_rate` / `predicted_winning_ratio` |
 | `page` / `size` | 페이지네이션 | `page=1&size=20` |
 
 ### v0 — 크롤러 직접 실행 API (레거시)
@@ -413,7 +464,7 @@ KYUNGSA/
 대법원 경매정보 (httpx)                CODEF 주소검색 → 고유번호
 건축물대장 (data.go.kr)          →    CODEF 등기부열람 → JSON
 Vworld (용도지역/주소)                 CodefMapper → RegistryDocument
-실거래가 (data.go.kr)                 RegistryAnalyzer → 리스크 분석
+실거래가/임대료 (data.go.kr)           RegistryAnalyzer → 리스크 분석
 카카오 Geocode+카테고리 (좌표/입지)         │
      │                                   ▼
      ▼                            RegistryAnalysisResult
@@ -492,6 +543,27 @@ WinningBidCollector (매주 일 07:00) → 기수집 물건 낙찰가 사후 추
 | `kyungsa-sale-results.timer` | 전국 낙찰 완료 건 수집 | 매일 06:00 |
 | `kyungsa-winning-bids.timer` | 낙찰가 사후 추적 | 매주 일 07:00 |
 
+### 환경변수
+
+**백엔드 `.env`:**
+```
+DATABASE_URL, PUBLIC_DATA_API_KEY, KAKAO_REST_API_KEY, VWORLD_API_KEY
+CODEF_CLIENT_ID, CODEF_CLIENT_SECRET, CODEF_PUBLIC_KEY
+OPENAI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+DEFAULT_LOAN_RATE=0.045
+JWT_SECRET          # Phase I: 임의 랜덤 문자열 (프론트 AUTH_SECRET과 무관)
+```
+
+**프론트엔드 Vercel 환경변수:**
+```
+NEXT_PUBLIC_API_BASE_URL=https://api.kyungsa.com
+NEXT_PUBLIC_KAKAO_MAP_KEY=<JS 앱 키>
+NEXTAUTH_URL=https://kyungsa.com          # Phase I
+AUTH_SECRET=<랜덤>                         # Phase I
+AUTH_GOOGLE_ID=<Google Cloud Console>     # Phase I
+AUTH_GOOGLE_SECRET=<Google Cloud Console> # Phase I
+```
+
 ### 배포 흐름
 
 ```
@@ -499,7 +571,9 @@ Mac (개발) → git push → GitHub
                             ↓
                Vercel 자동 빌드 → kyungsa.com
                             ↓
-               서버: git pull → systemctl restart kyungsa
+               서버: git pull → pip install -r requirements.txt
+                             → alembic upgrade head
+                             → systemctl restart kyungsa
 ```
 
 ---
@@ -572,15 +646,20 @@ chore: 빌드, 설정 변경
 | 2026-02-18 | 6.5b SaleResultCollector + 전국 확장 | 매일 06:00 전국 낙찰 완료 건 수집 |
 | 2026-02-18 | cron 자동화 3종 systemd timer 추가 | **588개 통과** |
 | 2026-02-19 | Phase 8 프론트엔드 완료 | kyungsa.com + api.kyungsa.com 배포 |
-| 2026-02-20 | Phase 7-1~7-4 명도 데이터 완료 | 현황조사서 파서 + OccupancyScorer + 4 pillar 완전 가동, **668개 통과** |
+| 2026-02-20 | Phase 7-1~7-4 명도 데이터 완료 | 현황조사서 파서 + OccupancyScorer + 4 pillar, **668개 통과** |
 | 2026-02-21 | Phase 8-1 ML 데이터 파이프라인 | FeatureEngineer (21개 피처) + PredictionDataPipeline |
 | 2026-02-21 | Phase 8-2 CatBoost 학습 | ModelTrainer (5-fold CV) + train/evaluate 스크립트 |
 | 2026-02-22 | Phase 8-3 ML 추론 API | WinningBidPredictor 싱글톤 + retrain_model.py + 서버 배포 |
-| 2026-02-22 | Phase 9 UX 재설계 완료 (lovable 벤치마킹) | 랜딩/검색 분리, MobileNav, Framer Motion |
-| 2026-02-23 | Phase 8-4 프론트엔드 ML 통합 | MLPrediction 타입 + PredictionPill 신뢰도 + top_factors, **734개 통과** |
+| 2026-02-22 | Phase 9 UX 재설계 완료 | 랜딩/검색 분리, MobileNav, Framer Motion |
+| 2026-02-23 | Phase 8-4 프론트엔드 ML 통합 | MLPrediction 타입 + PredictionPill + top_factors, **734개 통과** |
 | 2026-03-04 | Phase B-1 + C UX 개선 | CoveragePill variant + 클라이언트 필터 + 비교 탭 |
 | 2026-03-05 | Phase D 리스트 뷰 + 네비게이션 | AuctionListRow + SearchResultsList + 할인율순 + 모바일 4탭 |
 | 2026-03-05 | Phase E 홈 3섹션 + 점수 근거 | 이번 주 기일/높은 평가 + pillar Accordion + 기일 0원 필터링 |
 | 2026-03-05 | Phase F 권리분석 잠금 + 등급 근거 | 등기부 열람 CTA + 등급/ML Tooltip + 검색 등급 범례 |
 | 2026-03-06 | Phase G 투자 시뮬레이터 | InvestmentCalculator + MobileActionBar + 키워드 검색 |
 | 2026-03-06 | Phase H-1 건축물대장 표시 수정 | BuildingInfo 모델 확장 + converter 보존 + 건물 정보 자동 표시, **763개 통과** |
+| 2026-03-07 | Phase H-2 월세 실거래가 API | rent_price_info 컬럼 + 면적구간별 임대료 집계 (6 bins) |
+| 2026-03-07 | Phase H-3 대출 금리 자동 채움 | DEFAULT_LOAN_RATE 환경변수 → API → InvestmentCalculator 초기값 |
+| 2026-03-07 | Phase H-4 InvestmentCalculator 전면 개편 | 룸 테이블 + 면적구간별 참고 임대료 + 다방/네이버 링크 |
+| 2026-03-08 | Phase I 사용자 인증 시스템 | Google OAuth + JWT + 즐겨찾기/저장검색 DB + localStorage 마이그레이션 |
+| 2026-03-08 | Alembic heads 병합 | 4d0e491c6f8f merge (b1c2d3e4f5a6 + d2e3f4a5b6c7) |
