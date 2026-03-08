@@ -12,3 +12,4 @@ pytest
 alembic
 pydantic
 pydantic-settings
+PyJWT

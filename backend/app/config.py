@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
 
+    # JWT 인증 (Phase I — 사용자 API)
+    JWT_SECRET: str = "change-me-in-production"   # .env에서 반드시 재설정
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_DAYS: int = 30
+
     # DB
     DATABASE_URL: str = "postgresql://kyungsa:password@localhost:5432/kyungsa_db"
     DB_ECHO: bool = False           # SQLAlchemy SQL 로깅

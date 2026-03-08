@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/Footer"
 import { MobileNav } from "@/components/layout/MobileNav"
 import { CompareBar } from "@/components/domain/CompareBar"
 import { ThemeProvider } from "@/components/layout/ThemeProvider"
+import { AuthSessionProvider } from "@/components/layout/AuthSessionProvider"
 
 export const metadata: Metadata = {
   title: "KYUNGSA — 경매 물건 분석",
@@ -27,15 +28,17 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-20 sm:px-6 sm:pb-6 lg:px-8">
-              {children}
-            </main>
-            <Footer />
-            <CompareBar />
-            <MobileNav />
-          </div>
+          <AuthSessionProvider>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-20 sm:px-6 sm:pb-6 lg:px-8">
+                {children}
+              </main>
+              <Footer />
+              <CompareBar />
+              <MobileNav />
+            </div>
+          </AuthSessionProvider>
         </ThemeProvider>
         <Script id="clarity" strategy="afterInteractive">
           {`(function(c,l,a,r,i,t,y){

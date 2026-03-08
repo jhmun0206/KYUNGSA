@@ -2,9 +2,11 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { useCallback, useState } from "react"
-import { X, SlidersHorizontal, Search } from "lucide-react"
+import { X, SlidersHorizontal, Search, Bookmark } from "lucide-react"
+import { useSession, signIn } from "next-auth/react"
 import { COURT_OPTIONS, GRADE_OPTIONS, PROPERTY_TYPE_OPTIONS } from "@/lib/constants"
 import { formatPrice } from "@/lib/utils"
+import { saveSearch } from "@/lib/auth-api"
 
 const SORT_OPTIONS = [
   { value: "grade", label: "등급순" },
@@ -35,6 +37,7 @@ export function SearchFilters() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { data: session } = useSession()
 
   const selectedGrades = (searchParams.get("grade") ?? "").split(",").filter(Boolean)
   const selectedCourt = searchParams.get("court") ?? ""
@@ -50,6 +53,9 @@ export function SearchFilters() {
 
   // 키워드 검색
   const [keyword, setKeyword] = useState(searchParams.get("q") ?? "")
+
+  // 검색 조건 저장
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
 
   const handleKeywordSearch = () => {
     const params = new URLSearchParams(searchParams.toString())
@@ -94,6 +100,31 @@ export function SearchFilters() {
     const params = new URLSearchParams()
     params.set("sort", selectedSort)
     router.push(`${pathname}?${params.toString()}`)
+  }
+
+  // 현재 검색 조건 저장
+  async function handleSaveSearch() {
+    if (!session?.backendToken) {
+      signIn("google")
+      return
+    }
+    const params: Record<string, string> = {}
+    searchParams.forEach((v, k) => { params[k] = v })
+    const name = (() => {
+      const parts: string[] = []
+      if (selectedGrades.length) parts.push(`${selectedGrades.join("/")}등급`)
+      if (selectedCourt) parts.push(COURT_OPTIONS.find((c) => c.code === selectedCourt)?.label ?? selectedCourt)
+      if (selectedType) parts.push(selectedType)
+      if (currentQ) parts.push(`"${currentQ}"`)
+      return parts.length ? parts.join(" · ") : "저장된 검색"
+    })()
+    try {
+      await saveSearch(session.backendToken, name, params)
+      setSaveMsg("저장됐습니다")
+    } catch {
+      setSaveMsg("저장 실패")
+    }
+    setTimeout(() => setSaveMsg(null), 2000)
   }
 
   // 가격 프리셋 선택
@@ -219,6 +250,16 @@ export function SearchFilters() {
               </option>
             ))}
           </select>
+
+          {/* 조건 저장 버튼 */}
+          <button
+            onClick={handleSaveSearch}
+            title="이 조건 저장"
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Bookmark className="h-3 w-3" />
+            {saveMsg ?? "저장"}
+          </button>
 
           {hasFilters && (
             <button

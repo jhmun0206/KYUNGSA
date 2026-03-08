@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auctions import router as auction_router
 from app.api.v1.auctions import router as v1_router
+from app.api.v1.auth import router as auth_router
+from app.api.v1.users import router as users_router
 
 app = FastAPI(
     title="KYUNGSA 경매 리스크 분석 API",
@@ -15,7 +17,7 @@ app = FastAPI(
     description="부동산 경매 물건 필터링 + 등기부 리스크 분석 + 대시보드 API",
 )
 
-# CORS
+# CORS — Phase I: POST/PUT/DELETE 허용 (사용자 API)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -25,7 +27,7 @@ app.add_middleware(
         "https://kyungsa.com",                     # 커스텀 도메인
         "https://www.kyungsa.com",                 # www 서브도메인
     ],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -34,6 +36,10 @@ app.include_router(auction_router)
 
 # DB 기반 대시보드 API (v1)
 app.include_router(v1_router, prefix="/api/v1")
+
+# Phase I: 인증 + 사용자 API
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(users_router, prefix="/api/v1")
 
 
 @app.get("/health")
