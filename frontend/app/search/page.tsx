@@ -15,6 +15,7 @@ interface PageProps {
     grade?: string
     court?: string
     type?: string
+    district?: string
     q?: string
     sort?: string
     status?: string
@@ -40,6 +41,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       grade: searchParams.grade,
       court_office_code: searchParams.court,
       property_type: searchParams.type,
+      district: searchParams.district,
       q: searchParams.q,
       sort: searchParams.sort ?? "grade",
       status: searchParams.status,
@@ -127,6 +129,7 @@ function Pagination({
     if (searchParams.grade) params.set("grade", searchParams.grade)
     if (searchParams.court) params.set("court", searchParams.court)
     if (searchParams.type) params.set("type", searchParams.type)
+    if (searchParams.district) params.set("district", searchParams.district)
     if (searchParams.q) params.set("q", searchParams.q)
     if (searchParams.sort) params.set("sort", searchParams.sort)
     if (searchParams.status) params.set("status", searchParams.status)

@@ -7,10 +7,11 @@ DB(auctions + scores)에서 조회한 데이터를 반환한다.
 from __future__ import annotations
 
 import logging
+from datetime import date as date_type
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Float, case as sa_case, func
+from sqlalchemy import Float, case as sa_case, func, or_, and_
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
@@ -170,9 +171,84 @@ def _build_ml_prediction(auction: Auction, db: Session) -> MLPrediction | None:
         return None
 
 
+def _apply_property_category_filter(query, category: str):
+    """물건 유형 카테고리명 → SQL 필터 적용
+
+    카테고리 → DB property_type 값 매핑:
+    아파트: '%아파트%' (단, 오피스텔 포함 복합명 제외)
+    오피스텔: 정확히 '오피스텔'
+    다세대/빌라: 다세대, 연립, 빌라 키워드
+    단독/다가구: 단독, 다가구 키워드
+    상가/근생: 상가, 근린시설, 또는 오피스텔이 포함된 복합명(정확히 오피스텔 제외)
+    토지: 전답, 임야, 대지 키워드
+    그 외: contains() fallback
+    """
+    if category == "아파트":
+        return query.filter(
+            Auction.property_type.ilike("%아파트%"),
+            ~Auction.property_type.ilike("%오피스텔%"),
+        )
+    elif category == "오피스텔":
+        return query.filter(Auction.property_type == "오피스텔")
+    elif category in ("다세대/빌라", "다세대빌라"):
+        return query.filter(
+            or_(
+                Auction.property_type.ilike("%다세대%"),
+                Auction.property_type.ilike("%연립%"),
+                Auction.property_type.ilike("%빌라%"),
+            )
+        )
+    elif category in ("단독/다가구", "단독다가구"):
+        return query.filter(
+            or_(
+                Auction.property_type.ilike("%단독%"),
+                Auction.property_type.ilike("%다가구%"),
+            )
+        )
+    elif category in ("상가/근생", "상가근생"):
+        return query.filter(
+            or_(
+                Auction.property_type.ilike("%상가%"),
+                Auction.property_type.ilike("%근린시설%"),
+                and_(
+                    Auction.property_type.ilike("%오피스텔%"),
+                    Auction.property_type != "오피스텔",
+                ),
+            )
+        )
+    elif category == "토지":
+        return query.filter(
+            or_(
+                Auction.property_type.ilike("%전답%"),
+                Auction.property_type.ilike("%임야%"),
+                Auction.property_type.ilike("%대지%"),
+            )
+        )
+    else:
+        # legacy fallback: contains 검색
+        return query.filter(Auction.property_type.contains(category))
+
+
+def _apply_default_type_exclusions(query):
+    """유형 필터 없을 때 비부동산(자동차, 중기, 기타, 빈 값) 기본 제외"""
+    return query.filter(
+        Auction.property_type.isnot(None),
+        Auction.property_type != "",
+        Auction.property_type != "기타",
+        ~Auction.property_type.ilike("%자동차%"),
+        ~Auction.property_type.ilike("%중기%"),
+    )
+
+
 def _auction_to_list_item(auction: Auction, score: Score | None) -> AuctionListItem:
     """Auction + Score → AuctionListItem"""
     lat, lng = _parse_coords(auction.coordinates)
+    today = date_type.today()
+    is_past_due = bool(
+        auction.auction_date is not None
+        and auction.auction_date < today
+        and auction.status in ("진행", "예정")
+    )
     return AuctionListItem(
         case_number=auction.case_number,
         address=auction.address,
@@ -184,6 +260,7 @@ def _auction_to_list_item(auction: Auction, score: Score | None) -> AuctionListI
         auction_date=auction.auction_date,
         bid_count=auction.bid_count,
         status=auction.status,
+        is_past_due=is_past_due,
         grade=score.grade if score else None,
         total_score=score.total_score if score else None,
         score_coverage=score.score_coverage if score else None,
@@ -256,7 +333,8 @@ def get_map_items(
 def get_auctions(
     court_office_code: str | None = Query(None, description="법원 코드"),
     grade: str | None = Query(None, description="등급 필터 (콤마 구분: A,B,C)"),
-    property_type: str | None = Query(None, description="물건 유형"),
+    property_type: str | None = Query(None, description="물건 유형 카테고리 (아파트/오피스텔/다세대/빌라/단독/다가구/상가/근생/토지)"),
+    district: str | None = Query(None, description="행정구 필터 (예: 강남구)"),
     q: str | None = Query(None, description="주소 키워드 검색"),
     sort: str = Query("grade", description="정렬 기준: grade|appraised_value|auction_date|minimum_bid|bid_count|predicted_winning_ratio"),
     status: str | None = Query(None, description="상태 필터: 없으면 진행+예정만, '전체' 또는 'all' 이면 전체, '매각' 이면 매각만"),
@@ -287,8 +365,15 @@ def get_auctions(
         if grades:
             query = query.filter(Score.grade.in_(grades))
 
+    # 물건 유형: 카테고리명이면 매핑, 없으면 기타 제외
     if property_type:
-        query = query.filter(Auction.property_type.contains(property_type))
+        query = _apply_property_category_filter(query, property_type)
+    else:
+        query = _apply_default_type_exclusions(query)
+
+    # 행정구 필터 (address ILIKE '%강남구%')
+    if district:
+        query = query.filter(Auction.address.ilike(f"%{district}%"))
 
     if q:
         query = query.filter(Auction.address.ilike(f"%{q}%"))

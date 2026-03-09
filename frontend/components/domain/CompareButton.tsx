@@ -8,9 +8,10 @@ import { cn } from "@/lib/utils"
 interface Props {
   caseNumber: string
   className?: string
+  label?: string
 }
 
-export function CompareButton({ caseNumber, className }: Props) {
+export function CompareButton({ caseNumber, className, label }: Props) {
   const [active, setActive] = useState(false)
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export function CompareButton({ caseNumber, className }: Props) {
       onClick={handleClick}
       title={active ? "비교 해제" : "비교 추가"}
       className={cn(
-        "rounded-full p-1.5 transition-colors hover:bg-accent",
+        "flex items-center gap-1 rounded-full px-1.5 py-1 transition-colors hover:bg-accent",
         className
       )}
     >
@@ -43,6 +44,9 @@ export function CompareButton({ caseNumber, className }: Props) {
         size={14}
         className={active ? "fill-primary text-primary" : "text-text-weak"}
       />
+      {label && (
+        <span className="text-[10px] text-muted-foreground">{label}</span>
+      )}
     </button>
   )
 }

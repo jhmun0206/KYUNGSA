@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils"
 interface Props {
   caseNumber: string
   className?: string
+  label?: string
 }
 
-export function FavoriteButton({ caseNumber, className }: Props) {
+export function FavoriteButton({ caseNumber, className, label }: Props) {
   const [active, setActive] = useState(false)
   const [loading, setLoading] = useState(false)
   const { data: session } = useSession()
@@ -56,7 +57,7 @@ export function FavoriteButton({ caseNumber, className }: Props) {
       disabled={loading}
       title={active ? "즐겨찾기 해제" : "즐겨찾기 추가"}
       className={cn(
-        "rounded-full p-1.5 transition-colors hover:bg-accent disabled:opacity-50",
+        "flex items-center gap-1 rounded-full px-1.5 py-1 transition-colors hover:bg-accent disabled:opacity-50",
         className
       )}
     >
@@ -64,6 +65,9 @@ export function FavoriteButton({ caseNumber, className }: Props) {
         size={15}
         className={active ? "fill-amber-400 text-amber-400" : "text-text-weak"}
       />
+      {label && (
+        <span className="text-[10px] text-muted-foreground">{label}</span>
+      )}
     </button>
   )
 }

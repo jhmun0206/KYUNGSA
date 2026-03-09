@@ -4,7 +4,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { useCallback, useState } from "react"
 import { X, SlidersHorizontal, Search, Bookmark } from "lucide-react"
 import { useSession, signIn } from "next-auth/react"
-import { COURT_OPTIONS, GRADE_OPTIONS, PROPERTY_TYPE_OPTIONS } from "@/lib/constants"
+import { COURT_OPTIONS, GRADE_OPTIONS, PROPERTY_CATEGORIES, SEOUL_DISTRICTS } from "@/lib/constants"
 import { formatPrice } from "@/lib/utils"
 import { saveSearch } from "@/lib/auth-api"
 
@@ -20,7 +20,8 @@ const SORT_OPTIONS = [
 
 const PRICE_PRESETS = [
   { label: "~1억", min: null, max: 100_000_000 },
-  { label: "1~5억", min: 100_000_000, max: 500_000_000 },
+  { label: "1~3억", min: 100_000_000, max: 300_000_000 },
+  { label: "3~5억", min: 300_000_000, max: 500_000_000 },
   { label: "5~10억", min: 500_000_000, max: 1_000_000_000 },
   { label: "10억~", min: 1_000_000_000, max: null },
 ] as const
@@ -42,8 +43,8 @@ export function SearchFilters() {
   const selectedGrades = (searchParams.get("grade") ?? "").split(",").filter(Boolean)
   const selectedCourt = searchParams.get("court") ?? ""
   const selectedType = searchParams.get("type") ?? ""
+  const selectedDistrict = searchParams.get("district") ?? ""
   const selectedSort = searchParams.get("sort") ?? "grade"
-  const includeSold = searchParams.get("status") === "전체"
 
   // 클라이언트 필터 (cf_ 접두어)
   const cfMin = searchParams.get("cf_min") ?? ""
@@ -81,7 +82,7 @@ export function SearchFilters() {
       } else {
         params.delete(key)
       }
-      params.delete("page") // 필터 변경 시 페이지 초기화
+      params.delete("page")
       router.push(`${pathname}?${params.toString()}`)
     },
     [router, pathname, searchParams]
@@ -95,7 +96,13 @@ export function SearchFilters() {
   }
 
   const currentQ = searchParams.get("q") ?? ""
-  const hasFilters = selectedGrades.length > 0 || selectedCourt || selectedType || currentQ || hasClientFilters || includeSold
+  const hasFilters =
+    selectedGrades.length > 0 ||
+    selectedCourt ||
+    selectedType ||
+    selectedDistrict ||
+    currentQ ||
+    hasClientFilters
 
   const resetFilters = () => {
     const params = new URLSearchParams()
@@ -116,6 +123,7 @@ export function SearchFilters() {
       if (selectedGrades.length) parts.push(`${selectedGrades.join("/")}등급`)
       if (selectedCourt) parts.push(COURT_OPTIONS.find((c) => c.code === selectedCourt)?.label ?? selectedCourt)
       if (selectedType) parts.push(selectedType)
+      if (selectedDistrict) parts.push(selectedDistrict)
       if (currentQ) parts.push(`"${currentQ}"`)
       return parts.length ? parts.join(" · ") : "저장된 검색"
     })()
@@ -137,7 +145,6 @@ export function SearchFilters() {
 
   const selectPricePreset = (preset: typeof PRICE_PRESETS[number], idx: number) => {
     const params = new URLSearchParams(searchParams.toString())
-    // 이미 선택된 프리셋 재클릭 → 해제
     if (activePricePreset === idx) {
       params.delete("cf_min")
       params.delete("cf_max")
@@ -168,8 +175,66 @@ export function SearchFilters() {
         />
       </div>
 
-      {/* 메인 필터 행 */}
+      {/* 유형 버튼 (가로 스크롤) */}
+      <div className="mb-2 flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+        <button
+          onClick={() => update("type", "")}
+          className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            !selectedType
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+          }`}
+        >
+          전체
+        </button>
+        {PROPERTY_CATEGORIES.map((cat) => (
+          <button
+            key={cat.value}
+            onClick={() => update("type", selectedType === cat.value ? "" : cat.value)}
+            className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              selectedType === cat.value
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 필터 행 */}
       <div className="flex flex-wrap items-center gap-2">
+        {/* 지역 */}
+        <select
+          value={selectedDistrict}
+          onChange={(e) => update("district", e.target.value)}
+          className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">전체 지역</option>
+          {SEOUL_DISTRICTS.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+
+        {/* 가격대 프리셋 */}
+        <div className="flex items-center gap-1">
+          {PRICE_PRESETS.map((p, idx) => (
+            <button
+              key={idx}
+              onClick={() => selectPricePreset(p, idx)}
+              className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                activePricePreset === idx
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-4 w-px bg-border" />
+
         {/* 등급 토글 */}
         <div className="flex items-center gap-1">
           {GRADE_OPTIONS.map((g) => {
@@ -184,55 +249,25 @@ export function SearchFilters() {
                     : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
-                {g}등급
+                {g}
               </button>
             )
           })}
         </div>
 
-        <div className="h-4 w-px bg-border" />
-
-        {/* 법원 */}
-        <select
-          value={selectedCourt}
-          onChange={(e) => update("court", e.target.value)}
-          className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="">전체 법원</option>
-          {COURT_OPTIONS.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-
-        {/* 물건종류 */}
-        <select
-          value={selectedType}
-          onChange={(e) => update("type", e.target.value)}
-          className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="">전체 종류</option>
-          {PROPERTY_TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-
-        {/* 매각완료 포함 토글 */}
-        <button
-          onClick={() => update("status", includeSold ? "" : "전체")}
-          className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-            includeSold
-              ? "bg-muted text-foreground ring-1 ring-border"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-        >
-          매각완료 포함
-        </button>
-
         <div className="ml-auto flex items-center gap-2">
+          {/* 법원 */}
+          <select
+            value={selectedCourt}
+            onChange={(e) => update("court", e.target.value)}
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="">전체 법원</option>
+            {COURT_OPTIONS.map((c) => (
+              <option key={c.code} value={c.code}>{c.label}</option>
+            ))}
+          </select>
+
           {/* 상세 필터 토글 */}
           <button
             onClick={() => setShowAdvanced((v) => !v)}
@@ -258,9 +293,7 @@ export function SearchFilters() {
             className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           >
             {SORT_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
+              <option key={s.value} value={s.value}>{s.label}</option>
             ))}
           </select>
 
@@ -285,31 +318,9 @@ export function SearchFilters() {
         </div>
       </div>
 
-      {/* 상세 필터 패널 */}
+      {/* 상세 필터 패널 (유찰횟수 + 기일범위) */}
       {showAdvanced && (
         <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-2 border-t border-border pt-3">
-          {/* 감정가 범위 (프리셋 칩) */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-muted-foreground">감정가</span>
-            <div className="flex items-center gap-1">
-              {PRICE_PRESETS.map((p, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => selectPricePreset(p, idx)}
-                  className={`rounded-md px-2 py-1 text-xs transition-colors ${
-                    activePricePreset === idx
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="h-6 w-px bg-border" />
-
           {/* 유찰 횟수 */}
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-medium text-muted-foreground">유찰 횟수</span>
@@ -319,9 +330,7 @@ export function SearchFilters() {
               className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
               {FAIL_COUNT_OPTIONS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
+                <option key={f.value} value={f.value}>{f.label}</option>
               ))}
             </select>
           </div>
@@ -353,9 +362,6 @@ export function SearchFilters() {
       {/* 활성 필터 chips */}
       {hasFilters && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {includeSold && (
-            <FilterChip label="매각완료 포함" onRemove={() => update("status", "")} />
-          )}
           {currentQ && (
             <FilterChip
               label={`"${currentQ}"`}
@@ -368,14 +374,17 @@ export function SearchFilters() {
           {selectedGrades.map((g) => (
             <FilterChip key={g} label={`${g}등급`} onRemove={() => toggleGrade(g)} />
           ))}
+          {selectedType && (
+            <FilterChip label={selectedType} onRemove={() => update("type", "")} />
+          )}
+          {selectedDistrict && (
+            <FilterChip label={selectedDistrict} onRemove={() => update("district", "")} />
+          )}
           {selectedCourt && (
             <FilterChip
               label={COURT_OPTIONS.find((c) => c.code === selectedCourt)?.label ?? selectedCourt}
               onRemove={() => update("court", "")}
             />
-          )}
-          {selectedType && (
-            <FilterChip label={selectedType} onRemove={() => update("type", "")} />
           )}
           {(cfMin || cfMax) && (
             <FilterChip

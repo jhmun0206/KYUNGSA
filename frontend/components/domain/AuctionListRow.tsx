@@ -19,6 +19,7 @@ export function AuctionListRow({ item }: { item: AuctionListItem }) {
   const detailHref = `/auction/${encodeURIComponent(item.case_number)}`
   const mapHref = `https://map.kakao.com/link/search/${encodeURIComponent(item.address ?? "")}`
   const isSold = item.status === "매각"
+  const isPastDue = item.is_past_due
 
   return (
     <div className={cn("group relative border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors", isSold && "opacity-60")}>
@@ -36,6 +37,11 @@ export function AuctionListRow({ item }: { item: AuctionListItem }) {
           {isSold && (
             <span className="rounded px-1 text-[9px] font-semibold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
               낙찰
+            </span>
+          )}
+          {isPastDue && !isSold && (
+            <span className="rounded px-1 text-[9px] font-semibold bg-muted text-muted-foreground">
+              결과대기
             </span>
           )}
         </div>
@@ -161,8 +167,8 @@ export function AuctionListRow({ item }: { item: AuctionListItem }) {
           className="flex items-center gap-1 shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
-          <FavoriteButton caseNumber={item.case_number} />
-          <CompareButton caseNumber={item.case_number} />
+          <FavoriteButton caseNumber={item.case_number} label="관심" />
+          <CompareButton caseNumber={item.case_number} label="비교" />
         </div>
 
         {/* 모바일 ChevronRight */}

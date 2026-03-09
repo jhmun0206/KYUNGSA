@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import { ChevronDown, AlertTriangle, Info, Plus, Trash2, ExternalLink } from "lucide-react"
 import { cn, formatPrice } from "@/lib/utils"
 import {
-  isResidential,
   calcAcquisitionTax,
   calcLoanAmount,
   calcMonthlyInterest,
@@ -14,6 +13,7 @@ import {
   calcYieldOnPrice,
   calcYieldOnEquity,
   manToWon,
+  getDefaultLoanRatio,
 } from "@/lib/investment"
 import type { AuctionDetailResponse, RentAreaRange } from "@/lib/types"
 
@@ -86,15 +86,14 @@ export function InvestmentCalculator({ auction }: Props) {
   // 법무사비 (만원)
   const [lawyerFeeMan, setLawyerFeeMan] = useState(300)
 
-  // 대출비율
-  const residential = isResidential(auction.property_type)
-  const [loanRatio, setLoanRatio] = useState(residential ? 0.8 : 0.6)
+  // 대출비율 (물건 유형별 기본값)
+  const [loanRatio, setLoanRatio] = useState(() => getDefaultLoanRatio(auction.property_type))
 
   // 대출 금리 (서버 설정값 우선, 없으면 4.5%)
   const [interestRate, setInterestRate] = useState(auction.default_loan_rate ?? 0.045)
 
-  // 월 관리비 (공통)
-  const [monthlyExpenseMan, setMonthlyExpenseMan] = useState(0)
+  // 월 관리비/제경비 기본값 39만 (관리비+공실비용 등 평균)
+  const [monthlyExpenseMan, setMonthlyExpenseMan] = useState(39)
 
   // 합산 (테이블 vs 단일 입력)
   const totalRentMan = showRoomTable
@@ -103,6 +102,9 @@ export function InvestmentCalculator({ auction }: Props) {
   const totalDepositMan = showRoomTable
     ? rooms.reduce((s, r) => s + r.deposit_man, 0)
     : depositMan
+
+  // 매도 희망가 (매도 수익 계산용, 0이면 미입력)
+  const [sellPriceMan, setSellPriceMan] = useState(0)
 
   // ML 추정 낙찰가
   const predictedRatio =
@@ -132,6 +134,14 @@ export function InvestmentCalculator({ auction }: Props) {
     const yieldOnActualEquity =
       actualEquity > 0 ? (annualNet / actualEquity) * 100 : 0
 
+    // 매도 수익 계산
+    const sellPrice = manToWon(sellPriceMan)
+    const sellTax = sellPrice > 0 ? Math.round(sellPrice * 0.046) : 0  // 양도세 개략치
+    const sellProfit = sellPrice > 0 ? sellPrice - totalCost - sellTax : null
+    const sellYield = sellProfit != null && requiredEquity > 0
+      ? (sellProfit / requiredEquity) * 100
+      : null
+
     return {
       acquisitionTax,
       lawyerFee,
@@ -145,6 +155,10 @@ export function InvestmentCalculator({ auction }: Props) {
       yieldOnEquity,
       actualEquity,
       yieldOnActualEquity,
+      sellPrice,
+      sellTax,
+      sellProfit,
+      sellYield,
     }
   }, [
     bidPrice,
@@ -155,6 +169,7 @@ export function InvestmentCalculator({ auction }: Props) {
     totalRentMan,
     monthlyExpenseMan,
     totalDepositMan,
+    sellPriceMan,
   ])
 
   // 감정가 대비 비율
@@ -384,6 +399,53 @@ export function InvestmentCalculator({ auction }: Props) {
                 </p>
               )}
             </div>
+          </div>
+
+          {/* 매도 수익 계산 */}
+          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+            <p className="text-sm font-semibold text-card-foreground">매도 수익 (선택)</p>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">매도 희망가</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={sellPriceMan || ""}
+                  onChange={(e) => setSellPriceMan(Number(e.target.value) || 0)}
+                  placeholder="0"
+                  className="w-24 rounded border border-border bg-background px-2 py-0.5 text-right text-xs tabular-nums text-foreground"
+                />
+                <span className="text-muted-foreground">만원</span>
+              </div>
+            </div>
+            {calc.sellProfit != null && (
+              <>
+                <InfoRow label="매도가" value={formatPrice(calc.sellPrice)} />
+                <InfoRow label="양도세(개략)" value={formatPrice(calc.sellTax)} />
+                <div className="border-t border-border pt-1.5">
+                  <InfoRow
+                    label="매도 순이익"
+                    value={formatPrice(calc.sellProfit)}
+                    bold
+                    color={calc.sellProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}
+                  />
+                </div>
+                {calc.sellYield != null && (
+                  <InfoRow
+                    label="투자 수익률"
+                    value={`${calc.sellYield.toFixed(1)}%`}
+                    sub
+                  />
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  ※ 양도세는 개략 추정치이며, 실제 세율은 보유기간·다주택 여부에 따라 다릅니다
+                </p>
+              </>
+            )}
+            {!sellPriceMan && (
+              <p className="text-xs text-muted-foreground py-1 text-center">
+                매도 희망가를 입력하면 수익이 계산됩니다
+              </p>
+            )}
           </div>
 
           {/* 임대수익 입력 */}

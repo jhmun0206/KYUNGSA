@@ -38,6 +38,9 @@ class AuctionListItem(BaseModel):
     location_score: float | None
     occupancy_score: float | None
 
+    # 기일 지남 여부 (auction_date < today AND status IN 진행/예정 → 결과 대기중)
+    is_past_due: bool = False
+
     # 좌표 (coordinates JSONB → float 변환)
     lat: float | None
     lng: float | None

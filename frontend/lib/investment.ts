@@ -6,20 +6,41 @@ export function isResidential(propertyType: string): boolean {
   return residential.some((t) => propertyType?.includes(t))
 }
 
-/** 취등록세 계산 (단순화 버전)
- *  - 주택 6억 이하: 1%, 9억 이하: 2%, 9억 초과: 3%
- *  - 상업용: 4%
- *  ※ 다주택 중과, 농특세, 교육세 등 미반영 */
+/** 취등록세 계산 (농특세+교육세 포함 개략치)
+ *  - 주택 6억 이하: 1.1%, 9억 이하: 2.2%, 9억 초과: 3.3%
+ *  - 상업용/토지: 4.6%
+ *  ※ 다주택 중과, 지방세 세부 항목 미반영 */
 export function calcAcquisitionTax(
   price: number,
   propertyType: string
 ): number {
   if (isResidential(propertyType)) {
-    if (price <= 600_000_000) return Math.round(price * 0.01)
-    if (price <= 900_000_000) return Math.round(price * 0.02)
-    return Math.round(price * 0.03)
+    if (price <= 600_000_000) return Math.round(price * 0.011)
+    if (price <= 900_000_000) return Math.round(price * 0.022)
+    return Math.round(price * 0.033)
   }
-  return Math.round(price * 0.04)
+  return Math.round(price * 0.046)
+}
+
+/** 물건 유형별 기본 LTV (대출 비율)
+ *  아파트=70%, 오피스텔=65%, 다세대/빌라=60%, 단독/다가구=60%
+ *  상가/근생=50%, 토지=40%, 기타=60% */
+export function getDefaultLoanRatio(propertyType: string): number {
+  if (propertyType.includes("아파트")) return 0.70
+  if (propertyType === "오피스텔") return 0.65
+  if (
+    propertyType.includes("다세대") ||
+    propertyType.includes("연립") ||
+    propertyType.includes("빌라")
+  ) return 0.60
+  if (propertyType.includes("단독") || propertyType.includes("다가구")) return 0.60
+  if (propertyType.includes("상가") || propertyType.includes("근린시설")) return 0.50
+  if (
+    propertyType.includes("전답") ||
+    propertyType.includes("임야") ||
+    propertyType.includes("대지")
+  ) return 0.40
+  return 0.60
 }
 
 /** 대출 가능 금액 */

@@ -81,7 +81,7 @@ function LegalLockedBar({ onCta }: { onCta: () => void }) {
           권리분석
         </span>
         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-          잠금
+          분석 대기 (등기부 미연동)
         </span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-muted" />
@@ -122,11 +122,22 @@ export function PillarBreakdown({ auction }: Props) {
   // 명도 근거
   const hasReport = !!auction.specification_remarks
 
-  const legalLocked = score?.legal_score == null
+  // legal_score가 null이거나 0이면 잠금 (등기부 미분석)
+  const legalLocked = score?.legal_score == null || score?.legal_score === 0
+
+  // score_coverage < 0.5이면 "잠정" 배지 (데이터 불충분)
+  const isProvisional = (score?.score_coverage ?? 1) < 0.5
 
   return (
     <section className="space-y-4">
-      <h2 className="text-base font-bold text-foreground">상세 분석</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-base font-bold text-foreground">상세 분석</h2>
+        {isProvisional && (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+            잠정
+          </span>
+        )}
+      </div>
 
       {/* 레이더 + 바 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -150,7 +161,10 @@ export function PillarBreakdown({ auction }: Props) {
                 <LegalLockedBar onCta={() => setShowLegalModal(true)} />
               ) : (
                 <ScoreBarWithBreakdown value={score.legal_score} label="권리분석">
-                  <p>· 등기부 분석 완료</p>
+                  <p>· 등기부 자동 분석 완료</p>
+                  <p className="text-[10px] mt-1 opacity-70">
+                    권리분석 점수는 수집된 등기부 데이터 기반이며, 실제와 다를 수 있습니다
+                  </p>
                 </ScoreBarWithBreakdown>
               )}
 

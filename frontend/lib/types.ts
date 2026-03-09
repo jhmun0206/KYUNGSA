@@ -26,6 +26,9 @@ export interface AuctionListItem {
   location_score: number | null
   occupancy_score: number | null
 
+  // 기일 지남 여부 (결과 대기중)
+  is_past_due: boolean
+
   // 좌표
   lat: number | null
   lng: number | null
@@ -168,6 +171,7 @@ export interface AuctionListParams {
   court_office_code?: string
   grade?: string        // "A,B,C"
   property_type?: string
+  district?: string     // 행정구 필터 (예: 강남구)
   q?: string            // 주소 키워드 검색
   sort?: string
   status?: string       // 없으면 진행+예정만, "전체" 이면 전체, "매각" 이면 매각만
