@@ -14,7 +14,7 @@ import { migrateLocalFavoritesToDB } from "@/lib/favorites"
 const NAV_ITEMS = [
   { label: "홈", href: "/", icon: Home },
   { label: "검색", href: "/search", icon: Search },
-  { label: "지도", href: "/map", icon: Map },
+  { label: "지도", href: "/map", icon: Map, hidden: true },
   { label: "비교", href: "/compare", icon: Scale },
   { label: "관심", href: "/favorites", icon: Heart },
 ]
@@ -68,7 +68,7 @@ export function Header() {
 
           {/* 데스크탑 Nav — 모바일에서는 숨김 */}
           <nav className="hidden items-center gap-0.5 sm:flex">
-            {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+            {NAV_ITEMS.filter((item) => !item.hidden).map(({ label, href, icon: Icon }) => {
               const active = href === "/" ? pathname === "/" : pathname.startsWith(href)
               const isCompare = href === "/compare"
               return (
