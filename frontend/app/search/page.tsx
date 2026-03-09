@@ -17,6 +17,7 @@ interface PageProps {
     type?: string
     q?: string
     sort?: string
+    status?: string
     page?: string
     // 클라이언트 필터 (cf_ 접두어)
     cf_min?: string
@@ -41,6 +42,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       property_type: searchParams.type,
       q: searchParams.q,
       sort: searchParams.sort ?? "grade",
+      status: searchParams.status,
       page,
       size,
     })
@@ -127,6 +129,7 @@ function Pagination({
     if (searchParams.type) params.set("type", searchParams.type)
     if (searchParams.q) params.set("q", searchParams.q)
     if (searchParams.sort) params.set("sort", searchParams.sort)
+    if (searchParams.status) params.set("status", searchParams.status)
     // 클라이언트 필터 파라미터 보존
     if (searchParams.cf_min) params.set("cf_min", searchParams.cf_min)
     if (searchParams.cf_max) params.set("cf_max", searchParams.cf_max)

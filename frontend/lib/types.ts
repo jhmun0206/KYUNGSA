@@ -170,6 +170,7 @@ export interface AuctionListParams {
   property_type?: string
   q?: string            // 주소 키워드 검색
   sort?: string
+  status?: string       // 없으면 진행+예정만, "전체" 이면 전체, "매각" 이면 매각만
   page?: number
   size?: number
 }

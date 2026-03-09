@@ -43,6 +43,7 @@ export function SearchFilters() {
   const selectedCourt = searchParams.get("court") ?? ""
   const selectedType = searchParams.get("type") ?? ""
   const selectedSort = searchParams.get("sort") ?? "grade"
+  const includeSold = searchParams.get("status") === "전체"
 
   // 클라이언트 필터 (cf_ 접두어)
   const cfMin = searchParams.get("cf_min") ?? ""
@@ -94,7 +95,7 @@ export function SearchFilters() {
   }
 
   const currentQ = searchParams.get("q") ?? ""
-  const hasFilters = selectedGrades.length > 0 || selectedCourt || selectedType || currentQ || hasClientFilters
+  const hasFilters = selectedGrades.length > 0 || selectedCourt || selectedType || currentQ || hasClientFilters || includeSold
 
   const resetFilters = () => {
     const params = new URLSearchParams()
@@ -219,6 +220,18 @@ export function SearchFilters() {
           ))}
         </select>
 
+        {/* 매각완료 포함 토글 */}
+        <button
+          onClick={() => update("status", includeSold ? "" : "전체")}
+          className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            includeSold
+              ? "bg-muted text-foreground ring-1 ring-border"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          매각완료 포함
+        </button>
+
         <div className="ml-auto flex items-center gap-2">
           {/* 상세 필터 토글 */}
           <button
@@ -340,6 +353,9 @@ export function SearchFilters() {
       {/* 활성 필터 chips */}
       {hasFilters && (
         <div className="mt-2 flex flex-wrap gap-1.5">
+          {includeSold && (
+            <FilterChip label="매각완료 포함" onRemove={() => update("status", "")} />
+          )}
           {currentQ && (
             <FilterChip
               label={`"${currentQ}"`}

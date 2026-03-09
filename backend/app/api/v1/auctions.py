@@ -259,6 +259,7 @@ def get_auctions(
     property_type: str | None = Query(None, description="물건 유형"),
     q: str | None = Query(None, description="주소 키워드 검색"),
     sort: str = Query("grade", description="정렬 기준: grade|appraised_value|auction_date|minimum_bid|bid_count|predicted_winning_ratio"),
+    status: str | None = Query(None, description="상태 필터: 없으면 진행+예정만, '전체' 또는 'all' 이면 전체, '매각' 이면 매각만"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -267,8 +268,15 @@ def get_auctions(
     query = (
         db.query(Auction, Score)
         .outerjoin(Score, Auction.id == Score.auction_id)
-        .filter(Auction.status.notin_(["취하", "변경"]))
     )
+
+    # 상태 필터: 기본값은 매각/취하/기각/변경 제외 (진행+예정만)
+    if status is None:
+        query = query.filter(Auction.status.notin_(["매각", "취하", "기각", "변경"]))
+    elif status not in ("전체", "all"):
+        statuses = [s.strip() for s in status.split(",") if s.strip()]
+        if statuses:
+            query = query.filter(Auction.status.in_(statuses))
 
     # 필터
     if court_office_code:

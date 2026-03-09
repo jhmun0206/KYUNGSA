@@ -39,8 +39,14 @@ export default function FavoritesPage() {
     setKeys((prev) => prev.filter((k) => k !== caseNumber))
   }
 
+  const { activeItems, soldItems } = useMemo(() => {
+    const active = items.filter((i) => i.status !== "매각")
+    const sold = items.filter((i) => i.status === "매각")
+    return { activeItems: active, soldItems: sold }
+  }, [items])
+
   const sorted = useMemo(() => {
-    const arr = [...items]
+    const arr = [...activeItems]
     if (sort === "score") {
       arr.sort((a, b) => (b.score?.total_score ?? -1) - (a.score?.total_score ?? -1))
     } else if (sort === "dday") {
@@ -52,24 +58,24 @@ export default function FavoritesPage() {
     }
     // "saved" → 저장 순서(keys 배열 순서) 유지
     return arr
-  }, [items, sort])
+  }, [activeItems, sort])
 
-  // 요약 통계
+  // 요약 통계 (진행중 물건 기준)
   const avgScore = useMemo(() => {
-    const scored = items.filter((i) => i.score?.total_score != null)
+    const scored = activeItems.filter((i) => i.score?.total_score != null)
     if (scored.length === 0) return null
     const sum = scored.reduce((acc, i) => acc + (i.score!.total_score ?? 0), 0)
     return (sum / scored.length).toFixed(1)
-  }, [items])
+  }, [activeItems])
 
   const avgDiscount = useMemo(() => {
-    const discounted = items
+    const discounted = activeItems
       .map((i) => calcDiscount(i.minimum_bid, i.appraised_value))
       .filter((d): d is number => d != null)
     if (discounted.length === 0) return null
     const avg = discounted.reduce((a, b) => a + b, 0) / discounted.length
     return Math.round(avg * 100)
-  }, [items])
+  }, [activeItems])
 
   if (loading) {
     return (
@@ -107,6 +113,11 @@ export default function FavoritesPage() {
         <h1 className="text-xl font-bold text-foreground">
           관심 목록{" "}
           <span className="text-sm font-normal text-muted-foreground">{items.length}건</span>
+          {soldItems.length > 0 && (
+            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+              (진행중 {activeItems.length}, 종료 {soldItems.length})
+            </span>
+          )}
         </h1>
 
         {/* 정렬 */}
@@ -143,7 +154,7 @@ export default function FavoritesPage() {
         </div>
       )}
 
-      {/* 카드 목록 */}
+      {/* 진행중 카드 목록 */}
       <ul className="space-y-2">
         <AnimatePresence mode="popLayout">
           {sorted.map((item) => {
@@ -206,6 +217,75 @@ export default function FavoritesPage() {
           })}
         </AnimatePresence>
       </ul>
+
+      {/* 종료된 관심 물건 섹션 */}
+      {soldItems.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+            종료된 관심 물건{" "}
+            <span className="font-normal">{soldItems.length}건</span>
+          </h2>
+          <ul className="space-y-2 opacity-70">
+            {soldItems.map((item) => {
+              const failCount = Math.max(0, item.bid_count - 1)
+              return (
+                <li key={item.case_number}>
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      {item.score?.grade && (
+                        <GradeBadge
+                          grade={item.score.grade}
+                          provisional={item.score.grade_provisional}
+                          size="sm"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {item.address}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {item.property_type} · {item.court}
+                          {failCount > 0 && ` · ${failCount}회 유찰`}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          감정가 {formatPrice(item.appraised_value)}
+                          {item.winning_bid && (
+                            <span className="ml-2">
+                              낙찰가 <span className="font-medium text-foreground">{formatPrice(item.winning_bid)}</span>
+                              {item.winning_ratio && (
+                                <span className="ml-1 text-muted-foreground">({(item.winning_ratio * 100).toFixed(0)}%)</span>
+                              )}
+                            </span>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          매각완료{item.winning_date && ` · ${item.winning_date.replace(/-/g, ".")}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="ml-3 flex shrink-0 items-center gap-1">
+                      <Link
+                        href={`/auction/${encodeURIComponent(item.case_number)}`}
+                        className="rounded-md bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      >
+                        상세
+                      </Link>
+                      <button
+                        onClick={() => handleRemove(item.case_number)}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        title="관심 해제"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

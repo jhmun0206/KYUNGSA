@@ -487,6 +487,7 @@ class BatchCollector:
         dry_run: bool = False,
         skip_occupancy: bool = False,
         score_exists: bool = False,
+        active_only: bool = True,
     ) -> BatchResult:
         """DB 기반 재채점 모드
 
@@ -501,6 +502,7 @@ class BatchCollector:
             dry_run: True면 DB 저장 없이 채점만
             skip_occupancy: True면 현황조사서 조회 스킵
             score_exists: True면 Score가 이미 있는 물건만 처리 (Score 없는 건 제외)
+            active_only: True면 매각 완료 물건 제외 (기본값 True)
 
         Returns:
             BatchResult
@@ -538,6 +540,7 @@ class BatchCollector:
                 enrich_delay=enrich_delay,
                 dry_run=dry_run,
                 score_exists=score_exists,
+                active_only=active_only,
             )
         except Exception as e:
             logger.error("DB 재채점 치명적 오류: %s", e)
@@ -588,6 +591,7 @@ class BatchCollector:
         enrich_delay: float,
         dry_run: bool,
         score_exists: bool = False,
+        active_only: bool = True,
     ) -> None:
         """DB 재채점 루프"""
         # 목록 검색 없이 바로 상세조회하면 세션 쿠키가 없어 실패하므로 워밍업
@@ -611,6 +615,8 @@ class BatchCollector:
             )
         if court_code:
             query = query.filter(Auction.court_office_code == court_code)
+        if active_only:
+            query = query.filter(Auction.status.notin_(["매각", "취하", "기각", "변경"]))
 
         total = query.count()
         result.total_searched = total

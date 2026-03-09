@@ -18,20 +18,26 @@ export function AuctionListRow({ item }: { item: AuctionListItem }) {
     COURT_OPTIONS.find((c) => c.code === item.court_office_code)?.label ?? item.court
   const detailHref = `/auction/${encodeURIComponent(item.case_number)}`
   const mapHref = `https://map.kakao.com/link/search/${encodeURIComponent(item.address ?? "")}`
+  const isSold = item.status === "매각"
 
   return (
-    <div className="group relative border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors">
+    <div className={cn("group relative border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors", isSold && "opacity-60")}>
       {/* 모바일 전체 클릭 오버레이 */}
       <Link href={detailHref} className="absolute inset-0 sm:hidden" aria-label="상세 보기" />
 
       <div className="flex items-center gap-3 px-4 py-3">
         {/* 등급 */}
-        <div className="shrink-0">
+        <div className="shrink-0 flex flex-col items-center gap-0.5">
           <GradeBadge
             grade={item.grade}
             provisional={item.grade_provisional}
             size="sm"
           />
+          {isSold && (
+            <span className="rounded px-1 text-[9px] font-semibold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+              낙찰
+            </span>
+          )}
         </div>
 
         {/* 메인 정보 영역 */}
@@ -93,7 +99,13 @@ export function AuctionListRow({ item }: { item: AuctionListItem }) {
             ) : (
               <span className="text-xs text-muted-foreground">-점</span>
             )}
-            <span className={cn("text-xs", ddayColor)}>{dday}</span>
+            {isSold ? (
+              <span className="text-xs text-muted-foreground">
+                매각완료{item.auction_date && ` · ${item.auction_date.replace(/-/g, ".")}`}
+              </span>
+            ) : (
+              <span className={cn("text-xs", ddayColor)}>{dday}</span>
+            )}
           </div>
         </div>
 
@@ -114,10 +126,21 @@ export function AuctionListRow({ item }: { item: AuctionListItem }) {
           </div>
           {/* 기일 + D-day */}
           <div className="w-16 text-right">
-            <p className={cn("text-xs", ddayColor)}>{dday}</p>
-            <p className="text-[10px] text-muted-foreground">
-              {item.auction_date?.replace(/-/g, ".")}
-            </p>
+            {isSold ? (
+              <>
+                <p className="text-xs text-muted-foreground">매각완료</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {item.auction_date?.replace(/-/g, ".")}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className={cn("text-xs", ddayColor)}>{dday}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {item.auction_date?.replace(/-/g, ".")}
+                </p>
+              </>
+            )}
           </div>
           {/* 유찰 */}
           <div className="w-10 text-right">

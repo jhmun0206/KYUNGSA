@@ -104,11 +104,13 @@ def run_rescore_db(
     dry_run: bool,
     skip_occupancy: bool = False,
     score_exists: bool = False,
+    active_only: bool = True,
 ) -> BatchResult:
     """DB 기반 재채점"""
     label = SEOUL_COURTS.get(court_code, court_code) if court_code else "전체"
     scope = "Score 보유 물건만" if score_exists else "Score 없는 건 포함"
-    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%}, {scope})")
+    active_label = "진행중만" if active_only else "매각 포함 전체"
+    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%}, {scope}, {active_label})")
 
     db = SessionLocal()
     try:
@@ -121,6 +123,7 @@ def run_rescore_db(
             dry_run=dry_run,
             skip_occupancy=skip_occupancy,
             score_exists=score_exists,
+            active_only=active_only,
         )
         print_result(result)
         return result
@@ -180,6 +183,14 @@ def main() -> None:
         "--score-exists", action="store_true",
         help="--rescore-db 시 Score가 이미 있는 물건만 처리 (Score 없는 건 제외)",
     )
+    parser.add_argument(
+        "--active-only", action="store_true", default=True,
+        help="--rescore-db 시 매각/취하/기각/변경 완료 물건 제외 (기본값 True)",
+    )
+    parser.add_argument(
+        "--include-sold", action="store_true",
+        help="--rescore-db 시 매각 완료 물건도 포함 (--active-only 비활성화)",
+    )
 
     parser.add_argument("--max", type=int, default=0, help="최대 처리 건수 (0=전체)")
     parser.add_argument("--force", action="store_true", help="기존 데이터 덮어쓰기")
@@ -212,6 +223,7 @@ def main() -> None:
             dry_run=args.dry_run,
             skip_occupancy=args.skip_occupancy,
             score_exists=args.score_exists,
+            active_only=not args.include_sold,
         )
         return
 
