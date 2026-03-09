@@ -138,6 +138,12 @@ export interface RentPriceInfo {
   queried_months: string[]
 }
 
+export interface BuildingUnitItem {
+  ho: string        // 호실명 (예: "101호")
+  floor: number     // 층 번호
+  area_m2: number   // 전용면적 (㎡)
+}
+
 export interface BuildingInfo {
   main_purpose: string
   structure: string
@@ -149,6 +155,7 @@ export interface BuildingInfo {
   build_year: number | null
   use_approve_date: string
   violation: boolean
+  units?: BuildingUnitItem[]  // 전유부 호실별 면적 (전유부 API 있을 때만)
 }
 
 export interface MapItem {

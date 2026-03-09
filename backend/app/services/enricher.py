@@ -200,6 +200,16 @@ class CaseEnricher:
                 info.ground_floors,
                 info.build_year,
             )
+
+            # 전유부 호실별 면적 조회 (fail-open)
+            try:
+                units = self._public.fetch_building_units(**params)
+                if units:
+                    info.units = units
+                    logger.info("전유부 %d호실 수신 [%s]", len(units), case.case_number)
+            except Exception as e:
+                logger.warning("전유부 조회 실패 [%s]: %s", case.case_number, e)
+
             return info
         except Exception as e:
             logger.warning("건축물대장 조회 실패 [%s]: %s", case.case_number, e)

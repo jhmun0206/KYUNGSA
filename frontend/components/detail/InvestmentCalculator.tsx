@@ -15,7 +15,7 @@ import {
   manToWon,
   getDefaultLoanRatio,
 } from "@/lib/investment"
-import type { AuctionDetailResponse, RentAreaRange } from "@/lib/types"
+import type { AuctionDetailResponse, RentAreaRange, BuildingUnitItem } from "@/lib/types"
 
 interface RoomRow {
   id: string
@@ -37,10 +37,11 @@ function findRefRent(
 
 interface Props {
   auction: AuctionDetailResponse
+  defaultOpen?: boolean   // 사이드패널/드로어에서 항상 열림 상태로 시작
 }
 
-export function InvestmentCalculator({ auction }: Props) {
-  const [open, setOpen] = useState(false)
+export function InvestmentCalculator({ auction, defaultOpen = false }: Props) {
+  const [open, setOpen] = useState(defaultOpen)
 
   const minBid = auction.minimum_bid ?? 0
   const appraised = auction.appraised_value ?? 0
@@ -53,18 +54,31 @@ export function InvestmentCalculator({ auction }: Props) {
 
   const unitsCount =
     typeof buildingInfo?.units_count === "number" ? buildingInfo.units_count : null
-  const initialCount = Math.min(Math.max(unitsCount ?? 1, 1), 20)
+  const apiUnits: BuildingUnitItem[] = buildingInfo?.units ?? []
+  // 전유부 API 데이터가 있으면 그것으로 초기화, 없으면 units_count 기반 빈 행 생성
+  const initialCount = apiUnits.length > 0
+    ? apiUnits.length
+    : Math.min(Math.max(unitsCount ?? 1, 1), 20)
   const idRef = useRef(initialCount)
 
-  const [rooms, setRooms] = useState<RoomRow[]>(() =>
-    Array.from({ length: initialCount }, (_, i) => ({
+  const [rooms, setRooms] = useState<RoomRow[]>(() => {
+    if (apiUnits.length > 0) {
+      return apiUnits.map((u, i) => ({
+        id: `r${i}`,
+        name: u.ho,
+        area_m2: String(u.area_m2),
+        deposit_man: 0,
+        rent_man: 0,
+      }))
+    }
+    return Array.from({ length: initialCount }, (_, i) => ({
       id: `r${i}`,
       name: `${i + 1}호`,
       area_m2: "",
       deposit_man: 0,
       rent_man: 0,
     }))
-  )
+  })
 
   // 단일 입력 fallback 상태 (building_info 없을 때)
   const [monthlyRentMan, setMonthlyRentMan] = useState(

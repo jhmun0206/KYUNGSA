@@ -174,6 +174,69 @@ class PublicDataClient:
         response = self._get(ENDPOINTS["building_register"], params)
         return self._parse_xml_items(response.text)
 
+    # === 건축물대장 전유공용면적 (호실별) ===
+
+    def fetch_building_units(
+        self, sigungu_cd: str, bjdong_cd: str, bun: str, ji: str
+    ) -> list[dict]:
+        """건축물대장 전유공용면적 조회 (getBrExposPubuseAreaInfo)
+
+        호실별 전용면적 반환. 없거나 실패하면 빈 리스트.
+
+        Args:
+            sigungu_cd: 시군구코드 (5자리)
+            bjdong_cd: 법정동코드 (5자리)
+            bun: 본번 (4자리)
+            ji: 부번 (4자리)
+
+        Returns:
+            호실 목록 [{"ho": "101호", "floor": 1, "area_m2": 33.5}, ...]
+        """
+        url = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo"
+        params = {
+            "sigunguCd": sigungu_cd,
+            "bjdongCd": bjdong_cd,
+            "bun": bun.zfill(4),
+            "ji": ji.zfill(4),
+            "numOfRows": "200",
+            "pageNo": "1",
+            "_type": "json",
+        }
+        try:
+            response = self._get(url, params)
+            data = response.json()
+            raw_items = (
+                data.get("response", {})
+                .get("body", {})
+                .get("items", {})
+                .get("item", [])
+            )
+            # 단건 응답은 dict로 오는 경우 있음
+            if isinstance(raw_items, dict):
+                raw_items = [raw_items]
+            if not isinstance(raw_items, list):
+                return []
+
+            units: list[dict] = []
+            for item in raw_items:
+                ho_nm = str(item.get("hoNm") or "").strip()
+                flr_no_nm = str(item.get("flrNoNm") or "").strip()
+                area_raw = item.get("area") or item.get("expoArea") or ""
+                area = _safe_float_val(area_raw)
+
+                if ho_nm and area and area > 0:
+                    # 층 번호: 숫자만 추출
+                    digits = "".join(c for c in flr_no_nm if c.isdigit())
+                    floor = int(digits) if digits else 0
+                    units.append({"ho": ho_nm, "floor": floor, "area_m2": round(area, 2)})
+
+            units.sort(key=lambda x: (x["floor"], x["ho"]))
+            logger.info("전유부 %d호실 수신 (sigungu=%s bun=%s)", len(units), sigungu_cd, bun)
+            return units
+        except Exception as e:
+            logger.warning("전유부 조회 실패 [sigungu=%s bun=%s]: %s", sigungu_cd, bun, e)
+            return []
+
     # === 개별공시지가 ===
 
     def fetch_land_price(
@@ -206,3 +269,17 @@ class PublicDataClient:
         except Exception:
             logger.warning("개별공시지가 JSON 파싱 실패, XML 시도")
             return self._parse_xml_items(response.text)
+
+
+# ── 모듈 수준 유틸리티 ──────────────────────────────────────────
+
+
+def _safe_float_val(value: object) -> float | None:
+    """임의 타입 → float 변환 (실패 시 None)"""
+    if value is None or value == "":
+        return None
+    try:
+        v = float(str(value).replace(",", "").strip())
+        return v if v > 0 else None
+    except (ValueError, TypeError):
+        return None

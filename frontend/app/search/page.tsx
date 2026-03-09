@@ -69,7 +69,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       <div className="mb-2 pt-2">
         <h1 className="text-xl font-bold text-foreground">물건 검색</h1>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          등급 · 법원 · 물건종류로 필터링하고 정렬하세요
+          물건 유형 · 지역 · 가격대 · 등급으로 필터링하세요
         </p>
       </div>
 

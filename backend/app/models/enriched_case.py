@@ -61,6 +61,8 @@ class BuildingInfo(BaseModel):
     use_approve_date: str = ""  # 사용승인일
     violation: bool = False  # 위반건축물 여부
     raw_items: list[dict] = Field(default_factory=list)
+    # 전유부 호실별 면적 (getBrExposPubuseAreaInfo, 없으면 빈 리스트)
+    units: list[dict] = Field(default_factory=list)  # [{ho, floor, area_m2}]
 
 
 class LandUseInfo(BaseModel):

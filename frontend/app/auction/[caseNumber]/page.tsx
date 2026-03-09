@@ -3,9 +3,9 @@ import Link from "next/link"
 import { fetchAuctionDetail, ApiNotFoundError } from "@/lib/api"
 import { DecisionSection } from "@/components/detail/DecisionSection"
 import { PillarBreakdown } from "@/components/detail/PillarBreakdown"
-import { InvestmentCalculator } from "@/components/detail/InvestmentCalculator"
 import { BasicInfo } from "@/components/detail/BasicInfo"
-import { MobileActionBar } from "@/components/detail/MobileActionBar"
+import { LocationButtons } from "@/components/detail/LocationButtons"
+import { DetailSidePanel } from "@/components/detail/DetailSidePanel"
 
 interface PageProps {
   params: { caseNumber: string }
@@ -21,7 +21,6 @@ export default async function AuctionDetailPage({ params }: PageProps) {
     if (err instanceof ApiNotFoundError) {
       notFound()
     }
-    // 백엔드 연결 실패 등 기타 오류 → 에러 배너로 표시
     apiError = true
   }
 
@@ -45,38 +44,46 @@ export default async function AuctionDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 pb-24 sm:pb-16">
-      {/* 섹션 1: 의사결정 — 등급 + 가격 + D-day + 면책 */}
-      <DecisionSection auction={auction} />
+    // 모바일: pb-32 (MobileNav 64 + 액션바 ~52 + 여유)
+    // 데스크탑(sm+): pb-16
+    <div className="mx-auto max-w-7xl pb-32 sm:pb-16">
+      <div className="lg:flex lg:gap-6 lg:items-start">
 
-      {/* 앵커 네비게이션 */}
-      <nav className="flex gap-4 border-b border-border pb-2 text-sm overflow-x-auto">
-        <a href="#analysis" className="text-primary font-medium whitespace-nowrap">상세 분석</a>
-        <a href="#investment" className="text-muted-foreground hover:text-primary whitespace-nowrap">투자 분석</a>
-        <a href="#raw-data" className="text-muted-foreground hover:text-primary whitespace-nowrap">원본 데이터</a>
-      </nav>
+        {/* ── 좌측: 메인 컨텐츠 ── */}
+        <div className="flex-1 min-w-0 space-y-6 lg:space-y-8">
 
-      {/* 섹션 2: 상세 분석 — 레이더 + 바차트 + 가격비교 */}
-      <div id="analysis">
-        <PillarBreakdown auction={auction} />
+          {/* 섹션 1: 의사결정 — 등급 + 가격 + D-day + 면책 */}
+          <DecisionSection auction={auction} />
+
+          {/* 앵커 네비게이션 */}
+          <nav className="flex gap-4 border-b border-border pb-2 text-sm overflow-x-auto">
+            <a href="#analysis" className="text-primary font-medium whitespace-nowrap">상세 분석</a>
+            <a href="#raw-data" className="text-muted-foreground hover:text-primary whitespace-nowrap">원본 데이터</a>
+          </nav>
+
+          {/* 로드뷰 / 위치 버튼 (좌표 있을 때만 렌더) */}
+          <LocationButtons auction={auction} />
+
+          {/* 섹션 2: 상세 분석 — 레이더 + 바차트 + 가격비교 */}
+          <div id="analysis">
+            <PillarBreakdown auction={auction} />
+          </div>
+
+          {/* 섹션 3: 원본 데이터 — 기일내역 + 기본정보 */}
+          <div id="raw-data">
+            <BasicInfo auction={auction} />
+          </div>
+
+          <div className="text-center">
+            <Link href="/" className="text-sm text-primary hover:underline">
+              ← 목록으로 돌아가기
+            </Link>
+          </div>
+        </div>
+
+        {/* ── 우측: 투자분석 사이드패널 (데스크탑) + 모바일 액션바 + 드로어 ── */}
+        <DetailSidePanel auction={auction} />
       </div>
-
-      {/* 섹션 3: 투자 분석 시뮬레이터 */}
-      <InvestmentCalculator auction={auction} />
-
-      {/* 섹션 4: 원본 데이터 — 기일내역 + 기본정보 */}
-      <div id="raw-data">
-        <BasicInfo auction={auction} />
-      </div>
-
-      <div className="text-center">
-        <Link href="/" className="text-sm text-primary hover:underline">
-          ← 목록으로 돌아가기
-        </Link>
-      </div>
-
-      {/* 모바일 하단 액션바 */}
-      <MobileActionBar caseNumber={auction.case_number} address={auction.address} />
     </div>
   )
 }
