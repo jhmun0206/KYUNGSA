@@ -95,6 +95,7 @@ class RuleEngineV2:
         price_result = self._price_scorer.score(
             case=case,
             market_price=enriched.market_price,
+            building=enriched.building,  # BUG-01: exclusive_area_m2_real 우선 사용
         )
 
         # 3. 법률 점수 (등기부 있을 때만)

@@ -179,11 +179,27 @@ class CaseEnricher:
             # 건축년도 (사용승인일 앞 4자리)
             use_apr = first.get("useAprDay", "")
             build_year = _safe_int(use_apr[:4]) if len(use_apr) >= 4 else None
+
+            # BUG-01 수정: 건물 유형별 올바른 면적 필드 선택
+            regstr_gb_cd = first.get("regstrGbCd", "")
+            tot_area = _safe_float(first.get("totArea", ""))  # 연면적 (일반/집합 공통)
+            if regstr_gb_cd == "1":
+                building_type = "일반"
+                exclusive_area_m2_real = tot_area  # 일반건물: 전용면적 없음 → 연면적 사용
+            elif regstr_gb_cd == "2":
+                building_type = "집합"
+                exclusive_area_m2_real = tot_area  # 집합건물: 표제부는 전체 연면적 (전유부는 units에서)
+            else:
+                building_type = None
+                exclusive_area_m2_real = tot_area
+
             info = BuildingInfo(
                 main_purpose=first.get("mainPurpsCdNm", ""),
                 structure=first.get("strctCdNm", ""),
-                total_area=_safe_float(first.get("totArea", "")),
-                exclusive_area_m2=_safe_float(first.get("platArea", "")),
+                total_area=tot_area,
+                exclusive_area_m2=_safe_float(first.get("platArea", "")),  # deprecated: 대지면적
+                exclusive_area_m2_real=exclusive_area_m2_real,             # BUG-01 수정
+                building_type=building_type,                                # 신규
                 ground_floors=_safe_int(first.get("grndFlrCnt", "")),
                 underground_floors=_safe_int(first.get("ugrndFlrCnt", "")),
                 units_count=_safe_int(first.get("hhldCnt", "")) or _safe_int(first.get("hoCnt", "")),
@@ -193,22 +209,24 @@ class CaseEnricher:
                 raw_items=items,
             )
             logger.info(
-                "BuildingInfo 생성 [%s]: purpose=%s area=%.1f floors=%s year=%s",
+                "BuildingInfo 생성 [%s]: purpose=%s area=%.1f floors=%s year=%s type=%s",
                 case.case_number,
                 info.main_purpose,
                 info.total_area or 0,
                 info.ground_floors,
                 info.build_year,
+                building_type,
             )
 
-            # 전유부 호실별 면적 조회 (fail-open)
-            try:
-                units = self._public.fetch_building_units(**params)
-                if units:
-                    info.units = units
-                    logger.info("전유부 %d호실 수신 [%s]", len(units), case.case_number)
-            except Exception as e:
-                logger.warning("전유부 조회 실패 [%s]: %s", case.case_number, e)
+            # BUG-08 수정: 집합건물(regstrGbCd=2)인 경우만 전유부 조회
+            if regstr_gb_cd == "2":
+                try:
+                    units = self._public.fetch_building_units(**params)
+                    if units:
+                        info.units = units
+                        logger.info("전유부 %d호실 수신 [%s]", len(units), case.case_number)
+                except Exception as e:
+                    logger.warning("전유부 조회 실패 [%s]: %s", case.case_number, e)
 
             return info
         except Exception as e:

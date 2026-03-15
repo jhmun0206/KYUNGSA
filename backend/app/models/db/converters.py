@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models.auction import AuctionCaseDetail
 from app.models.db.auction import Auction
+from app.models.db.auction_round import AuctionRound as AuctionRoundORM
 from app.models.db.filter_result import FilterResultORM
 from app.models.db.pipeline_run import PipelineRun
 from app.models.db.registry import RegistryAnalysisORM, RegistryEventORM
@@ -25,6 +26,7 @@ from app.models.enriched_case import (
     RentPriceInfo,
     RuleMatch,
 )
+from app.services.property_normalizer import normalize_property_type
 from app.models.registry import (
     AnalyzedRight,
     Confidence,
@@ -53,17 +55,19 @@ def auction_detail_to_orm(
     rent_price: RentPriceInfo | None = None,
 ) -> Auction:
     """AuctionCaseDetail (+ enrichment) → Auction ORM"""
-    return Auction(
+    orm = Auction(
         case_number=detail.case_number,
         court=detail.court,
         court_office_code=detail.court_office_code,
         address=detail.address,
         property_type=detail.property_type,
+        property_category=normalize_property_type(detail.property_type),
         appraised_value=detail.appraised_value,
         minimum_bid=detail.minimum_bid,
         auction_date=detail.auction_date,
         status=detail.status,
         bid_count=detail.bid_count,
+        current_round=detail.bid_count,
         coordinates=coordinates,
         building_info=building.model_dump() if building else None,
         land_use_info=land_use.model_dump() if land_use else None,
@@ -71,6 +75,11 @@ def auction_detail_to_orm(
         rent_price_info=rent_price.model_dump() if rent_price else None,
         detail=detail.model_dump(mode="json"),
     )
+    if coordinates is not None:
+        _apply_lat_lng(orm, coordinates)
+    if building is not None:
+        _apply_building_normalized(orm, building)
+    return orm
 
 
 def filter_dto_to_orm(result: FilterResult, auction_id: str) -> FilterResultORM:
@@ -290,6 +299,40 @@ def auction_orm_to_enriched(orm: Auction) -> EnrichedCase:
 
 
 # ──────────────────────────────────────────
+# 정규화 컬럼 보조 함수
+# ──────────────────────────────────────────
+
+
+def _apply_lat_lng(auction: Auction, coordinates: dict) -> None:
+    """coordinates dict → lat/lng 정규화 컬럼 추출
+    coordinates = {"x": "127.0365", "y": "37.4994"}  (카카오 형식)
+    """
+    try:
+        lng_val = coordinates.get("x") or coordinates.get("lng")
+        lat_val = coordinates.get("y") or coordinates.get("lat")
+        if lng_val is not None:
+            auction.lng = float(lng_val)
+        if lat_val is not None:
+            auction.lat = float(lat_val)
+    except (ValueError, TypeError):
+        pass  # 좌표 파싱 실패 시 무시
+
+
+def _apply_building_normalized(auction: Auction, building: BuildingInfo) -> None:
+    """BuildingInfo → 정규화 컬럼 추출"""
+    if building.building_type is not None:
+        auction.building_type = building.building_type
+    if building.build_year is not None:
+        auction.build_year = building.build_year
+    if building.exclusive_area_m2_real is not None:
+        auction.exclusive_area_m2_real = building.exclusive_area_m2_real
+    if building.ground_floors is not None:
+        auction.floor_count = building.ground_floors
+    if building.units_count is not None:
+        auction.units_count_real = building.units_count
+
+
+# ──────────────────────────────────────────
 # 전체 저장 헬퍼
 # ──────────────────────────────────────────
 
@@ -315,17 +358,26 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
         auction.auction_date = enriched.case.auction_date
         auction.status = enriched.case.status
         auction.bid_count = enriched.case.bid_count
+        auction.current_round = enriched.case.bid_count
         if enriched.coordinates is not None:
             auction.coordinates = enriched.coordinates
+            _apply_lat_lng(auction, enriched.coordinates)
         # enrichment 데이터: 새 값이 있으면 업데이트, None이면 기존 값 유지
         if enriched.building is not None:
             auction.building_info = enriched.building.model_dump()
+            _apply_building_normalized(auction, enriched.building)
         if enriched.land_use is not None:
             auction.land_use_info = enriched.land_use.model_dump()
         if enriched.market_price is not None:
             auction.market_price_info = enriched.market_price.model_dump()
         if enriched.rent_price is not None:
             auction.rent_price_info = enriched.rent_price.model_dump()
+        if enriched.location_data is not None:
+            auction.location_data = enriched.location_data.model_dump()
+            if enriched.location_data.nearest_station_m is not None:
+                auction.station_distance_m = enriched.location_data.nearest_station_m
+        # property_category 항상 갱신 (property_type 변경 가능)
+        auction.property_category = normalize_property_type(enriched.case.property_type)
         auction.detail = enriched.case.model_dump(mode="json")
         # 하위 삭제 후 재생성 (FK 순서: analysis → events → filter)
         if auction.registry_analysis:
@@ -345,6 +397,10 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
             market_price=enriched.market_price,
             rent_price=enriched.rent_price,
         )
+        if enriched.location_data is not None:
+            auction.location_data = enriched.location_data.model_dump()
+            if enriched.location_data.nearest_station_m is not None:
+                auction.station_distance_m = enriched.location_data.nearest_station_m
         db.add(auction)
         db.flush()  # id 확보
 
@@ -380,6 +436,20 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
             cancellation_base_event_id=cancel_base_id,
         )
         db.add(ra_orm)
+
+    # 기일 이력 저장 (auction_rounds) — 기존 삭제 후 재생성
+    if enriched.case.auction_rounds:
+        for rnd_orm in list(auction.auction_rounds):
+            db.delete(rnd_orm)
+        db.flush()
+        for rnd in enriched.case.auction_rounds:
+            db.add(AuctionRoundORM(
+                auction_id=auction.id,
+                round_number=rnd.round_number,
+                round_date=rnd.round_date,
+                minimum_bid=rnd.minimum_bid,
+                result=rnd.result or None,
+            ))
 
     db.commit()
     db.refresh(auction)

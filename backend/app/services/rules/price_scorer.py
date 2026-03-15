@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 
 from app.models.auction import AuctionCaseDetail
-from app.models.enriched_case import MarketPriceInfo
+from app.models.enriched_case import BuildingInfo, MarketPriceInfo
 from app.models.scores import PriceScoreResult, PriceSubScores
 
 logger = logging.getLogger(__name__)
@@ -56,12 +56,14 @@ class PriceScorer:
         self,
         case: AuctionCaseDetail,
         market_price: MarketPriceInfo | None = None,
+        building: BuildingInfo | None = None,
     ) -> PriceScoreResult:
         """가격 매력도 점수 산출
 
         Args:
             case: 경매 물건 상세 정보
             market_price: 실거래가 시세 정보 (없을 수 있음)
+            building: 건축물대장 정보 (exclusive_area_m2_real 우선 사용)
 
         Returns:
             PriceScoreResult (0~100, 높을수록 좋은 거래)
@@ -71,7 +73,12 @@ class PriceScorer:
 
         appraised = case.appraised_value
         minimum_bid = case.minimum_bid
-        area_m2 = case.area_m2
+        # BUG-01 수정: exclusive_area_m2_real(연면적 기반) 우선, fallback → case.area_m2
+        area_m2 = (
+            building.exclusive_area_m2_real
+            if building and building.exclusive_area_m2_real
+            else case.area_m2
+        )
         is_residential = self._is_residential(case.property_type)
 
         details["property_type"] = case.property_type

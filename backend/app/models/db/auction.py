@@ -50,8 +50,21 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
     building_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
     land_use_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
     market_price_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
-    rent_price_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
+    rent_price_info: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)  # json→jsonb (BUG-03, PostgreSQL에서 JSONB로 저장)
     detail: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)
+    location_data: Mapped[dict | None] = mapped_column(JSONBOrJSON, nullable=True)  # BUG-02 수정
+
+    # 정규화 컬럼 (DB-REBUILD: 검색/필터/정렬 최적화)
+    property_category: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    building_type: Mapped[str | None] = mapped_column(String(10), nullable=True)   # '일반'/'집합'
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+    station_distance_m: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    build_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    exclusive_area_m2_real: Mapped[float | None] = mapped_column(Float, nullable=True)  # BUG-01 수정
+    floor_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    units_count_real: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    current_round: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     # 관계
     filter_result: Mapped[FilterResultORM | None] = relationship(
@@ -70,6 +83,11 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
         "OccupancyReport", cascade="all, delete-orphan"
     )
 
+    # 관계 (auction_rounds)
+    auction_rounds: Mapped[list[AuctionRound]] = relationship(
+        "AuctionRound", back_populates="auction", cascade="all, delete-orphan"
+    )
+
     __table_args__ = (
         Index("ix_auctions_court", "court"),
         Index("ix_auctions_court_office_code", "court_office_code"),
@@ -79,6 +97,10 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_auctions_court_date", "court_office_code", "auction_date"),
         Index("ix_auctions_status_date", "status", "auction_date"),
         Index("ix_auctions_occupancy_status", "occupancy_status"),
+        Index("ix_auctions_property_category", "property_category"),
+        Index("ix_auctions_lat_lng", "lat", "lng"),
+        Index("ix_auctions_build_year", "build_year"),
+        Index("ix_auctions_station_distance", "station_distance_m"),
     )
 
     def __repr__(self) -> str:
@@ -86,6 +108,7 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
 
 
 # 순환 참조 해소용 - 모듈 로딩 후 참조
+from app.models.db.auction_round import AuctionRound  # noqa: E402
 from app.models.db.filter_result import FilterResultORM  # noqa: E402
 from app.models.db.occupancy import OccupancyReport  # noqa: E402
 from app.models.db.registry import RegistryAnalysisORM, RegistryEventORM  # noqa: E402

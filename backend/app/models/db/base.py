@@ -15,7 +15,10 @@ from sqlalchemy.types import TypeDecorator
 
 
 class JSONBOrJSON(TypeDecorator):
-    """PostgreSQL에서는 JSONB, SQLite에서는 JSON으로 동작하는 타입"""
+    """PostgreSQL에서는 JSONB, SQLite에서는 JSON으로 동작하는 타입.
+
+    BUG-04 수정: Python None → SQL NULL (기존에는 JSON null 리터럴로 저장됨)
+    """
 
     impl = JSON
     cache_ok = True
@@ -25,6 +28,10 @@ class JSONBOrJSON(TypeDecorator):
             from sqlalchemy.dialects.postgresql import JSONB
             return dialect.type_descriptor(JSONB())
         return dialect.type_descriptor(JSON())
+
+    def process_bind_param(self, value, dialect):
+        # None → SQL NULL (JSON null 리터럴 방지)
+        return value
 
 
 class Base(DeclarativeBase):

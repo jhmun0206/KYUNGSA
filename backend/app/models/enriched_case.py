@@ -53,7 +53,9 @@ class BuildingInfo(BaseModel):
     main_purpose: str = ""  # 주용도 ("업무시설", "공동주택" 등)
     structure: str = ""  # 구조 ("철근콘크리트구조")
     total_area: float | None = None  # 연면적 (㎡)
-    exclusive_area_m2: float | None = None  # 전용면적 (㎡, platArea)
+    exclusive_area_m2: float | None = None  # deprecated: platArea(대지면적) 기반, BUG-01 대상
+    exclusive_area_m2_real: float | None = None  # BUG-01 수정: totArea(연면적) 기반 올바른 값
+    building_type: str | None = None  # '일반'/'집합' (regstrGbCd 기반)
     ground_floors: int | None = None  # 지상 층수 (grndFlrCnt)
     underground_floors: int | None = None  # 지하 층수 (ugrndFlrCnt)
     units_count: int | None = None  # 세대/호수 (hhldCnt or hoCnt)
