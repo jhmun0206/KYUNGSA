@@ -228,6 +228,7 @@ def step_null_cleanup(db: Session, dry_run: bool) -> None:
     TypeDecorator 수정 이후 신규 저장은 SQL NULL로 올바르게 들어오지만,
     기존 데이터에는 JSON null 리터럴('null'::jsonb)이 남아있을 수 있다.
     """
+    # rent_price_info는 Alembic 마이그레이션으로 jsonb로 변환됨 → jsonb_typeof 사용
     jsonb_cols = [
         "building_info",
         "land_use_info",
@@ -235,9 +236,9 @@ def step_null_cleanup(db: Session, dry_run: bool) -> None:
         "coordinates",
         "detail",
         "location_data",
+        "rent_price_info",
     ]
-    # rent_price_info는 json 타입 → json_typeof 사용
-    json_cols = ["rent_price_info"]
+    json_cols: list[str] = []
 
     for col in jsonb_cols:
         sql = f"""
