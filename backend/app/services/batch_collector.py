@@ -490,6 +490,7 @@ class BatchCollector:
         score_exists: bool = False,
         active_only: bool = True,
         status_filter: str | None = None,
+        missing_location_only: bool = False,
     ) -> BatchResult:
         """DB 기반 재채점 모드
 
@@ -506,6 +507,7 @@ class BatchCollector:
             score_exists: True면 Score가 이미 있는 물건만 처리 (Score 없는 건 제외)
             active_only: True면 매각 완료 물건 제외 (기본값 True)
             status_filter: 특정 status 물건만 처리 (예: "진행", None=전체)
+            missing_location_only: True면 location_data IS NULL AND lat IS NOT NULL 인 물건만
 
         Returns:
             BatchResult
@@ -545,6 +547,7 @@ class BatchCollector:
                 score_exists=score_exists,
                 active_only=active_only,
                 status_filter=status_filter,
+                missing_location_only=missing_location_only,
             )
         except Exception as e:
             logger.error("DB 재채점 치명적 오류: %s", e)
@@ -597,6 +600,7 @@ class BatchCollector:
         score_exists: bool = False,
         active_only: bool = True,
         status_filter: str | None = None,
+        missing_location_only: bool = False,
     ) -> None:
         """DB 재채점 루프"""
         # 목록 검색 없이 바로 상세조회하면 세션 쿠키가 없어 실패하므로 워밍업
@@ -624,17 +628,24 @@ class BatchCollector:
             query = query.filter(Auction.status.notin_(["매각", "취하", "기각", "변경"]))
         if status_filter:
             query = query.filter(Auction.status == status_filter)
+        if missing_location_only:
+            # location_data IS NULL AND lat IS NOT NULL (좌표 있는데 입지 데이터 없는 건만)
+            query = query.filter(
+                Auction.location_data.is_(None),
+                Auction.lat.isnot(None),
+            )
 
         total = query.count()
         result.total_searched = total
         result.total_pages = 1  # DB 모드에서는 페이지 없음
 
         logger.info(
-            "DB 재채점 대상: %d건 (coverage < %.2f%s%s)",
+            "DB 재채점 대상: %d건 (coverage < %.2f%s%s%s)",
             total,
             coverage_below,
             f", court={court_code}" if court_code else "",
             ", score_exists=True" if score_exists else "",
+            ", missing_location=True" if missing_location_only else "",
         )
 
         if max_items > 0:
@@ -756,6 +767,23 @@ class BatchCollector:
                     auction_orm.location_data = enriched.location_data.model_dump()
                     if enriched.location_data.nearest_station_m is not None:
                         auction_orm.station_distance_m = enriched.location_data.nearest_station_m
+                else:
+                    # geocode 실패해도 기존 lat/lng 있으면 location_data 수집 시도
+                    if auction_orm.lat and auction_orm.lng:
+                        try:
+                            loc = self._enricher._fetch_location_data(
+                                str(auction_orm.lng),  # x = 경도
+                                str(auction_orm.lat),  # y = 위도
+                            )
+                            if loc is not None:
+                                auction_orm.location_data = loc.model_dump()
+                                if loc.nearest_station_m is not None:
+                                    auction_orm.station_distance_m = loc.nearest_station_m
+                        except Exception as e:
+                            logger.debug(
+                                "location_data fallback 실패 [%s]: %s",
+                                auction_orm.case_number, e,
+                            )
                 # property_category + current_round 동기화
                 if enriched.case.property_type:
                     auction_orm.property_category = normalize_property_type(

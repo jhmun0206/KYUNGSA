@@ -106,13 +106,15 @@ def run_rescore_db(
     score_exists: bool = False,
     active_only: bool = True,
     status_filter: str | None = None,
+    missing_location_only: bool = False,
 ) -> BatchResult:
     """DB 기반 재채점"""
     label = SEOUL_COURTS.get(court_code, court_code) if court_code else "전체"
     scope = "Score 보유 물건만" if score_exists else "Score 없는 건 포함"
     active_label = "진행중만" if active_only else "매각 포함 전체"
     status_label = f", status={status_filter}" if status_filter else ""
-    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%}, {scope}, {active_label}{status_label})")
+    loc_label = ", location_data IS NULL + lat 있는 건만" if missing_location_only else ""
+    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%}, {scope}, {active_label}{status_label}{loc_label})")
 
     db = SessionLocal()
     try:
@@ -127,6 +129,7 @@ def run_rescore_db(
             score_exists=score_exists,
             active_only=active_only,
             status_filter=status_filter,
+            missing_location_only=missing_location_only,
         )
         print_result(result)
         return result
@@ -198,6 +201,10 @@ def main() -> None:
         "--status", type=str, default=None,
         help="--rescore-db 시 특정 status 물건만 처리 (예: 진행)",
     )
+    parser.add_argument(
+        "--missing-location", action="store_true",
+        help="--rescore-db 시 location_data IS NULL AND lat IS NOT NULL 인 물건만 처리",
+    )
 
     parser.add_argument("--max", type=int, default=0, help="최대 처리 건수 (0=전체)")
     parser.add_argument("--force", action="store_true", help="기존 데이터 덮어쓰기")
@@ -234,6 +241,7 @@ def main() -> None:
             score_exists=args.score_exists,
             active_only=not args.include_sold,
             status_filter=args.status,
+            missing_location_only=args.missing_location,
         )
         return
 
