@@ -105,12 +105,14 @@ def run_rescore_db(
     skip_occupancy: bool = False,
     score_exists: bool = False,
     active_only: bool = True,
+    status_filter: str | None = None,
 ) -> BatchResult:
     """DB 기반 재채점"""
     label = SEOUL_COURTS.get(court_code, court_code) if court_code else "전체"
     scope = "Score 보유 물건만" if score_exists else "Score 없는 건 포함"
     active_label = "진행중만" if active_only else "매각 포함 전체"
-    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%}, {scope}, {active_label})")
+    status_label = f", status={status_filter}" if status_filter else ""
+    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%}, {scope}, {active_label}{status_label})")
 
     db = SessionLocal()
     try:
@@ -124,6 +126,7 @@ def run_rescore_db(
             skip_occupancy=skip_occupancy,
             score_exists=score_exists,
             active_only=active_only,
+            status_filter=status_filter,
         )
         print_result(result)
         return result
@@ -191,6 +194,10 @@ def main() -> None:
         "--include-sold", action="store_true",
         help="--rescore-db 시 매각 완료 물건도 포함 (--active-only 비활성화)",
     )
+    parser.add_argument(
+        "--status", type=str, default=None,
+        help="--rescore-db 시 특정 status 물건만 처리 (예: 진행)",
+    )
 
     parser.add_argument("--max", type=int, default=0, help="최대 처리 건수 (0=전체)")
     parser.add_argument("--force", action="store_true", help="기존 데이터 덮어쓰기")
@@ -215,15 +222,18 @@ def main() -> None:
         print("*** DRY-RUN 모드: DB 저장 없이 수집만 수행 ***\n")
 
     if args.rescore_db:
+        # --force → coverage_below=1.01 (coverage는 0~1이므로 전체 대상)
+        effective_coverage = 1.01 if args.force else args.coverage_below
         run_rescore_db(
             court_code=args.court,  # None 이면 전체 법원
-            coverage_below=args.coverage_below,
+            coverage_below=effective_coverage,
             max_items=args.max,
             delay=args.delay,
             dry_run=args.dry_run,
             skip_occupancy=args.skip_occupancy,
             score_exists=args.score_exists,
             active_only=not args.include_sold,
+            status_filter=args.status,
         )
         return
 

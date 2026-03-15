@@ -24,6 +24,7 @@ from app.models.db.score import Score
 from app.models.enriched_case import FilterColor
 from app.services.crawler.court_auction import CourtAuctionClient
 from app.services.enricher import CaseEnricher
+from app.services.property_normalizer import normalize_property_type
 from app.services.rules.engine import RuleEngineV2
 
 logger = logging.getLogger(__name__)
@@ -488,6 +489,7 @@ class BatchCollector:
         skip_occupancy: bool = False,
         score_exists: bool = False,
         active_only: bool = True,
+        status_filter: str | None = None,
     ) -> BatchResult:
         """DB 기반 재채점 모드
 
@@ -503,6 +505,7 @@ class BatchCollector:
             skip_occupancy: True면 현황조사서 조회 스킵
             score_exists: True면 Score가 이미 있는 물건만 처리 (Score 없는 건 제외)
             active_only: True면 매각 완료 물건 제외 (기본값 True)
+            status_filter: 특정 status 물건만 처리 (예: "진행", None=전체)
 
         Returns:
             BatchResult
@@ -541,6 +544,7 @@ class BatchCollector:
                 dry_run=dry_run,
                 score_exists=score_exists,
                 active_only=active_only,
+                status_filter=status_filter,
             )
         except Exception as e:
             logger.error("DB 재채점 치명적 오류: %s", e)
@@ -592,6 +596,7 @@ class BatchCollector:
         dry_run: bool,
         score_exists: bool = False,
         active_only: bool = True,
+        status_filter: str | None = None,
     ) -> None:
         """DB 재채점 루프"""
         # 목록 검색 없이 바로 상세조회하면 세션 쿠키가 없어 실패하므로 워밍업
@@ -617,6 +622,8 @@ class BatchCollector:
             query = query.filter(Auction.court_office_code == court_code)
         if active_only:
             query = query.filter(Auction.status.notin_(["매각", "취하", "기각", "변경"]))
+        if status_filter:
+            query = query.filter(Auction.status == status_filter)
 
         total = query.count()
         result.total_searched = total
@@ -712,17 +719,50 @@ class BatchCollector:
         # 4. 보강 데이터 + Score 저장 (per-case commit)
         if not dry_run:
             try:
-                # 보강 데이터를 Auction ORM에 반영 (None이면 기존 값 유지)
+                # JSONB + 정규화 컬럼 업데이트 (DB-REBUILD: BUG-01/BUG-02 fix)
                 if enriched.coordinates is not None:
                     auction_orm.coordinates = enriched.coordinates
+                    coords = enriched.coordinates
+                    if isinstance(coords, dict):
+                        try:
+                            lng_val = coords.get("x") or coords.get("lng")
+                            lat_val = coords.get("y") or coords.get("lat")
+                            if lng_val is not None:
+                                auction_orm.lng = float(lng_val)
+                            if lat_val is not None:
+                                auction_orm.lat = float(lat_val)
+                        except (ValueError, TypeError):
+                            pass
                 if enriched.building is not None:
                     auction_orm.building_info = enriched.building.model_dump()
+                    b = enriched.building
+                    if b.building_type is not None:
+                        auction_orm.building_type = b.building_type
+                    if b.build_year is not None:
+                        auction_orm.build_year = b.build_year
+                    if b.exclusive_area_m2_real is not None:
+                        auction_orm.exclusive_area_m2_real = b.exclusive_area_m2_real
+                    if b.ground_floors is not None:
+                        auction_orm.floor_count = b.ground_floors
+                    if b.units_count is not None:
+                        auction_orm.units_count_real = b.units_count
                 if enriched.land_use is not None:
                     auction_orm.land_use_info = enriched.land_use.model_dump()
                 if enriched.market_price is not None:
                     auction_orm.market_price_info = enriched.market_price.model_dump()
                 if enriched.rent_price is not None:
                     auction_orm.rent_price_info = enriched.rent_price.model_dump()
+                if enriched.location_data is not None:
+                    auction_orm.location_data = enriched.location_data.model_dump()
+                    if enriched.location_data.nearest_station_m is not None:
+                        auction_orm.station_distance_m = enriched.location_data.nearest_station_m
+                # property_category + current_round 동기화
+                if enriched.case.property_type:
+                    auction_orm.property_category = normalize_property_type(
+                        enriched.case.property_type
+                    )
+                if enriched.case.bid_count is not None:
+                    auction_orm.current_round = enriched.case.bid_count
 
                 if enriched.total_score:
                     self._save_score(auction_orm.id, enriched, result.run_id)
