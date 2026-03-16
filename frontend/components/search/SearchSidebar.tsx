@@ -5,7 +5,6 @@ import { useCallback } from "react"
 import { RotateCcw } from "lucide-react"
 import { PROPERTY_CATEGORIES } from "@/lib/property-category"
 import { SEOUL_DISTRICTS, PRICE_RANGES } from "@/lib/constants"
-import { SIGNAL_EMOJI, type SignalColor } from "@/lib/risk-signals"
 
 const FAIL_COUNT_OPTIONS = [
   { value: "", label: "전체" },
@@ -33,14 +32,7 @@ const BUILDING_TYPE_OPTIONS = [
   { value: "집합", label: "집합" },
 ]
 
-const SIGNAL_OPTIONS: { value: SignalColor; label: string }[] = [
-  { value: "green", label: `${SIGNAL_EMOJI.green} 양호` },
-  { value: "yellow", label: `${SIGNAL_EMOJI.yellow} 주의` },
-  { value: "red", label: `${SIGNAL_EMOJI.red} 위험` },
-  { value: "unknown", label: `${SIGNAL_EMOJI.unknown} 미분류` },
-]
-
-// 칩 스타일 헬퍼: selected 여부 + sm(소형) 여부
+// 칩 스타일 헬퍼
 function chip(selected: boolean, sm = false) {
   return [
     "cursor-pointer rounded-full border transition-colors",
@@ -56,15 +48,14 @@ export function SearchSidebar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // 현재 선택 상태 (URL param 기준)
+  // 현재 선택 상태 (URL param 기준, 모두 서버 파라미터)
   const selectedTypes = (searchParams.get("category") ?? "").split(",").filter(Boolean)
   const selectedDistricts = (searchParams.get("district") ?? "").split(",").filter(Boolean)
   const selectedPriceIdx = searchParams.get("price_idx") ?? ""
   const selectedBidCountMin = searchParams.get("bid_count_min") ?? ""
-  const selectedStation = searchParams.get("cf_station") ?? ""
-  const selectedBuildYear = searchParams.get("cf_build_year") ?? ""
-  const selectedBuildingType = searchParams.get("cf_building_type") ?? ""
-  const selectedSignals = (searchParams.get("cf_signal") ?? "").split(",").filter(Boolean)
+  const selectedStation = searchParams.get("station_radius_m") ?? ""
+  const selectedBuildYear = searchParams.get("build_year_min") ?? ""
+  const selectedBuildingType = searchParams.get("building_type") ?? ""
 
   const update = useCallback(
     (key: string, value: string) => {
@@ -103,8 +94,7 @@ export function SearchSidebar() {
     selectedBidCountMin ||
     selectedStation ||
     selectedBuildYear ||
-    selectedBuildingType ||
-    selectedSignals.length > 0
+    selectedBuildingType
 
   const resetFilters = () => {
     const params = new URLSearchParams()
@@ -139,8 +129,8 @@ export function SearchSidebar() {
               key={opt.value}
               onClick={() =>
                 opt.value === ""
-                  ? update("cf_building_type", "")
-                  : toggleSingle("cf_building_type", opt.value, selectedBuildingType)
+                  ? update("building_type", "")
+                  : toggleSingle("building_type", opt.value, selectedBuildingType)
               }
               className={chip(opt.value === "" ? !selectedBuildingType : selectedBuildingType === opt.value)}
             >
@@ -176,7 +166,6 @@ export function SearchSidebar() {
                 onClick={() => {
                   const params = new URLSearchParams(searchParams.toString())
                   if (idx === 0 || selectedPriceIdx === String(idx)) {
-                    // 전체 또는 이미 선택된 항목 → 해제
                     params.delete("price_idx")
                     params.delete("min_price")
                     params.delete("max_price")
@@ -226,8 +215,8 @@ export function SearchSidebar() {
               key={opt.value}
               onClick={() =>
                 opt.value === ""
-                  ? update("cf_station", "")
-                  : toggleSingle("cf_station", opt.value, selectedStation)
+                  ? update("station_radius_m", "")
+                  : toggleSingle("station_radius_m", opt.value, selectedStation)
               }
               className={chip(opt.value === "" ? !selectedStation : selectedStation === opt.value)}
             >
@@ -245,25 +234,10 @@ export function SearchSidebar() {
               key={opt.value}
               onClick={() =>
                 opt.value === ""
-                  ? update("cf_build_year", "")
-                  : toggleSingle("cf_build_year", opt.value, selectedBuildYear)
+                  ? update("build_year_min", "")
+                  : toggleSingle("build_year_min", opt.value, selectedBuildYear)
               }
               className={chip(opt.value === "" ? !selectedBuildYear : selectedBuildYear === opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </SidebarSection>
-
-      {/* 리스크 등급 — 멀티셀렉 칩 */}
-      <SidebarSection title="리스크 등급" count={selectedSignals.length}>
-        <div className="flex flex-wrap gap-1.5">
-          {SIGNAL_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => toggleMulti("cf_signal", opt.value, selectedSignals)}
-              className={chip(selectedSignals.includes(opt.value))}
             >
               {opt.label}
             </button>

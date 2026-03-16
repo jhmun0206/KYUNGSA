@@ -41,9 +41,17 @@ class AuctionListItem(BaseModel):
     # 기일 지남 여부 (auction_date < today AND status IN 진행/예정 → 결과 대기중)
     is_past_due: bool = False
 
-    # 좌표 (coordinates JSONB → float 변환)
+    # 좌표
     lat: float | None
     lng: float | None
+
+    # 정규화 컬럼 (DB-REBUILD, 필터/정렬 최적화)
+    property_category: str | None = None
+    building_type: str | None = None        # '일반'/'집합'
+    station_distance_m: int | None = None   # 역까지 거리(m)
+    build_year: int | None = None           # 사용승인연도
+    exclusive_area_m2_real: float | None = None
+    current_round: int = 1
 
 
 class AuctionListResponse(BaseModel):

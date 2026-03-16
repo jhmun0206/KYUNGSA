@@ -181,18 +181,21 @@ export interface MapResponse {
   items: MapItem[]
 }
 
-// 필터 파라미터
+// 필터 파라미터 (전부 서버 필터 — 클라이언트 필터 없음)
 export interface AuctionListParams {
   court_office_code?: string
-  grade?: string        // "A,B,C"
-  property_type?: string
-  district?: string     // 행정구 필터 (예: 강남구)
-  q?: string            // 주소 키워드 검색
+  grade?: string          // "A,B,C"
+  property_type?: string  // 카테고리명 (상가/근린, 오피스텔, ...)
+  district?: string       // 행정구 필터 (예: 강남구)
+  q?: string              // 주소 키워드 검색
   sort?: string
-  status?: string       // 없으면 진행+예정만, "전체" 이면 전체, "매각" 이면 매각만
-  min_price?: number    // 감정가 하한 (서버 필터)
-  max_price?: number    // 감정가 상한 (서버 필터)
-  bid_count_min?: number // 유찰횟수 최소 (서버 필터)
+  status?: string         // 없으면 진행+예정만, "전체" 이면 전체, "매각" 이면 매각만
+  min_price?: number      // 감정가 하한 (원)
+  max_price?: number      // 감정가 상한 (원)
+  bid_count_min?: number  // 유찰횟수 최소 (1=1회 이상)
+  building_type?: string  // 건물 형태: '일반' | '집합'
+  build_year_min?: number // 사용승인연도 이상 (예: 2015)
+  station_radius_m?: number // 역까지 거리 이내(m) (예: 500, 1000)
   page?: number
   size?: number
 }

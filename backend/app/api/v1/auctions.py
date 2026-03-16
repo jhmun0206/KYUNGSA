@@ -254,7 +254,11 @@ def _apply_default_type_exclusions(query):
 
 def _auction_to_list_item(auction: Auction, score: Score | None) -> AuctionListItem:
     """Auction + Score → AuctionListItem"""
-    lat, lng = _parse_coords(auction.coordinates)
+    # 정규화 lat/lng 우선, 없으면 JSONB coordinates fallback
+    lat = auction.lat
+    lng = auction.lng
+    if lat is None or lng is None:
+        lat, lng = _parse_coords(auction.coordinates)
     today = date_type.today()
     is_past_due = bool(
         auction.auction_date is not None
@@ -283,6 +287,13 @@ def _auction_to_list_item(auction: Auction, score: Score | None) -> AuctionListI
         occupancy_score=score.occupancy_score if score else None,
         lat=lat,
         lng=lng,
+        # 정규화 컬럼
+        property_category=auction.property_category,
+        building_type=auction.building_type,
+        station_distance_m=auction.station_distance_m,
+        build_year=auction.build_year,
+        exclusive_area_m2_real=auction.exclusive_area_m2_real,
+        current_round=auction.current_round,
     )
 
 
@@ -353,6 +364,9 @@ def get_auctions(
     min_price: int | None = Query(None, ge=0, description="감정가 하한 (원)"),
     max_price: int | None = Query(None, ge=0, description="감정가 상한 (원)"),
     bid_count_min: int | None = Query(None, ge=1, description="최소 유찰횟수 (1=1회 이상, 2=2회 이상 …)"),
+    building_type: str | None = Query(None, description="건물 형태: '일반' | '집합'"),
+    build_year_min: int | None = Query(None, ge=1900, description="사용승인연도 이상 (예: 2015)"),
+    station_radius_m: int | None = Query(None, ge=1, description="역까지 거리 이내(m) (예: 500, 1000)"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -402,6 +416,24 @@ def get_auctions(
     # 유찰횟수 필터: bid_count_min=N → 유찰 N회 이상 → DB bid_count >= N+1
     if bid_count_min is not None:
         query = query.filter(Auction.bid_count >= bid_count_min + 1)
+
+    # 건물 형태 필터
+    if building_type:
+        query = query.filter(Auction.building_type == building_type)
+
+    # 사용승인연도 필터
+    if build_year_min is not None:
+        query = query.filter(
+            Auction.build_year.isnot(None),
+            Auction.build_year >= build_year_min,
+        )
+
+    # 역까지 거리 필터
+    if station_radius_m is not None:
+        query = query.filter(
+            Auction.station_distance_m.isnot(None),
+            Auction.station_distance_m <= station_radius_m,
+        )
 
     # 전체 건수 (페이지네이션 전)
     total = query.count()

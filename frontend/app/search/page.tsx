@@ -26,15 +26,7 @@ function toNum(v: string | undefined): number | undefined {
 
 export default async function SearchPage({ searchParams }: PageProps) {
   const page = Math.max(1, parseInt(searchParams.page ?? "1"))
-
-  // 클라이언트 전용 필터가 활성화되면 한 번에 많이 받아서 클라이언트에서 걸러냄
-  const hasClientFilters = !!(
-    toStr(searchParams.cf_station) ||
-    toStr(searchParams.cf_build_year) ||
-    toStr(searchParams.cf_building_type) ||
-    toStr(searchParams.cf_signal)
-  )
-  const size = hasClientFilters ? 100 : 30
+  const size = 30
 
   let data = { items: [] as Awaited<ReturnType<typeof fetchAuctions>>["items"], total: 0, page: 1, size }
   let apiError = false
@@ -51,6 +43,9 @@ export default async function SearchPage({ searchParams }: PageProps) {
       min_price: toNum(searchParams.min_price),
       max_price: toNum(searchParams.max_price),
       bid_count_min: toNum(searchParams.bid_count_min),
+      building_type: toStr(searchParams.building_type),
+      build_year_min: toNum(searchParams.build_year_min),
+      station_radius_m: toNum(searchParams.station_radius_m),
       page,
       size,
     })
