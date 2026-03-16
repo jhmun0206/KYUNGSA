@@ -14,21 +14,43 @@ interface PageProps {
   searchParams: Record<string, string | undefined>
 }
 
+function toStr(v: string | undefined): string | undefined {
+  return v && v.trim() ? v.trim() : undefined
+}
+
+function toNum(v: string | undefined): number | undefined {
+  if (!v) return undefined
+  const n = parseInt(v)
+  return isNaN(n) ? undefined : n
+}
+
 export default async function SearchPage({ searchParams }: PageProps) {
   const page = Math.max(1, parseInt(searchParams.page ?? "1"))
-  const size = 30
+
+  // 클라이언트 전용 필터가 활성화되면 한 번에 많이 받아서 클라이언트에서 걸러냄
+  const hasClientFilters = !!(
+    toStr(searchParams.cf_station) ||
+    toStr(searchParams.cf_build_year) ||
+    toStr(searchParams.cf_building_type) ||
+    toStr(searchParams.cf_signal)
+  )
+  const size = hasClientFilters ? 100 : 30
 
   let data = { items: [] as Awaited<ReturnType<typeof fetchAuctions>>["items"], total: 0, page: 1, size }
   let apiError = false
 
   try {
     data = await fetchAuctions({
-      grade: searchParams.grade,
-      court_office_code: searchParams.court,
-      district: searchParams.district,
-      q: searchParams.q,
-      sort: searchParams.sort ?? "auction_date",
-      status: searchParams.status,
+      grade: toStr(searchParams.grade),
+      court_office_code: toStr(searchParams.court),
+      district: toStr(searchParams.district),
+      property_type: toStr(searchParams.category),   // URL: category → API: property_type
+      q: toStr(searchParams.q),
+      sort: toStr(searchParams.sort) ?? "auction_date",
+      status: toStr(searchParams.status),
+      min_price: toNum(searchParams.min_price),
+      max_price: toNum(searchParams.max_price),
+      bid_count_min: toNum(searchParams.bid_count_min),
       page,
       size,
     })

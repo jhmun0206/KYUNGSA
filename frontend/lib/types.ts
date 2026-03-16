@@ -190,6 +190,9 @@ export interface AuctionListParams {
   q?: string            // 주소 키워드 검색
   sort?: string
   status?: string       // 없으면 진행+예정만, "전체" 이면 전체, "매각" 이면 매각만
+  min_price?: number    // 감정가 하한 (서버 필터)
+  max_price?: number    // 감정가 상한 (서버 필터)
+  bid_count_min?: number // 유찰횟수 최소 (서버 필터)
   page?: number
   size?: number
 }

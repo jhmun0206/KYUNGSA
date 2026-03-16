@@ -45,12 +45,12 @@ export function SearchSidebar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // 현재 선택 상태 읽기
-  const selectedTypes = (searchParams.get("type") ?? "").split(",").filter(Boolean)
+  // 현재 선택 상태 읽기 (URL param 기준)
+  const selectedTypes = (searchParams.get("category") ?? "").split(",").filter(Boolean)
   const selectedDistricts = (searchParams.get("district") ?? "").split(",").filter(Boolean)
   const selectedGrades = (searchParams.get("grade") ?? "").split(",").filter(Boolean)
-  const selectedPriceIdx = searchParams.get("price_range") ?? ""
-  const selectedFail = searchParams.get("cf_fail") ?? ""
+  const selectedPriceIdx = searchParams.get("price_idx") ?? ""
+  const selectedBidCountMin = searchParams.get("bid_count_min") ?? ""
   const selectedStation = searchParams.get("cf_station") ?? ""
   const selectedBuildYear = searchParams.get("cf_build_year") ?? ""
   const selectedBuildingType = searchParams.get("cf_building_type") ?? ""
@@ -85,7 +85,7 @@ export function SearchSidebar() {
     selectedDistricts.length > 0 ||
     selectedGrades.length > 0 ||
     selectedPriceIdx ||
-    selectedFail ||
+    selectedBidCountMin ||
     selectedStation ||
     selectedBuildYear ||
     selectedBuildingType ||
@@ -108,7 +108,7 @@ export function SearchSidebar() {
               <input
                 type="checkbox"
                 checked={selectedTypes.includes(cat.value)}
-                onChange={() => toggleMulti("type", cat.value, selectedTypes)}
+                onChange={() => toggleMulti("category", cat.value, selectedTypes)}
                 className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
               />
               <span className="text-slate-700 dark:text-slate-300 text-[13px]">{cat.label}</span>
@@ -164,15 +164,15 @@ export function SearchSidebar() {
                 onChange={() => {
                   const params = new URLSearchParams(searchParams.toString())
                   if (idx === 0) {
-                    params.delete("price_range")
-                    params.delete("cf_min")
-                    params.delete("cf_max")
+                    params.delete("price_idx")
+                    params.delete("min_price")
+                    params.delete("max_price")
                   } else {
-                    params.set("price_range", String(idx))
-                    if (p.min != null) params.set("cf_min", String(p.min))
-                    else params.delete("cf_min")
-                    if (p.max != null) params.set("cf_max", String(p.max))
-                    else params.delete("cf_max")
+                    params.set("price_idx", String(idx))
+                    if (p.min != null) params.set("min_price", String(p.min))
+                    else params.delete("min_price")
+                    if (p.max != null) params.set("max_price", String(p.max))
+                    else params.delete("max_price")
                   }
                   params.delete("page")
                   router.push(`${pathname}?${params.toString()}`)
@@ -193,8 +193,8 @@ export function SearchSidebar() {
               <input
                 type="radio"
                 name="fail_count"
-                checked={selectedFail === opt.value}
-                onChange={() => update("cf_fail", opt.value)}
+                checked={selectedBidCountMin === opt.value}
+                onChange={() => update("bid_count_min", opt.value)}
                 className="h-3.5 w-3.5 border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
               />
               <span className="text-slate-700 dark:text-slate-300 text-[13px]">{opt.label}</span>
