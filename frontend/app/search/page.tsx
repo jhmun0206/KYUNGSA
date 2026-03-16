@@ -35,6 +35,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
     data = await fetchAuctions({
       grade: toStr(searchParams.grade),
       court_office_code: toStr(searchParams.court),
+      region: toStr(searchParams.region),
       district: toStr(searchParams.district),
       property_type: toStr(searchParams.category),   // URL: category → API: property_type
       q: toStr(searchParams.q),

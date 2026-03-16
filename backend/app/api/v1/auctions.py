@@ -357,7 +357,8 @@ def get_auctions(
     court_office_code: str | None = Query(None, description="법원 코드"),
     grade: str | None = Query(None, description="등급 필터 (콤마 구분: A,B,C)"),
     property_type: str | None = Query(None, description="물건 유형 카테고리 (상가/근린, 오피스텔, 아파트, 다세대/빌라, 단독/다가구, 토지; 콤마 구분 다중 선택)"),
-    district: str | None = Query(None, description="행정구 필터 (예: 강남구)"),
+    district: str | None = Query(None, description="행정구 필터 (콤마 구분 다중 선택, 예: 강남구,서초구)"),
+    region: str | None = Query(None, description="시/도 필터 (콤마 구분 다중 선택, 예: 서울,경기)"),
     q: str | None = Query(None, description="주소 키워드 검색"),
     sort: str = Query("grade", description="정렬 기준: grade|appraised_value|auction_date|minimum_bid|bid_count|predicted_winning_ratio"),
     status: str | None = Query(None, description="상태 필터: 없으면 진행+예정만, '전체' 또는 'all' 이면 전체, '매각' 이면 매각만"),
@@ -400,9 +401,19 @@ def get_auctions(
     else:
         query = _apply_default_type_exclusions(query)
 
-    # 행정구 필터 (address ILIKE '%강남구%')
+    # 시/도 필터 (콤마 구분 OR 조건, 물건 주소 기준)
+    if region:
+        regions = [r.strip() for r in region.split(",") if r.strip()]
+        if regions:
+            region_conds = [Auction.address.ilike(f"%{r}%") for r in regions]
+            query = query.filter(or_(*region_conds))
+
+    # 행정구 필터 (콤마 구분 OR 조건, 물건 주소 기준)
     if district:
-        query = query.filter(Auction.address.ilike(f"%{district}%"))
+        districts = [d.strip() for d in district.split(",") if d.strip()]
+        if districts:
+            district_conds = [Auction.address.ilike(f"%{d}%") for d in districts]
+            query = query.filter(or_(*district_conds))
 
     if q:
         query = query.filter(Auction.address.ilike(f"%{q}%"))

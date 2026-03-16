@@ -186,7 +186,8 @@ export interface AuctionListParams {
   court_office_code?: string
   grade?: string          // "A,B,C"
   property_type?: string  // 카테고리명 (상가/근린, 오피스텔, ...)
-  district?: string       // 행정구 필터 (예: 강남구)
+  region?: string         // 시/도 필터 (예: 서울,경기)
+  district?: string       // 행정구 필터 (예: 강남구,서초구)
   q?: string              // 주소 키워드 검색
   sort?: string
   status?: string         // 없으면 진행+예정만, "전체" 이면 전체, "매각" 이면 매각만

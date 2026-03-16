@@ -6,6 +6,8 @@ import { RotateCcw } from "lucide-react"
 import { PROPERTY_CATEGORIES } from "@/lib/property-category"
 import { SEOUL_DISTRICTS, PRICE_RANGES } from "@/lib/constants"
 
+const REGION_OPTIONS = ["서울", "경기", "인천"]
+
 const FAIL_COUNT_OPTIONS = [
   { value: "", label: "전체" },
   { value: "1", label: "1회+" },
@@ -48,8 +50,9 @@ export function SearchSidebar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // 현재 선택 상태 (URL param 기준, 모두 서버 파라미터)
+  // 현재 선택 상태 (URL param 기준, 전부 서버 파라미터)
   const selectedTypes = (searchParams.get("category") ?? "").split(",").filter(Boolean)
+  const selectedRegions = (searchParams.get("region") ?? "").split(",").filter(Boolean)
   const selectedDistricts = (searchParams.get("district") ?? "").split(",").filter(Boolean)
   const selectedPriceIdx = searchParams.get("price_idx") ?? ""
   const selectedBidCountMin = searchParams.get("bid_count_min") ?? ""
@@ -87,8 +90,28 @@ export function SearchSidebar() {
     [update]
   )
 
+  // 시/도 토글: 서울 제거 시 district도 초기화
+  const toggleRegion = useCallback(
+    (region: string) => {
+      const newRegions = selectedRegions.includes(region)
+        ? selectedRegions.filter((r) => r !== region)
+        : [...selectedRegions, region]
+      const params = new URLSearchParams(searchParams.toString())
+      if (newRegions.length > 0) params.set("region", newRegions.join(","))
+      else params.delete("region")
+      // 서울이 제거되면 구 선택도 초기화
+      if (selectedRegions.includes("서울") && !newRegions.includes("서울")) {
+        params.delete("district")
+      }
+      params.delete("page")
+      router.push(`${pathname}?${params.toString()}`)
+    },
+    [router, pathname, searchParams, selectedRegions]
+  )
+
   const hasFilters =
     selectedTypes.length > 0 ||
+    selectedRegions.length > 0 ||
     selectedDistricts.length > 0 ||
     selectedPriceIdx ||
     selectedBidCountMin ||
@@ -102,6 +125,8 @@ export function SearchSidebar() {
     if (sort) params.set("sort", sort)
     router.push(`${pathname}?${params.toString()}`)
   }
+
+  const seoulSelected = selectedRegions.includes("서울")
 
   return (
     <div className="space-y-5 text-sm">
@@ -121,6 +146,37 @@ export function SearchSidebar() {
         </div>
       </SidebarSection>
 
+      {/* 지역 — 시/도 + 구/군 2단계 */}
+      <SidebarSection title="지역" count={selectedRegions.length + selectedDistricts.length}>
+        {/* 시/도 칩 */}
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {REGION_OPTIONS.map((r) => (
+            <button
+              key={r}
+              onClick={() => toggleRegion(r)}
+              className={chip(selectedRegions.includes(r))}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+
+        {/* 서울 선택 시: 구 선택 */}
+        {seoulSelected && (
+          <div className="flex flex-wrap gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+            {SEOUL_DISTRICTS.map((d) => (
+              <button
+                key={d}
+                onClick={() => toggleMulti("district", d, selectedDistricts)}
+                className={chip(selectedDistricts.includes(d), true)}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        )}
+      </SidebarSection>
+
       {/* 건물 형태 — 단일셀렉 칩 */}
       <SidebarSection title="건물 형태">
         <div className="flex flex-wrap gap-1.5">
@@ -135,21 +191,6 @@ export function SearchSidebar() {
               className={chip(opt.value === "" ? !selectedBuildingType : selectedBuildingType === opt.value)}
             >
               {opt.label}
-            </button>
-          ))}
-        </div>
-      </SidebarSection>
-
-      {/* 지역 (서울) — 멀티셀렉 소형 칩 */}
-      <SidebarSection title="지역 (서울)" count={selectedDistricts.length}>
-        <div className="flex flex-wrap gap-1">
-          {SEOUL_DISTRICTS.map((d) => (
-            <button
-              key={d}
-              onClick={() => toggleMulti("district", d, selectedDistricts)}
-              className={chip(selectedDistricts.includes(d), true)}
-            >
-              {d}
             </button>
           ))}
         </div>
