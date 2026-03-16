@@ -67,3 +67,20 @@ export const SEOUL_DISTRICTS = [
 ]
 
 export const GRADE_OPTIONS = ["A", "B", "C", "D"]
+
+export const PRICE_RANGES = [
+  { label: '전체', min: null, max: null },
+  { label: '3억 미만', min: null, max: 300000000 },
+  { label: '3억~5억', min: 300000000, max: 500000000 },
+  { label: '5억~10억', min: 500000000, max: 1000000000 },
+  { label: '10억~20억', min: 1000000000, max: 2000000000 },
+  { label: '20억 이상', min: 2000000000, max: null },
+] as const
+
+export const SORT_OPTIONS = [
+  { value: 'auction_date', label: '매각기일순' },
+  { value: 'discount_rate', label: '할인율순' },
+  { value: 'bid_count', label: '유찰많은순' },
+  { value: 'appraised_value', label: '감정가순' },
+  { value: 'minimum_bid', label: '최저가순' },
+] as const

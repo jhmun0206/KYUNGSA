@@ -7,8 +7,8 @@
 | 항목 | 상태 |
 |------|------|
 | 프로젝트명 | KYUNGSA |
-| 현재 단계 | `Phase I 완료` (사용자 로그인/인증 시스템) |
-| 최종 업데이트 | 2026-03-08 |
+| 현재 단계 | `Phase K-2 완료` (검색 페이지 전면 재설계) |
+| 최종 업데이트 | 2026-03-16 |
 | 테스트 | 763개 통과 |
 | 배포 | https://kyungsa.com (Vercel) / https://api.kyungsa.com (Cloudflare Tunnel) |
 | 개발 도구 | Claude Code |
@@ -209,17 +209,27 @@ KYUNGSA/
     │   │                        #   BasicInfo, InvestmentCalculator(룸테이블+임대료참고),
     │   │                        #   MobileActionBar
     │   ├── landing/             # (레거시, TopPicksGrid)
-    │   └── search/              # SearchFilters(조건저장버튼), SearchResultsList,
-    │                            #   ClientFilteredResults
+    │   └── search/              # ⭐ Phase K-2 전면 재설계
+    │       ├── SearchSidebar.tsx        # 항상 펼쳐진 사이드바 (8섹션: 물건종류/건물형태/지역/감정가/유찰/역거리/승인연도/리스크)
+    │       ├── AuctionTable.tsx         # 고정폭 컬럼 테이블 (신호등+완성도+관심/비교)
+    │       ├── SearchResults.tsx        # 클라이언트 필터 래퍼 (역거리/건축년도/건물형태/신호등)
+    │       ├── SearchToolbar.tsx        # 상단 검색바 + 정렬 + 건수
+    │       ├── MobileFilterDrawer.tsx   # 모바일 하단 드로어 (SearchSidebar 재사용)
+    │       ├── GradeLegend.tsx          # 리스크 신호등 범례 (🟢🟡🔴⚫)
+    │       ├── SearchFilters.tsx        # (레거시, 보존)
+    │       ├── SearchResultsList.tsx    # (레거시, 보존)
+    │       └── ClientFilteredResults.tsx # (레거시, 보존)
     ├── lib/
     │   ├── api.ts               # fetchAuctions, fetchAuctionDetail
     │   ├── auth-api.ts          # ⭐ Phase I: Bearer 토큰 인증 API (favorites + saved-searches)
-    │   ├── types.ts             # TypeScript 타입 정의 (RentAreaRange, AuctionDetailResponse 등)
-    │   ├── constants.ts         # 등급 색상, 법원 코드, API_BASE
+    │   ├── types.ts             # TypeScript 타입 정의 (+ station_distance_m, build_year, building_type 등)
+    │   ├── constants.ts         # 등급 색상, 법원 코드, PRICE_RANGES, SORT_OPTIONS
     │   ├── utils.ts             # formatPrice, calcDiscount, calcDday, getDdayColor
     │   ├── investment.ts        # 투자 계산 유틸 (IRR, 수익률 등)
     │   ├── favorites.ts         # ⭐ localStorage + DB 하이브리드 즐겨찾기
-    │   └── compare.ts           # localStorage 비교 (최대 3건)
+    │   ├── compare.ts           # localStorage 비교 (최대 3건)
+    │   ├── property-category.ts # ⭐ Phase K-2: 물건유형 정규화 맵 + LTV_BY_CATEGORY
+    │   └── risk-signals.ts      # ⭐ Phase K-2: 신호등 타입 + calcListSignal()
     └── types/
         └── next-auth.d.ts       # ⭐ Phase I: Session 타입 확장 (backendToken, userId)
 ```
@@ -341,6 +351,18 @@ KYUNGSA/
 - [x] **FavoriteButton DB 동기화** — 로그인 시 DB 낙관적 업데이트, 비로그인 시 localStorage
 - [x] **localStorage → DB 마이그레이션** — 로그인 시 1회 자동 bulk-sync
 - [x] **SearchFilters 조건 저장** — "저장" 버튼, 비로그인 시 Google 로그인 유도
+
+### Phase K: 프론트엔드 재설계
+
+- [x] **Phase K-1: 상세 페이지** — 2컬럼 레이아웃 + 로드뷰 + 전유부 호실 자동채움
+- [x] **Phase K-2: 검색 페이지** — 사이드바 필터 + 고정폭 테이블 + 리스크 신호등 (🟢🟡🔴⚫)
+  - SearchSidebar: 8섹션 항상 펼쳐진 사이드바 (물건종류 멀티셀렉, 지역 25구 그리드, 감정가 프리셋 등)
+  - AuctionTable: 고정폭 컬럼 테이블 (유형/주소/감정가/최저가/기일/유찰/신호등/완성도/관심비교)
+  - SearchResults: 클라이언트 필터 (역거리·건물형태·건축년도·신호등 등 6종)
+  - MobileFilterDrawer: 하단 드로어 (SearchSidebar 재사용)
+  - `lib/property-category.ts`: 물건유형 정규화 맵 + LTV_BY_CATEGORY
+  - `lib/risk-signals.ts`: 신호등 타입 + `calcListSignal()` + `getSignalLabel()`
+  - `AuctionListItem` 신규 필드: `station_distance_m`, `build_year`, `building_type`, `property_category`
 
 ### 미착수 / 백로그
 
@@ -663,3 +685,4 @@ chore: 빌드, 설정 변경
 | 2026-03-07 | Phase H-4 InvestmentCalculator 전면 개편 | 룸 테이블 + 면적구간별 참고 임대료 + 다방/네이버 링크 |
 | 2026-03-08 | Phase I 사용자 인증 시스템 | Google OAuth + JWT + 즐겨찾기/저장검색 DB + localStorage 마이그레이션 |
 | 2026-03-08 | Alembic heads 병합 | 4d0e491c6f8f merge (b1c2d3e4f5a6 + d2e3f4a5b6c7) |
+| 2026-03-16 | Phase K-2 검색 페이지 전면 재설계 | 사이드바 필터 + 고정폭 테이블 + 리스크 신호등 + property-category/risk-signals lib |

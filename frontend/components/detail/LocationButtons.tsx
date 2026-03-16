@@ -16,7 +16,7 @@ export function LocationButtons({ auction }: Props) {
 
   const roadviewUrl = `https://map.kakao.com/link/roadview/${lat},${lng}`
   const kakaoUrl = `https://map.kakao.com/link/map/${encodeURIComponent(address)},${lat},${lng}`
-  const naverUrl = `https://m.land.naver.com/map?lat=${lat}&lng=${lng}&zoom=17`
+  const naverUrl = `https://map.naver.com/p/search/${encodeURIComponent(address)}`
 
   return (
     <div className="flex flex-wrap gap-2">

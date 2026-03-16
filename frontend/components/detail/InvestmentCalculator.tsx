@@ -35,6 +35,11 @@ function findRefRent(
   return match ? { avgRent: match.avg_rent, avgDeposit: match.avg_deposit, count: match.count } : null
 }
 
+/** 아파트·단독 등 단일 세대 물건: 호실 테이블 대신 단일 입력 */
+function isSingleUnit(propertyType: string | null | undefined): boolean {
+  return ["아파트", "단독"].some(t => (propertyType ?? "").includes(t))
+}
+
 interface Props {
   auction: AuctionDetailResponse
   defaultOpen?: boolean   // 사이드패널/드로어에서 항상 열림 상태로 시작
@@ -49,8 +54,8 @@ export function InvestmentCalculator({ auction, defaultOpen = false }: Props) {
   const rentInfo = auction.rent_price_info
   const byAreaRange: RentAreaRange[] = rentInfo?.by_area_range ?? []
 
-  // 호실 테이블 여부: building_info가 있으면 테이블 모드
-  const showRoomTable = !!buildingInfo
+  // 호실 테이블 여부: building_info가 있고 단독/아파트가 아닐 때
+  const showRoomTable = !!buildingInfo && !isSingleUnit(auction.property_type)
 
   const unitsCount =
     typeof buildingInfo?.units_count === "number" ? buildingInfo.units_count : null
@@ -320,11 +325,11 @@ export function InvestmentCalculator({ auction, defaultOpen = false }: Props) {
             </div>
           </div>
 
-          {/* 3칸 그리드: 매입비용 | 대출분석 | 수익률 */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* 세로 섹션: 매입비용 | 대출분석 | 수익률 */}
+          <div className="rounded-lg border border-border bg-card divide-y divide-border overflow-hidden">
             {/* 매입 비용 */}
-            <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-              <p className="text-sm font-semibold text-card-foreground">매입 비용</p>
+            <div className="px-4 py-3 space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground">매입 비용</p>
               <InfoRow label="낙찰가" value={formatPrice(bidPrice)} />
               <InfoRow label="취등록세" value={formatPrice(calc.acquisitionTax)} />
               <EditableRow
@@ -333,15 +338,15 @@ export function InvestmentCalculator({ auction, defaultOpen = false }: Props) {
                 onChange={setLawyerFeeMan}
                 suffix="만원"
               />
-              <div className="border-t border-border pt-1.5">
+              <div className="border-t border-border/50 pt-1.5">
                 <InfoRow label="총 매입가" value={formatPrice(calc.totalCost)} bold />
               </div>
               <InfoRow label="필요자금" value={formatPrice(calc.requiredEquity)} sub />
             </div>
 
             {/* 대출 분석 */}
-            <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-              <p className="text-sm font-semibold text-card-foreground">대출 분석</p>
+            <div className="px-4 py-3 space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground">대출 분석</p>
               <InfoRow label="대출가능" value={formatPrice(calc.loanAmount)} />
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">대출비율</span>
@@ -372,14 +377,14 @@ export function InvestmentCalculator({ auction, defaultOpen = false }: Props) {
                   <option value="0.06">6.0%</option>
                 </select>
               </div>
-              <div className="border-t border-border pt-1.5">
+              <div className="border-t border-border/50 pt-1.5">
                 <InfoRow label="월 이자" value={formatPrice(calc.monthlyInterest)} bold />
               </div>
             </div>
 
             {/* 수익률 */}
-            <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-              <p className="text-sm font-semibold text-card-foreground">수익률</p>
+            <div className="px-4 py-3 space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground">수익률</p>
               {totalRentMan > 0 ? (
                 <>
                   <InfoRow
@@ -406,7 +411,7 @@ export function InvestmentCalculator({ auction, defaultOpen = false }: Props) {
                   )}
                 </>
               ) : (
-                <p className="text-xs text-muted-foreground py-4 text-center">
+                <p className="text-xs text-muted-foreground py-2 text-center">
                   아래 월 임대수익을 입력하면
                   <br />
                   수익률이 자동 계산됩니다
@@ -490,7 +495,7 @@ export function InvestmentCalculator({ auction, defaultOpen = false }: Props) {
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="space-y-1.5">
                 <EditableRow
                   label="월세 수입"
                   value={monthlyRentMan}

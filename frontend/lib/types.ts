@@ -32,6 +32,14 @@ export interface AuctionListItem {
   // 좌표
   lat: number | null
   lng: number | null
+
+  // 신규 (DB 재설계로 추가된 필드)
+  property_category: string | null    // 정규화된 유형
+  building_type: string | null        // '일반'/'집합'
+  station_distance_m: number | null   // 역까지 거리(m)
+  build_year: number | null           // 건축년도
+  exclusive_area_m2_real: number | null
+  current_round: number               // 현재 회차
 }
 
 export interface AuctionListResponse {
