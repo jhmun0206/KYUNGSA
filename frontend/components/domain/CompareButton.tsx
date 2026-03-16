@@ -36,17 +36,15 @@ export function CompareButton({ caseNumber, className, label }: Props) {
       onClick={handleClick}
       title={active ? "비교 해제" : "비교 추가"}
       className={cn(
-        "flex items-center gap-1 rounded-full px-1.5 py-1 transition-colors hover:bg-accent",
+        "flex items-center gap-1 rounded border px-2 py-1 transition-colors",
+        active
+          ? "border-blue-200 bg-blue-50 text-blue-500"
+          : "border-slate-200 text-slate-400 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-500",
         className
       )}
     >
-      <Scale
-        size={14}
-        className={active ? "fill-primary text-primary" : "text-text-weak"}
-      />
-      {label && (
-        <span className="text-[10px] text-muted-foreground">{label}</span>
-      )}
+      <Scale className="h-3.5 w-3.5" />
+      {label && <span className="text-[11px]">{label}</span>}
     </button>
   )
 }

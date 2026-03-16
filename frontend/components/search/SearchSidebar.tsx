@@ -9,28 +9,28 @@ import { SIGNAL_EMOJI, type SignalColor } from "@/lib/risk-signals"
 
 const FAIL_COUNT_OPTIONS = [
   { value: "", label: "전체" },
-  { value: "1", label: "1회 이상" },
-  { value: "2", label: "2회 이상" },
-  { value: "3", label: "3회 이상" },
+  { value: "1", label: "1회+" },
+  { value: "2", label: "2회+" },
+  { value: "3", label: "3회+" },
 ]
 
 const STATION_OPTIONS = [
   { value: "", label: "전체" },
-  { value: "500", label: "500m 이내" },
-  { value: "1000", label: "1km 이내" },
+  { value: "500", label: "500m" },
+  { value: "1000", label: "1km" },
 ]
 
 const BUILD_YEAR_OPTIONS = [
   { value: "", label: "전체" },
-  { value: "2010", label: "2010년 이후" },
-  { value: "2015", label: "2015년 이후" },
-  { value: "2020", label: "2020년 이후" },
+  { value: "2010", label: "2010+" },
+  { value: "2015", label: "2015+" },
+  { value: "2020", label: "2020+" },
 ]
 
 const BUILDING_TYPE_OPTIONS = [
   { value: "", label: "전체" },
-  { value: "일반", label: "건물 전체 (일반)" },
-  { value: "집합", label: "집합건물" },
+  { value: "일반", label: "일반" },
+  { value: "집합", label: "집합" },
 ]
 
 const SIGNAL_OPTIONS: { value: SignalColor; label: string }[] = [
@@ -40,15 +40,25 @@ const SIGNAL_OPTIONS: { value: SignalColor; label: string }[] = [
   { value: "unknown", label: `${SIGNAL_EMOJI.unknown} 미분류` },
 ]
 
+// 칩 스타일 헬퍼: selected 여부 + sm(소형) 여부
+function chip(selected: boolean, sm = false) {
+  return [
+    "cursor-pointer rounded-full border transition-colors",
+    sm ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-[12px]",
+    selected
+      ? "border-blue-500 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-medium"
+      : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-blue-300 dark:hover:border-blue-600",
+  ].join(" ")
+}
+
 export function SearchSidebar() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // 현재 선택 상태 읽기 (URL param 기준)
+  // 현재 선택 상태 (URL param 기준)
   const selectedTypes = (searchParams.get("category") ?? "").split(",").filter(Boolean)
   const selectedDistricts = (searchParams.get("district") ?? "").split(",").filter(Boolean)
-  const selectedGrades = (searchParams.get("grade") ?? "").split(",").filter(Boolean)
   const selectedPriceIdx = searchParams.get("price_idx") ?? ""
   const selectedBidCountMin = searchParams.get("bid_count_min") ?? ""
   const selectedStation = searchParams.get("cf_station") ?? ""
@@ -59,17 +69,15 @@ export function SearchSidebar() {
   const update = useCallback(
     (key: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString())
-      if (value) {
-        params.set(key, value)
-      } else {
-        params.delete(key)
-      }
+      if (value) params.set(key, value)
+      else params.delete(key)
       params.delete("page")
       router.push(`${pathname}?${params.toString()}`)
     },
     [router, pathname, searchParams]
   )
 
+  // 멀티셀렉 토글
   const toggleMulti = useCallback(
     (key: string, value: string, current: string[]) => {
       const next = current.includes(value)
@@ -80,10 +88,17 @@ export function SearchSidebar() {
     [update]
   )
 
+  // 단일셀렉 토글: 현재와 같으면 해제, 다르면 선택
+  const toggleSingle = useCallback(
+    (key: string, value: string, current: string) => {
+      update(key, current === value ? "" : value)
+    },
+    [update]
+  )
+
   const hasFilters =
     selectedTypes.length > 0 ||
     selectedDistricts.length > 0 ||
-    selectedGrades.length > 0 ||
     selectedPriceIdx ||
     selectedBidCountMin ||
     selectedStation ||
@@ -100,70 +115,68 @@ export function SearchSidebar() {
 
   return (
     <div className="space-y-5 text-sm">
-      {/* 물건 종류 */}
+
+      {/* 물건 종류 — 멀티셀렉 칩 */}
       <SidebarSection title="물건 종류" count={selectedTypes.length}>
-        <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {PROPERTY_CATEGORIES.map((cat) => (
-            <label key={cat.value} className="flex items-center gap-2 cursor-pointer hover:text-foreground">
-              <input
-                type="checkbox"
-                checked={selectedTypes.includes(cat.value)}
-                onChange={() => toggleMulti("category", cat.value, selectedTypes)}
-                className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
-              />
-              <span className="text-slate-700 dark:text-slate-300 text-[13px]">{cat.label}</span>
-            </label>
+            <button
+              key={cat.value}
+              onClick={() => toggleMulti("category", cat.value, selectedTypes)}
+              className={chip(selectedTypes.includes(cat.value))}
+            >
+              {cat.label}
+            </button>
           ))}
         </div>
       </SidebarSection>
 
-      {/* 건물 형태 */}
+      {/* 건물 형태 — 단일셀렉 칩 */}
       <SidebarSection title="건물 형태">
-        <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {BUILDING_TYPE_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 cursor-pointer hover:text-foreground">
-              <input
-                type="radio"
-                name="building_type"
-                checked={selectedBuildingType === opt.value}
-                onChange={() => update("cf_building_type", opt.value)}
-                className="h-3.5 w-3.5 border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
-              />
-              <span className="text-slate-700 dark:text-slate-300 text-[13px]">{opt.label}</span>
-            </label>
+            <button
+              key={opt.value}
+              onClick={() =>
+                opt.value === ""
+                  ? update("cf_building_type", "")
+                  : toggleSingle("cf_building_type", opt.value, selectedBuildingType)
+              }
+              className={chip(opt.value === "" ? !selectedBuildingType : selectedBuildingType === opt.value)}
+            >
+              {opt.label}
+            </button>
           ))}
         </div>
       </SidebarSection>
 
-      {/* 지역 (서울) */}
+      {/* 지역 (서울) — 멀티셀렉 소형 칩 */}
       <SidebarSection title="지역 (서울)" count={selectedDistricts.length}>
-        <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+        <div className="flex flex-wrap gap-1">
           {SEOUL_DISTRICTS.map((d) => (
-            <label key={d} className="flex items-center gap-1.5 cursor-pointer hover:text-foreground">
-              <input
-                type="checkbox"
-                checked={selectedDistricts.includes(d)}
-                onChange={() => toggleMulti("district", d, selectedDistricts)}
-                className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
-              />
-              <span className="text-slate-700 dark:text-slate-300 text-[13px]">{d}</span>
-            </label>
+            <button
+              key={d}
+              onClick={() => toggleMulti("district", d, selectedDistricts)}
+              className={chip(selectedDistricts.includes(d), true)}
+            >
+              {d}
+            </button>
           ))}
         </div>
       </SidebarSection>
 
-      {/* 감정가 */}
+      {/* 감정가 — 단일셀렉 칩 */}
       <SidebarSection title="감정가">
-        <div className="space-y-1.5">
-          {PRICE_RANGES.map((p, idx) => (
-            <label key={idx} className="flex items-center gap-2 cursor-pointer hover:text-foreground">
-              <input
-                type="radio"
-                name="price_range"
-                checked={selectedPriceIdx === String(idx) || (idx === 0 && !selectedPriceIdx)}
-                onChange={() => {
+        <div className="flex flex-wrap gap-1.5">
+          {PRICE_RANGES.map((p, idx) => {
+            const isSelected = idx === 0 ? !selectedPriceIdx : selectedPriceIdx === String(idx)
+            return (
+              <button
+                key={idx}
+                onClick={() => {
                   const params = new URLSearchParams(searchParams.toString())
-                  if (idx === 0) {
+                  if (idx === 0 || selectedPriceIdx === String(idx)) {
+                    // 전체 또는 이미 선택된 항목 → 해제
                     params.delete("price_idx")
                     params.delete("min_price")
                     params.delete("max_price")
@@ -177,81 +190,83 @@ export function SearchSidebar() {
                   params.delete("page")
                   router.push(`${pathname}?${params.toString()}`)
                 }}
-                className="h-3.5 w-3.5 border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
-              />
-              <span className="text-slate-700 dark:text-slate-300 text-[13px]">{p.label}</span>
-            </label>
-          ))}
+                className={chip(isSelected)}
+              >
+                {p.label}
+              </button>
+            )
+          })}
         </div>
       </SidebarSection>
 
-      {/* 유찰횟수 */}
+      {/* 유찰횟수 — 단일셀렉 칩 */}
       <SidebarSection title="유찰횟수">
-        <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {FAIL_COUNT_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 cursor-pointer hover:text-foreground">
-              <input
-                type="radio"
-                name="fail_count"
-                checked={selectedBidCountMin === opt.value}
-                onChange={() => update("bid_count_min", opt.value)}
-                className="h-3.5 w-3.5 border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
-              />
-              <span className="text-slate-700 dark:text-slate-300 text-[13px]">{opt.label}</span>
-            </label>
+            <button
+              key={opt.value}
+              onClick={() =>
+                opt.value === ""
+                  ? update("bid_count_min", "")
+                  : toggleSingle("bid_count_min", opt.value, selectedBidCountMin)
+              }
+              className={chip(opt.value === "" ? !selectedBidCountMin : selectedBidCountMin === opt.value)}
+            >
+              {opt.label}
+            </button>
           ))}
         </div>
       </SidebarSection>
 
-      {/* 역까지 거리 */}
+      {/* 역까지 거리 — 단일셀렉 칩 */}
       <SidebarSection title="역까지 거리">
-        <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {STATION_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 cursor-pointer hover:text-foreground">
-              <input
-                type="radio"
-                name="station_radius"
-                checked={selectedStation === opt.value}
-                onChange={() => update("cf_station", opt.value)}
-                className="h-3.5 w-3.5 border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
-              />
-              <span className="text-slate-700 dark:text-slate-300 text-[13px]">{opt.label}</span>
-            </label>
+            <button
+              key={opt.value}
+              onClick={() =>
+                opt.value === ""
+                  ? update("cf_station", "")
+                  : toggleSingle("cf_station", opt.value, selectedStation)
+              }
+              className={chip(opt.value === "" ? !selectedStation : selectedStation === opt.value)}
+            >
+              {opt.label}
+            </button>
           ))}
         </div>
       </SidebarSection>
 
-      {/* 사용승인연도 */}
+      {/* 사용승인연도 — 단일셀렉 칩 */}
       <SidebarSection title="사용승인연도">
-        <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {BUILD_YEAR_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 cursor-pointer hover:text-foreground">
-              <input
-                type="radio"
-                name="build_year"
-                checked={selectedBuildYear === opt.value}
-                onChange={() => update("cf_build_year", opt.value)}
-                className="h-3.5 w-3.5 border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
-              />
-              <span className="text-slate-700 dark:text-slate-300 text-[13px]">{opt.label}</span>
-            </label>
+            <button
+              key={opt.value}
+              onClick={() =>
+                opt.value === ""
+                  ? update("cf_build_year", "")
+                  : toggleSingle("cf_build_year", opt.value, selectedBuildYear)
+              }
+              className={chip(opt.value === "" ? !selectedBuildYear : selectedBuildYear === opt.value)}
+            >
+              {opt.label}
+            </button>
           ))}
         </div>
       </SidebarSection>
 
-      {/* 리스크 등급 */}
+      {/* 리스크 등급 — 멀티셀렉 칩 */}
       <SidebarSection title="리스크 등급" count={selectedSignals.length}>
-        <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {SIGNAL_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 cursor-pointer hover:text-foreground">
-              <input
-                type="checkbox"
-                checked={selectedSignals.includes(opt.value)}
-                onChange={() => toggleMulti("cf_signal", opt.value, selectedSignals)}
-                className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 accent-blue-600"
-              />
-              <span className="text-slate-700 dark:text-slate-300 text-[13px]">{opt.label}</span>
-            </label>
+            <button
+              key={opt.value}
+              onClick={() => toggleMulti("cf_signal", opt.value, selectedSignals)}
+              className={chip(selectedSignals.includes(opt.value))}
+            >
+              {opt.label}
+            </button>
           ))}
         </div>
       </SidebarSection>

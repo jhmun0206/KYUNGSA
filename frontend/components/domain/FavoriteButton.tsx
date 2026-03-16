@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Star } from "lucide-react"
+import { Heart } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { isFavorite, toggleFavorite, addFavoriteDB, removeFavoriteDB } from "@/lib/favorites"
 import { cn } from "@/lib/utils"
@@ -57,17 +57,15 @@ export function FavoriteButton({ caseNumber, className, label }: Props) {
       disabled={loading}
       title={active ? "즐겨찾기 해제" : "즐겨찾기 추가"}
       className={cn(
-        "flex items-center gap-1 rounded-full px-1.5 py-1 transition-colors hover:bg-accent disabled:opacity-50",
+        "flex items-center gap-1 rounded border px-2 py-1 transition-colors disabled:opacity-50",
+        active
+          ? "border-red-200 bg-red-50 text-red-500"
+          : "border-slate-200 text-slate-400 hover:border-red-300 hover:bg-red-50 hover:text-red-500",
         className
       )}
     >
-      <Star
-        size={15}
-        className={active ? "fill-amber-400 text-amber-400" : "text-text-weak"}
-      />
-      {label && (
-        <span className="text-[10px] text-muted-foreground">{label}</span>
-      )}
+      <Heart className={cn("h-3.5 w-3.5", active && "fill-current")} />
+      {label && <span className="text-[11px]">{label}</span>}
     </button>
   )
 }
