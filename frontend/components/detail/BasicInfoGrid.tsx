@@ -1,5 +1,6 @@
 import { formatPrice, calcDday, calcDiscount } from "@/lib/utils"
 import { SkyviewMap } from "./SkyviewMap"
+import { BuildingInfoBar } from "./BuildingInfoBar"
 import type { AuctionDetailResponse } from "@/lib/types"
 
 interface Props {
@@ -124,8 +125,11 @@ export function BasicInfoGrid({ auction }: Props) {
         )}
       </div>
 
-      {/* 오른쪽: 위치 */}
-      <SkyviewMap lat={auction.lat} lng={auction.lng} address={auction.address} />
+      {/* 오른쪽: 위치 + 건물정보 */}
+      <div className="space-y-3">
+        <SkyviewMap lat={auction.lat} lng={auction.lng} address={auction.address} />
+        <BuildingInfoBar auction={auction} />
+      </div>
     </div>
   )
 }

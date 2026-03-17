@@ -4,7 +4,6 @@ import { ChevronLeft } from "lucide-react"
 import { fetchAuctionDetail, ApiNotFoundError } from "@/lib/api"
 import { DetailHeader } from "@/components/detail/DetailHeader"
 import { BasicInfoGrid } from "@/components/detail/BasicInfoGrid"
-import { BuildingInfoBar } from "@/components/detail/BuildingInfoBar"
 import { RiskChecklist } from "@/components/detail/RiskChecklist"
 import { RoundTimeline } from "@/components/detail/RoundTimeline"
 import { CashflowCTA } from "@/components/detail/CashflowCTA"
@@ -70,16 +69,9 @@ export default async function AuctionDetailPage({ params }: PageProps) {
         <BasicInfoGrid auction={auction} />
       </div>
 
-      {/* 3. 건물 정보 */}
-      <div className="mt-4">
-        <BuildingInfoBar auction={auction} />
-      </div>
-
-      {/* 4. 리스크 체크리스트 */}
+      {/* 3. 리스크 체크리스트 */}
       <div className="mt-6">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
-          리스크 체크
-        </h2>
+        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">리스크 체크</h2>
         <RiskChecklist auction={auction} />
       </div>
 

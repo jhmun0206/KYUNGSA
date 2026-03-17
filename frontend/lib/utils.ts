@@ -5,6 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** 만원 → 억/만 표기 (cashflow 컴포넌트 전용, 예: 30000 → "3억") */
+export function formatMan(manwon: number | null | undefined): string {
+  if (manwon == null) return "-"
+  return formatPrice(manwon * 10000)
+}
+
 /** 원 → 억/만 표기 (예: 3억 2,000만) */
 export function formatPrice(won: number | null | undefined): string {
   if (won == null) return "-"

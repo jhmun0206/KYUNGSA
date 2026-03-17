@@ -59,6 +59,7 @@ export default function CashflowClient({ auction }: Props) {
           min={minBid > 0 ? minBid : 1000}
           max={appraisedVal > minBid ? appraisedVal : minBid + 50000}
           appraisedValue={appraisedVal > 0 ? appraisedVal : bidPrice}
+          mlPrediction={auction.ml_prediction}
           onChange={setBidPrice}
         />
         <CostSection

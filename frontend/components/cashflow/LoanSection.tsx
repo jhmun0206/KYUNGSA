@@ -1,6 +1,6 @@
 "use client"
 
-import { formatPrice } from "@/lib/utils"
+import { formatMan } from "@/lib/utils"
 import type { CashflowResult } from "@/lib/cashflow"
 import { LTV_OPTIONS, RATE_OPTIONS } from "@/lib/cashflow"
 
@@ -86,13 +86,13 @@ export function LoanSection({ ltv, loanRate, result, propertyCategory, onLtvChan
         <div className="flex justify-between text-sm">
           <span className="text-slate-500 dark:text-slate-400">대출가능액</span>
           <span className="font-medium tabular-nums text-slate-800 dark:text-slate-200">
-            {formatPrice(result.loanAmount * 10000)}
+            {formatMan(result.loanAmount)}
           </span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-slate-500 dark:text-slate-400">실질대출 (대출−보증금)</span>
           <span className="font-medium tabular-nums text-slate-800 dark:text-slate-200">
-            {formatPrice(result.realLoan * 10000)}
+            {formatMan(result.realLoan)}
           </span>
         </div>
         <div className="flex justify-between text-sm">

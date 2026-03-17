@@ -1,6 +1,6 @@
 "use client"
 
-import { formatPrice } from "@/lib/utils"
+import { formatMan } from "@/lib/utils"
 import type { CashflowResult } from "@/lib/cashflow"
 
 interface Props {
@@ -58,20 +58,20 @@ export function CostSection({ bidPrice, taxRate, legalFee, otherCosts, result, o
         매입 비용
       </h3>
       <div className="space-y-3">
-        <Row label="낙찰가" value={formatPrice(bidPrice * 10000)} />
+        <Row label="낙찰가" value={formatMan(bidPrice)} />
         <Row
           label={`취득세 (${(taxRate * 100).toFixed(1)}%)`}
-          value={formatPrice(result.acquisitionTax * 10000)}
+          value={formatMan(result.acquisitionTax)}
           sub="자동 계산"
         />
         <EditableRow label="법무사비" value={legalFee} onChange={onLegalFeeChange} sub="기본 300만" />
         <EditableRow label="기타비용" value={otherCosts} onChange={onOtherCostsChange} sub="인테리어 등" />
 
         <div className="border-t border-slate-100 dark:border-slate-800 pt-3 space-y-2">
-          <Row label="총 매입가" value={formatPrice(result.totalCost * 10000)} bold />
+          <Row label="총 매입가" value={formatMan(result.totalCost)} bold />
           <Row
             label="필요 자금"
-            value={formatPrice(result.requiredEquity * 10000)}
+            value={formatMan(result.requiredEquity)}
             sub="총매입가 − 대출가능액"
           />
         </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import type { CashflowResult } from "@/lib/cashflow"
-import { formatPrice } from "@/lib/utils"
+import { formatMan } from "@/lib/utils"
 
 interface Props {
   salePrice: number
@@ -36,7 +36,7 @@ export function SaleSection({ salePrice, result, onChange }: Props) {
           <div className="flex justify-between text-sm">
             <span className="text-slate-500 dark:text-slate-400">총 매입가</span>
             <span className="tabular-nums text-slate-700 dark:text-slate-200">
-              {formatPrice(result.totalCost * 10000)}
+              {formatMan(result.totalCost)}
             </span>
           </div>
           <div className="flex justify-between text-sm">
