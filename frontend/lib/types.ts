@@ -128,6 +128,8 @@ export interface AuctionDetailResponse {
   station_distance_m?: number | null
   occupancy_tenant_count?: number | null
   nearest_station?: { name: string | null; distance_m: number; line: string | null } | null
+  property_category?: string | null
+  exclusive_area_m2_real?: number | null
 
   // 투자 분석 시뮬레이터 기본값 (서버 설정값)
   default_loan_rate?: number

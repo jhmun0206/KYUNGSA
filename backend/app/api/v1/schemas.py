@@ -136,6 +136,8 @@ class AuctionDetailResponse(BaseModel):
     station_distance_m: int | None = None      # 역까지 거리(m)
     occupancy_tenant_count: int | None = None  # 임차인 수
     nearest_station: dict[str, Any] | None = None  # {name, distance_m, line}
+    property_category: str | None = None       # 정규화 유형 (상가/근린, 아파트 등)
+    exclusive_area_m2_real: float | None = None  # 전유면적(㎡)
 
     # 추가 데이터
     specification_remarks: str        # gdsSpcfcRmk

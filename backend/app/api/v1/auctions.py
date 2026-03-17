@@ -547,6 +547,8 @@ def get_auction_detail(
         station_distance_m=auction.station_distance_m,
         occupancy_tenant_count=auction.occupancy_tenant_count,
         nearest_station=_extract_nearest_station(location_data_raw),
+        property_category=auction.property_category,
+        exclusive_area_m2_real=auction.exclusive_area_m2_real,
         building_info=auction.building_info,
         market_price_info=auction.market_price_info,
         rent_price_info=auction.rent_price_info,
