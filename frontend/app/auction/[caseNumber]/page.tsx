@@ -1,11 +1,15 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
+import { ChevronLeft } from "lucide-react"
 import { fetchAuctionDetail, ApiNotFoundError } from "@/lib/api"
-import { DecisionSection } from "@/components/detail/DecisionSection"
-import { PillarBreakdown } from "@/components/detail/PillarBreakdown"
-import { BasicInfo } from "@/components/detail/BasicInfo"
-import { LocationButtons } from "@/components/detail/LocationButtons"
-import { DetailSidePanel } from "@/components/detail/DetailSidePanel"
+import { DetailHeader } from "@/components/detail/DetailHeader"
+import { BasicInfoGrid } from "@/components/detail/BasicInfoGrid"
+import { BuildingInfoBar } from "@/components/detail/BuildingInfoBar"
+import { RiskChecklist } from "@/components/detail/RiskChecklist"
+import { RoundTimeline } from "@/components/detail/RoundTimeline"
+import { CashflowCTA } from "@/components/detail/CashflowCTA"
+import { RawDataAccordion } from "@/components/detail/RawDataAccordion"
+import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
 
 interface PageProps {
   params: { caseNumber: string }
@@ -26,64 +30,81 @@ export default async function AuctionDetailPage({ params }: PageProps) {
 
   if (apiError || !auction) {
     return (
-      <div className="mx-auto max-w-4xl space-y-6 pb-16">
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+      <div className="max-w-2xl mx-auto px-4 py-10 space-y-4">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950 px-5 py-4 text-sm text-amber-800 dark:text-amber-200">
           <p className="font-semibold">서버에 연결할 수 없습니다</p>
-          <p className="mt-1 text-xs">
+          <p className="mt-1 text-xs opacity-80">
             백엔드가 실행 중인지 확인하거나 잠시 후 다시 시도하세요.
           </p>
-          <p className="mt-0.5 text-xs opacity-70">사건번호: {decodeURIComponent(params.caseNumber)}</p>
+          <p className="mt-0.5 text-xs opacity-60">
+            사건번호: {decodeURIComponent(params.caseNumber)}
+          </p>
         </div>
-        <div className="text-center">
-          <Link href="/" className="text-sm text-primary hover:underline">
-            ← 목록으로 돌아가기
-          </Link>
-        </div>
+        <Link
+          href="/search"
+          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          검색으로 돌아가기
+        </Link>
       </div>
     )
   }
 
   return (
-    // 모바일: pb-32 (MobileNav 64 + 액션바 ~52 + 여유)
-    // 데스크탑(sm+): pb-16
-    <div className="mx-auto max-w-7xl pb-32 sm:pb-16">
-      <div className="lg:flex lg:gap-6 lg:items-start">
+    <div className="max-w-5xl mx-auto px-4 py-6 pb-20">
+      {/* 뒤로가기 */}
+      <Link
+        href="/search"
+        className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 mb-5 transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        목록으로
+      </Link>
 
-        {/* ── 좌측: 메인 컨텐츠 ── */}
-        <div className="flex-1 min-w-0 space-y-6 lg:space-y-8">
+      {/* 1. 헤더: 신호등 + 주소 + 버튼 */}
+      <DetailHeader auction={auction} />
 
-          {/* 섹션 1: 의사결정 — 등급 + 가격 + D-day + 면책 */}
-          <DecisionSection auction={auction} />
-
-          {/* 앵커 네비게이션 */}
-          <nav className="flex gap-4 border-b border-border pb-2 text-sm overflow-x-auto">
-            <a href="#analysis" className="text-primary font-medium whitespace-nowrap">상세 분석</a>
-            <a href="#raw-data" className="text-muted-foreground hover:text-primary whitespace-nowrap">원본 데이터</a>
-          </nav>
-
-          {/* 로드뷰 / 위치 버튼 (좌표 있을 때만 렌더) */}
-          <LocationButtons auction={auction} />
-
-          {/* 섹션 2: 상세 분석 — 레이더 + 바차트 + 가격비교 */}
-          <div id="analysis">
-            <PillarBreakdown auction={auction} />
-          </div>
-
-          {/* 섹션 3: 원본 데이터 — 기일내역 + 기본정보 */}
-          <div id="raw-data">
-            <BasicInfo auction={auction} />
-          </div>
-
-          <div className="text-center">
-            <Link href="/" className="text-sm text-primary hover:underline">
-              ← 목록으로 돌아가기
-            </Link>
-          </div>
-        </div>
-
-        {/* ── 우측: 투자분석 사이드패널 (데스크탑) + 모바일 액션바 + 드로어 ── */}
-        <DetailSidePanel auction={auction} />
+      {/* 2. 기본정보 + 위치 */}
+      <div className="mt-6">
+        <BasicInfoGrid auction={auction} />
       </div>
+
+      {/* 3. 건물 정보 */}
+      <div className="mt-4">
+        <BuildingInfoBar auction={auction} />
+      </div>
+
+      {/* 4. 리스크 체크리스트 */}
+      <div className="mt-6">
+        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+          리스크 체크
+        </h2>
+        <RiskChecklist auction={auction} />
+      </div>
+
+      {/* 5. 기일 내역 */}
+      {auction.rounds && auction.rounds.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+            기일 내역
+          </h2>
+          <RoundTimeline rounds={auction.rounds} />
+        </div>
+      )}
+
+      {/* 6. 현금흐름 분석 CTA */}
+      <div className="mt-6">
+        <CashflowCTA auction={auction} />
+      </div>
+
+      {/* 7. 원본 데이터 (접힘) */}
+      <div className="mt-4">
+        <RawDataAccordion auction={auction} />
+      </div>
+
+      {/* 8. 면책 */}
+      <DisclaimerBanner className="mt-6" />
     </div>
   )
 }

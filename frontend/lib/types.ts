@@ -123,6 +123,11 @@ export interface AuctionDetailResponse {
   rent_price_info: RentPriceInfo | null
   location_data: Record<string, unknown> | null
 
+  // 정규화 컬럼 (상세 페이지용)
+  building_type?: string | null
+  station_distance_m?: number | null
+  occupancy_tenant_count?: number | null
+
   // 투자 분석 시뮬레이터 기본값 (서버 설정값)
   default_loan_rate?: number
 }

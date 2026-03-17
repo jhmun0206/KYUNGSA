@@ -131,6 +131,11 @@ class AuctionDetailResponse(BaseModel):
     # ML 예측 (모델 있으면 ml_v1, 없으면 rule_v1 fallback)
     ml_prediction: MLPrediction | None
 
+    # 정규화 컬럼
+    building_type: str | None = None           # '일반'/'집합'
+    station_distance_m: int | None = None      # 역까지 거리(m)
+    occupancy_tenant_count: int | None = None  # 임차인 수
+
     # 추가 데이터
     specification_remarks: str        # gdsSpcfcRmk
     building_info: dict[str, Any] | None
