@@ -79,6 +79,8 @@ class LocationData(BaseModel):
     """입지 데이터 (카카오 카테고리 검색 결과 — raw)"""
 
     nearest_station_m: int | None = None     # 가장 가까운 지하철역 거리 (m), None=역 없음
+    nearest_station_name: str | None = None  # 가장 가까운 지하철역 이름 (예: "강남역")
+    nearest_station_line: str | None = None  # 호선 정보 (예: "수도권 2호선")
     station_count_1km: int = 0              # 1km 내 지하철역 수
     nearest_school_m: int | None = None     # 가장 가까운 학교 거리 (m), None=1500m 내 없음
     school_count_1km: int = 0              # 1km 내 학교 수

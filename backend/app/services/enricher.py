@@ -241,6 +241,8 @@ class CaseEnricher:
         """
         fetched: list[str] = []
         nearest_station_m: int | None = None
+        nearest_station_name: str | None = None
+        nearest_station_line: str | None = None
         station_count_1km = 0
         nearest_school_m: int | None = None
         school_count_1km = 0
@@ -255,6 +257,12 @@ class CaseEnricher:
                 if dists:
                     nearest_station_m = min(dists)
                     station_count_1km = sum(1 for d in dists if d <= 1000)
+                    # 가장 가까운 역 이름 + 호선 추출
+                    nearest = min(stations, key=lambda p: int(p.get("distance", 0)))
+                    nearest_station_name = nearest.get("place_name") or None
+                    category = nearest.get("category_name", "")
+                    if ">" in category:
+                        nearest_station_line = category.split(">")[-1].strip() or None
         except Exception as e:
             logger.warning("지하철역 검색 실패 [SW8]: %s", e)
 
@@ -283,6 +291,8 @@ class CaseEnricher:
 
         return LocationData(
             nearest_station_m=nearest_station_m,
+            nearest_station_name=nearest_station_name,
+            nearest_station_line=nearest_station_line,
             station_count_1km=station_count_1km,
             nearest_school_m=nearest_school_m,
             school_count_1km=school_count_1km,

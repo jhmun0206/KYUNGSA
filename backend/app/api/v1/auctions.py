@@ -64,30 +64,17 @@ def _grade_order():
 
 
 def _extract_nearest_station(location_data: dict | None) -> dict | None:
-    """location_data.stations[0] → {name, distance_m, line} 또는 None"""
+    """location_data(JSONB) → {name, distance_m, line} 또는 None"""
     if not location_data:
         return None
-    stations = location_data.get("stations")
-    if not stations or not isinstance(stations, list):
+    dist = location_data.get("nearest_station_m")
+    if not dist:
         return None
-    first = stations[0]
-    if not isinstance(first, dict):
-        return None
-    name: str = first.get("place_name", "")
-    if not name:
-        return None
-    # distance는 문자열 또는 숫자
-    raw_dist = first.get("distance", 0)
-    try:
-        distance_m = int(float(raw_dist))
-    except (ValueError, TypeError):
-        distance_m = 0
-    # 호선 추출: category_name "지하철역 > 수도권 2호선" → "2호선"
-    line = ""
-    category = first.get("category_name", "")
-    if ">" in category:
-        line = category.split(">")[-1].strip()
-    return {"name": name, "distance_m": distance_m, "line": line}
+    return {
+        "name": location_data.get("nearest_station_name"),
+        "distance_m": int(dist),
+        "line": location_data.get("nearest_station_line"),
+    }
 
 
 def _parse_rounds(detail: dict | None) -> list[RoundItem]:

@@ -175,9 +175,10 @@ export function calcLocationSignal(auction: AuctionDetailResponse): RiskSignal {
   }
 
   let stationText: string
-  if (st) {
+  if (st?.distance_m) {
+    const namePart = st.name ?? '가장 가까운 역'
     const linePart = st.line ? ` (${st.line})` : ''
-    stationText = `${st.name}${linePart} ${st.distance_m}m`
+    stationText = `${namePart}${linePart} ${st.distance_m}m`
   } else if (stationDist != null) {
     stationText = `가장 가까운 역 ${stationDist}m`
   } else {
