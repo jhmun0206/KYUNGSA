@@ -181,6 +181,15 @@ def main() -> None:
         "--rescore-db", action="store_true",
         help="DB 기반 재채점 모드 (대법원 API 검색 없이 DB에서 직접 물건 재채점)",
     )
+    # --update-station-names 는 독립 플래그 (--court 와 조합 가능)
+    parser.add_argument(
+        "--update-station-names", action="store_true",
+        help="기존 DB 물건에 역 이름/호선 정보 보완 (station_distance_m 있고 name 없는 건)",
+    )
+    parser.add_argument(
+        "--station-delay", type=float, default=0.3,
+        help="--update-station-names 물건 간 대기 시간(초, 기본 0.3)",
+    )
     parser.add_argument(
         "--coverage-below", type=float, default=0.30,
         help="--rescore-db 시 이 미만 coverage 물건만 재채점 (기본값 0.30)",
@@ -220,13 +229,31 @@ def main() -> None:
     setup_logging(verbose=args.verbose)
 
     # 모드 검증
-    if not (args.court or args.all_seoul or args.rescore_db):
-        parser.error("--court, --all-seoul, 또는 --rescore-db 중 하나를 지정하세요")
+    update_station = getattr(args, "update_station_names", False)
+    if not (args.court or args.all_seoul or args.rescore_db or update_station):
+        parser.error("--court, --all-seoul, --rescore-db, 또는 --update-station-names 중 하나를 지정하세요")
     if args.all_seoul and args.rescore_db:
         parser.error("--all-seoul 과 --rescore-db 는 함께 사용할 수 없습니다")
 
     if args.dry_run:
         print("*** DRY-RUN 모드: DB 저장 없이 수집만 수행 ***\n")
+
+    if update_station:
+        court_label = SEOUL_COURTS.get(args.court, args.court) if args.court else "전체"
+        print(f"\n역 이름/호선 보완 시작 ({court_label})")
+        db = SessionLocal()
+        try:
+            collector = BatchCollector(db=db)
+            result = collector.update_station_names(
+                max_items=args.max,
+                delay=args.station_delay,
+                dry_run=args.dry_run,
+                court_code=args.court,
+            )
+            print(f"\n역 이름/호선 보완 완료: {result}")
+        finally:
+            db.close()
+        return
 
     if args.rescore_db:
         # --force → coverage_below=1.01 (coverage는 0~1이므로 전체 대상)

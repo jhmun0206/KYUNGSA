@@ -837,3 +837,98 @@ class BatchCollector:
             enriched.total_score.grade if enriched.total_score else "-",
             " (dry-run)" if dry_run else "",
         )
+
+    # ──────────────────────────────────────────
+    # 역 이름/호선 보완 모드
+    # ──────────────────────────────────────────
+
+    def update_station_names(
+        self,
+        *,
+        max_items: int = 0,
+        delay: float = 0.3,
+        dry_run: bool = False,
+        court_code: str | None = None,
+    ) -> dict:
+        """기존 DB 물건의 역 이름/호선 정보 보완
+
+        location_data에 nearest_station_m 있지만 nearest_station_name 없는 물건을
+        Kakao SW8 API 재호출로 이름/호선 채운다.
+
+        Args:
+            max_items: 최대 처리 건수 (0=전체)
+            delay: 물건 간 대기 시간 (초, 카카오 API rate limit 방지)
+            dry_run: True면 DB 저장 없이 결과만 출력
+            court_code: 특정 법원만 처리 (None=전체)
+        """
+        from sqlalchemy import func, text
+
+        query = self._db.query(Auction).filter(
+            Auction.station_distance_m.isnot(None),
+            Auction.lat.isnot(None),
+            Auction.lng.isnot(None),
+        )
+        if court_code:
+            query = query.filter(Auction.court_office_code == court_code)
+
+        auctions = query.all()
+
+        # nearest_station_name 없는 것만 필터 (JSONB key 부재)
+        targets = [
+            a for a in auctions
+            if isinstance(a.location_data, dict)
+            and a.location_data.get("nearest_station_name") is None
+        ]
+
+        total = len(targets)
+        if max_items > 0:
+            targets = targets[:max_items]
+
+        logger.info("역 이름 보완 대상: %d건 (전체 후보 %d건)%s", len(targets), total, " [dry-run]" if dry_run else "")
+
+        updated = 0
+        skipped = 0
+        errors = 0
+
+        for i, auction in enumerate(targets, 1):
+            try:
+                # x=경도(lng), y=위도(lat) — Kakao 좌표계
+                stations = self._enricher._geo.search_nearby_category(
+                    str(auction.lng), str(auction.lat), "SW8", radius=2000
+                )
+                if not stations:
+                    skipped += 1
+                    continue
+
+                nearest = min(stations, key=lambda p: int(p.get("distance", 0)))
+                name = nearest.get("place_name") or None
+                category = nearest.get("category_name", "")
+                line = category.split(">")[-1].strip() if ">" in category else None
+                line = line or None
+
+                if not dry_run:
+                    new_loc = {**(auction.location_data or {}), "nearest_station_name": name, "nearest_station_line": line}
+                    auction.location_data = new_loc
+                    if (i % 50) == 0:
+                        self._db.commit()
+
+                updated += 1
+                logger.info("[%d/%d] %s → %s (%s)", i, len(targets), auction.case_number, name, line)
+
+                if delay > 0:
+                    time.sleep(delay)
+
+            except Exception as e:
+                errors += 1
+                logger.warning("역 이름 보완 실패 [%s]: %s", auction.case_number, e)
+
+        if not dry_run and (updated % 50) != 0:
+            try:
+                self._db.commit()
+            except Exception as e:
+                self._db.rollback()
+                logger.error("최종 commit 실패: %s", e)
+
+        result = {"updated": updated, "skipped": skipped, "errors": errors, "dry_run": dry_run}
+        logger.info("역 이름 보완 완료: %s", result)
+        return result
