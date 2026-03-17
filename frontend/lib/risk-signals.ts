@@ -96,8 +96,8 @@ export function getSignalLabel(color: SignalColor): string {
 export function calcOccupancySignal(auction: AuctionDetailResponse): RiskSignal {
   const score = auction.score?.occupancy_score
   const tenantCount = auction.occupancy_tenant_count ?? 0
-  const warnings = auction.score?.warnings?.filter(w =>
-    w.includes('임차') || w.includes('점유') || w.includes('명도')
+  const occupancyWarnings = auction.score?.warnings?.filter(w =>
+    w.includes('임차') || w.includes('명도') || w.includes('보증금') || w.includes('대항')
   ) ?? []
 
   if (score == null) {
@@ -108,26 +108,31 @@ export function calcOccupancySignal(auction: AuctionDetailResponse): RiskSignal 
       reason: '현황조사서 데이터 없음 — 직접 확인 필요',
     }
   }
+
+  const baseDetail: string[] = tenantCount > 0
+    ? [`임차인 ${tenantCount}명`, ...occupancyWarnings]
+    : ['임차인 없음 — 명도 절차 불필요']
+
   if (score >= 70) return {
     category: '임차인 명도',
     color: 'green',
     label: '양호',
     reason: tenantCount === 0 ? '임차인 없음 (공실)' : `임차인 ${tenantCount}명 — 명도 리스크 낮음`,
-    detail: warnings.length > 0 ? warnings : undefined,
+    detail: baseDetail,
   }
   if (score >= 45) return {
     category: '임차인 명도',
     color: 'yellow',
     label: '주의',
     reason: tenantCount > 0 ? `임차인 ${tenantCount}명 — 일부 확인 필요` : '임차 관련 주의사항 있음',
-    detail: warnings.length > 0 ? warnings : undefined,
+    detail: baseDetail,
   }
   return {
     category: '임차인 명도',
     color: 'red',
     label: '위험',
     reason: tenantCount > 0 ? `임차인 ${tenantCount}명 — 명도 리스크 높음` : '명도 리스크 높음',
-    detail: warnings.length > 0 ? warnings : undefined,
+    detail: baseDetail,
   }
 }
 
@@ -157,6 +162,7 @@ export function calcPriceSignal(auction: AuctionDetailResponse): RiskSignal {
 /** 입지 신호등 */
 export function calcLocationSignal(auction: AuctionDetailResponse): RiskSignal {
   const score = auction.score?.location_score
+  const st = auction.nearest_station
   const stationDist = auction.station_distance_m
 
   if (score == null) {
@@ -167,11 +173,18 @@ export function calcLocationSignal(auction: AuctionDetailResponse): RiskSignal {
       reason: '입지 데이터 미수집',
     }
   }
-  const reason = stationDist != null
-    ? `가장 가까운 역 ${stationDist}m`
-    : '역거리 데이터 없음'
 
-  if (score >= 70) return { category: '입지', color: 'green', label: '양호', reason }
-  if (score >= 45) return { category: '입지', color: 'yellow', label: '주의', reason }
-  return { category: '입지', color: 'red', label: '위험', reason }
+  let stationText: string
+  if (st) {
+    const linePart = st.line ? ` (${st.line})` : ''
+    stationText = `${st.name}${linePart} ${st.distance_m}m`
+  } else if (stationDist != null) {
+    stationText = `가장 가까운 역 ${stationDist}m`
+  } else {
+    stationText = '역거리 데이터 없음'
+  }
+
+  if (score >= 70) return { category: '입지', color: 'green', label: '양호', reason: stationText }
+  if (score >= 45) return { category: '입지', color: 'yellow', label: '주의', reason: stationText }
+  return { category: '입지', color: 'red', label: '위험', reason: stationText }
 }

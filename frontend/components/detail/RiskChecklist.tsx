@@ -32,7 +32,7 @@ function RiskRow({ risk }: { risk: RiskSignal }) {
           </p>
           {risk.detail && risk.detail.length > 0 && (
             <ul className="mt-1.5 space-y-0.5">
-              {risk.detail.slice(0, 3).map((d, i) => (
+              {risk.detail.map((d, i) => (
                 <li key={i} className="text-xs text-slate-600 dark:text-slate-300">
                   • {d}
                 </li>

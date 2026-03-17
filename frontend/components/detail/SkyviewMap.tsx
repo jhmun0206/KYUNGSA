@@ -1,8 +1,4 @@
-"use client"
-
-import { useState } from "react"
-import { Map, Navigation, Building2, MapPin } from "lucide-react"
-import { MapModal } from "./MapModal"
+import { MapPin } from "lucide-react"
 
 interface Props {
   lat: number | null
@@ -11,83 +7,74 @@ interface Props {
 }
 
 export function SkyviewMap({ lat, lng, address }: Props) {
-  const [showModal, setShowModal] = useState(false)
+  const hasCoords = !!(lat && lng)
 
-  if (!lat || !lng) {
-    return (
-      <div className="h-44 bg-slate-100 dark:bg-slate-800 rounded-xl flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-700">
-        <MapPin className="h-8 w-8 text-slate-300 dark:text-slate-600" />
-        <p className="text-sm text-slate-400 dark:text-slate-500">위치 정보 없음</p>
-      </div>
-    )
-  }
-
-  const kakaoUrl = `https://map.kakao.com/link/map/${encodeURIComponent(address)},${lat},${lng}`
+  const roadviewUrl = hasCoords
+    ? `https://map.kakao.com/link/roadview/${lat},${lng}`
+    : undefined
+  const kakaoUrl = hasCoords
+    ? `https://map.kakao.com/link/map/${encodeURIComponent(address)},${lat},${lng}`
+    : undefined
   const naverUrl = `https://map.naver.com/p/search/${encodeURIComponent(address)}`
-  const roadviewUrl = `https://map.kakao.com/link/roadview/${lat},${lng}`
+
+  const btnBase =
+    "flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors"
+  const btnActive =
+    "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+  const btnDisabled =
+    "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
 
   return (
-    <>
-      {/* 지도 썸네일 (iframe) */}
-      <div
-        className="relative rounded-xl overflow-hidden h-44 cursor-pointer border border-slate-200 dark:border-slate-700 group"
-        onClick={() => setShowModal(true)}
-        title="클릭하면 지도가 확대됩니다"
-      >
-        <iframe
-          src={kakaoUrl}
-          className="w-full h-full border-0 pointer-events-none"
-          loading="lazy"
-          title={`위치: ${address}`}
-        />
-        {/* 클릭 캡처용 오버레이 */}
-        <div className="absolute inset-0 bg-transparent group-hover:bg-black/5 transition-colors" />
-        <div className="absolute bottom-2 right-2 bg-white/90 dark:bg-slate-900/90 rounded-md px-2 py-1 text-xs text-slate-600 dark:text-slate-300 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-          클릭하여 확대
-        </div>
+    <div className="flex flex-col gap-3">
+      {/* 주소 표시 */}
+      <div className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+        <MapPin className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{address}</span>
       </div>
 
-      {/* 외부 링크 버튼들 */}
-      <div className="flex gap-2 mt-2">
-        <a
-          href={roadviewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={e => e.stopPropagation()}
-          className="flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-        >
-          <Navigation className="h-3 w-3" />
-          로드뷰
-        </a>
-        <a
-          href={kakaoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-        >
-          <Map className="h-3 w-3" />
-          카카오맵
-        </a>
+      {/* 외부 지도 링크 버튼 3개 */}
+      <div className="flex gap-2 flex-wrap">
+        {hasCoords ? (
+          <a
+            href={roadviewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${btnBase} ${btnActive}`}
+          >
+            📷 로드뷰로 보기 ↗
+          </a>
+        ) : (
+          <span className={`${btnBase} ${btnDisabled}`}>📷 로드뷰로 보기</span>
+        )}
+
+        {hasCoords ? (
+          <a
+            href={kakaoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${btnBase} ${btnActive}`}
+          >
+            🗺 카카오맵 ↗
+          </a>
+        ) : (
+          <span className={`${btnBase} ${btnDisabled}`}>🗺 카카오맵</span>
+        )}
+
         <a
           href={naverUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          className={`${btnBase} ${btnActive}`}
         >
-          <Building2 className="h-3 w-3" />
-          네이버
+          🏢 네이버 부동산 ↗
         </a>
       </div>
 
-      {/* 확대 모달 */}
-      {showModal && (
-        <MapModal
-          address={address}
-          lat={lat}
-          lng={lng}
-          onClose={() => setShowModal(false)}
-        />
+      {!hasCoords && (
+        <p className="text-xs text-slate-400 dark:text-slate-500">
+          좌표 미확인 — 주소 검색으로 네이버 부동산을 이용하세요
+        </p>
       )}
-    </>
+    </div>
   )
 }

@@ -135,6 +135,7 @@ class AuctionDetailResponse(BaseModel):
     building_type: str | None = None           # '일반'/'집합'
     station_distance_m: int | None = None      # 역까지 거리(m)
     occupancy_tenant_count: int | None = None  # 임차인 수
+    nearest_station: dict[str, Any] | None = None  # {name, distance_m, line}
 
     # 추가 데이터
     specification_remarks: str        # gdsSpcfcRmk
