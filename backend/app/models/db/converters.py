@@ -3,6 +3,8 @@
 기존 DTO를 절대 변경하지 않으며, ORM은 순수 영속 레이어로만 사용.
 """
 
+from __future__ import annotations
+
 # 기일 결과 코드 → 한글 변환 맵
 ROUND_RESULT_MAP: dict[str, str | None] = {
     "매각": "매각",
@@ -26,8 +28,6 @@ def normalize_round_result(result: str | None) -> str | None:
         return None
     stripped = result.strip()
     return ROUND_RESULT_MAP.get(stripped, stripped)
-
-from __future__ import annotations
 
 from datetime import datetime, timezone
 
