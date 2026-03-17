@@ -3,6 +3,30 @@
 기존 DTO를 절대 변경하지 않으며, ORM은 순수 영속 레이어로만 사용.
 """
 
+# 기일 결과 코드 → 한글 변환 맵
+ROUND_RESULT_MAP: dict[str, str | None] = {
+    "매각": "매각",
+    "유찰": "유찰",
+    "변경": "변경",
+    "취하": "취하",
+    "취소": "취소",
+    "진행예정": "진행예정",
+    "진행중": "진행중",
+    "010": "변경",
+    "011": "변경",
+    "008": "취하",
+    "017": "취소",
+    "": None,
+}
+
+
+def normalize_round_result(result: str | None) -> str | None:
+    """기일 결과 코드를 한글로 변환 (이미 한글이면 그대로)"""
+    if not result:
+        return None
+    stripped = result.strip()
+    return ROUND_RESULT_MAP.get(stripped, stripped)
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -448,7 +472,7 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
                 round_number=rnd.round_number,
                 round_date=rnd.round_date,
                 minimum_bid=rnd.minimum_bid,
-                result=rnd.result or None,
+                result=normalize_round_result(rnd.result),
             ))
 
     db.commit()

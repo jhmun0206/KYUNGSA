@@ -11,7 +11,7 @@ import logging
 import math
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import date as date_type, datetime, timezone
 
 from pydantic import BaseModel, Field
 from sqlalchemy import or_
@@ -114,6 +114,10 @@ class BatchCollector:
             self._db.add(pipeline_run)
             self._db.commit()
 
+        # 배치 시작 시 기일경과 상태 자동 처리
+        if not dry_run:
+            self._update_overdue_status()
+
         try:
             self._do_collect(
                 court_code=court_code,
@@ -167,6 +171,26 @@ class BatchCollector:
             result.green_count,
         )
         return result
+
+    def _update_overdue_status(self) -> None:
+        """매각기일이 지났는데 진행 상태인 물건을 기일경과로 변경"""
+        try:
+            overdue = self._db.query(Auction).filter(
+                Auction.status == "진행",
+                Auction.auction_date < date_type.today(),
+                Auction.auction_date.isnot(None),
+            ).all()
+            for a in overdue:
+                a.status = "기일경과"
+            if overdue:
+                self._db.commit()
+                logger.info("기일경과 처리: %d건", len(overdue))
+        except Exception as e:
+            logger.error("기일경과 처리 실패: %s", e)
+            try:
+                self._db.rollback()
+            except Exception:
+                pass
 
     def _do_collect(
         self,

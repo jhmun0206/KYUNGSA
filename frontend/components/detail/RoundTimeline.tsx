@@ -9,23 +9,30 @@ function formatDate(d: string | null): string {
   return String(d).replace(/-/g, '.')
 }
 
+const RESULT_STYLE: Record<string, string> = {
+  '매각':    'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+  '낙찰':    'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+  '유찰':    'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
+  '변경':    'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  '취하':    'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  '취소':    'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  '진행예정': 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  '진행중':  'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+}
+
+function getResultStyle(result: string | null): string {
+  if (!result) return 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+  return RESULT_STYLE[result] ?? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+}
+
 function formatAmount(v: number | null | undefined): string {
-  if (!v) return '-'
+  if (!v || v === 0) return '-'
   const uk = Math.floor(Math.abs(v) / 100000000)
   const man = Math.floor((Math.abs(v) % 100000000) / 10000)
   if (uk > 0 && man > 0) return `${uk}억 ${man.toLocaleString()}만`
   if (uk > 0) return `${uk}억`
   if (man > 0) return `${man.toLocaleString()}만`
   return '-'
-}
-
-function getResultStyle(result: string | null): string {
-  if (!result) return 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-  if (result.includes('매각') || result.includes('낙찰'))
-    return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-  if (result.includes('유찰'))
-    return 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
-  return 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
 }
 
 export function RoundTimeline({ rounds }: Props) {
