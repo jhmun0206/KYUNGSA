@@ -140,27 +140,44 @@ export function findRefRent(
 
 /** 물건 상세 → CashflowUnit[] 초기화 */
 export function initUnits(auction: AuctionDetailResponse): CashflowUnit[] {
-  const category = auction.property_category
+  const address = auction.address ?? ''
+  const unitItems = auction.building_info?.units ?? []
   const rentInfo = auction.rent_price_info
-  const totalArea = auction.exclusive_area_m2_real ?? auction.building_info?.exclusive_area_m2 ?? null
 
-  // 단일 유닛 유형 (아파트, 단독/다가구)
-  const isSingle = category === '아파트' || category === '단독/다가구'
-  if (isSingle) {
-    const ref = findRefRent(rentInfo, totalArea)
+  // 주소에서 특정 호실 추출 (예: "6층603호", "제3층 302호", "8층 805호")
+  const hoMatch = address.match(/(\d+층\s*)?(\d+호)/)
+    || address.match(/제(\d+)층\s*제?(\d+호)/)
+  const specificHo = hoMatch
+    ? hoMatch[hoMatch.length - 1]  // "603호", "302호" 등
+    : null
+
+  // 단일 호실 경매 (주소에 호수 명시)
+  if (specificHo && unitItems.length > 0) {
+    const targetUnit = unitItems.find(u =>
+      u.ho?.includes(specificHo.replace('호', ''))
+    )
+    const area = targetUnit?.area_m2 ?? auction.exclusive_area_m2_real ?? null
+    const ref = findRefRent(rentInfo, area)
     return [{
-      label: '전체',
-      areaSqm: totalArea,
+      label: specificHo,
+      areaSqm: area,
       deposit: ref ? Math.round(ref.avgDeposit) : 0,
       monthlyRent: ref ? Math.round(ref.avgRent) : 0,
       isEstimated: !!ref,
     }]
   }
 
-  // 1순위: 전유부 units 배열 (buildingType 무관)
-  const unitItems = auction.building_info?.units
-  if (unitItems && unitItems.length > 0) {
-    return unitItems.map(u => {
+  // 건물 전체 경매 (호수 없음): units 배열 → ho 기준 중복 제거
+  if (unitItems.length > 0) {
+    const seen = new Map<string, typeof unitItems[0]>()
+    for (const u of unitItems) {
+      const key = u.ho
+      const existing = seen.get(key)
+      if (!existing || (u.area_m2 ?? 0) > (existing.area_m2 ?? 0)) {
+        seen.set(key, u)
+      }
+    }
+    return Array.from(seen.values()).map(u => {
       const ref = findRefRent(rentInfo, u.area_m2)
       return {
         label: u.ho || `${u.floor}층`,
@@ -172,14 +189,15 @@ export function initUnits(auction: AuctionDetailResponse): CashflowUnit[] {
     })
   }
 
-  // 2순위: units_count 기반 빈 행 (최대 20개)
+  // units 없으면 units_count 기반 빈 행 (최대 20개)
+  const totalArea = auction.exclusive_area_m2_real ?? auction.building_info?.exclusive_area_m2 ?? null
   const count = Math.min(auction.building_info?.units_count ?? 1, 20)
   const estArea = totalArea && count > 0 ? Math.round(totalArea / count * 10) / 10 : null
 
   return Array.from({ length: count }, (_, i) => {
     const ref = findRefRent(rentInfo, estArea)
     return {
-      label: `${i + 1}호`,
+      label: specificHo ?? `${i + 1}호`,
       areaSqm: estArea,
       deposit: ref ? Math.round(ref.avgDeposit) : 0,
       monthlyRent: ref ? Math.round(ref.avgRent) : 0,
