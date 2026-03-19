@@ -5,11 +5,12 @@ interface Props {
 }
 
 function InfoItem({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null
   return (
     <div className="flex flex-col gap-0.5 min-w-[80px]">
       <span className="text-[11px] text-slate-400 dark:text-slate-500">{label}</span>
-      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{value}</span>
+      <span className={`text-sm font-medium ${value ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-600'}`}>
+        {value ?? '-'}
+      </span>
     </div>
   )
 }

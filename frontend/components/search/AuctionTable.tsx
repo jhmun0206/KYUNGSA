@@ -21,9 +21,9 @@ function calcDiscountRate(appraised: number | null, minBid: number | null): stri
 }
 
 function getCoverageColor(coverage: number): string {
-  if (coverage >= 0.7) return "bg-emerald-500"
-  if (coverage >= 0.4) return "bg-amber-500"
-  return "bg-slate-400"
+  if (coverage >= 0.8) return "bg-green-500"
+  if (coverage >= 0.5) return "bg-blue-500"
+  return "bg-amber-400"
 }
 
 interface Props {

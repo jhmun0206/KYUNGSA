@@ -8,6 +8,7 @@ export interface CashflowUnit {
   deposit: number       // 보증금 (만원)
   monthlyRent: number   // 월세 (만원)
   isEstimated?: boolean // rent_price_info 기반 추정값 여부
+  note?: string         // 사용자 안내 문구 (일반건물 등)
 }
 
 export interface CashflowInput {
@@ -164,6 +165,21 @@ export function initUnits(auction: AuctionDetailResponse): CashflowUnit[] {
       deposit: ref ? Math.round(ref.avgDeposit) : 0,
       monthlyRent: ref ? Math.round(ref.avgRent) : 0,
       isEstimated: !!ref,
+    }]
+  }
+
+  // 일반건물 + 호수 없음 → 건물 전체 단일 행
+  const buildingType = auction.building_type ?? null
+  if (!specificHo && (buildingType === '일반' || (!buildingType && !unitItems.length))) {
+    const area = auction.building_info?.total_area ?? auction.exclusive_area_m2_real ?? null
+    const ref = findRefRent(rentInfo, area)
+    return [{
+      label: '건물 전체',
+      areaSqm: area,
+      deposit: 0,
+      monthlyRent: ref ? Math.round(ref.avgRent) : 0,
+      isEstimated: !!ref,
+      note: '일반건축물 — 호실 구분 없음. 층별 임대수익은 직접 입력하거나 + 호실 추가로 분리 입력하세요.',
     }]
   }
 

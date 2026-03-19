@@ -1,6 +1,11 @@
 import { formatMan } from "@/lib/utils"
 import type { CashflowResult } from "@/lib/cashflow"
 
+function mv(value: number | null | undefined): string {
+  if (!value || value === 0) return "-"
+  return formatMan(value)
+}
+
 interface Props {
   result: CashflowResult
   bidPrice: number       // 만원
@@ -74,11 +79,11 @@ export function ResultCard({ result, bidPrice, appraisedValue }: Props) {
 
       {/* 매입 비용 */}
       <div className="space-y-2.5">
-        <Row label="총 매입가" value={formatMan(result.totalCost)} />
-        <Row label="필요 자금" value={formatMan(result.requiredEquity)} />
+        <Row label="총 매입가" value={mv(result.totalCost)} />
+        <Row label="필요 자금" value={mv(result.requiredEquity)} />
         <Row
           label="만실후 투자금"
-          value={formatMan(result.netEquity)}
+          value={mv(result.netEquity)}
           sub="필요자금 − 보증금합계"
         />
       </div>
@@ -88,8 +93,8 @@ export function ResultCard({ result, bidPrice, appraisedValue }: Props) {
       {/* 대출 */}
       <SectionLabel>대출</SectionLabel>
       <div className="space-y-2">
-        <Row label="대출가능액" value={formatMan(result.loanAmount)} />
-        <Row label="월 이자" value={`${result.monthlyInterest.toLocaleString()}만원`} />
+        <Row label="대출가능액" value={mv(result.loanAmount)} />
+        <Row label="월 이자" value={result.monthlyInterest > 0 ? `${result.monthlyInterest.toLocaleString()}만원` : "-"} />
       </div>
 
       <Divider />

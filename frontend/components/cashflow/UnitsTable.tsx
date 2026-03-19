@@ -34,6 +34,7 @@ function NumInput({
 
 export function UnitsTable({ units, address, propertyCategory, onChange }: Props) {
   const hasEstimated = units.some(u => u.isEstimated)
+  const hasRentData = units.some(u => u.isEstimated)
 
   const updateUnit = (i: number, patch: Partial<CashflowUnit>) => {
     const next = [...units]
@@ -60,6 +61,11 @@ export function UnitsTable({ units, address, propertyCategory, onChange }: Props
           💡 인근 실거래 데이터 기반 참고값이 자동 입력됐습니다. 직접 수정 가능합니다.
         </p>
       )}
+      {!hasRentData && (
+        <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">
+          ⚠ 이 지역·유형의 임대 시세 데이터가 없습니다. 직접 입력해 주세요.
+        </p>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -74,6 +80,7 @@ export function UnitsTable({ units, address, propertyCategory, onChange }: Props
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-800/60">
             {units.map((unit, i) => (
+              <>
               <tr key={i}>
                 {/* 호실명 */}
                 <td className="py-1.5 pr-2">
@@ -118,6 +125,14 @@ export function UnitsTable({ units, address, propertyCategory, onChange }: Props
                   )}
                 </td>
               </tr>
+              {unit.note && (
+                <tr key={`note-${i}`}>
+                  <td colSpan={5} className="pb-2 pt-0.5">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">⚠ {unit.note}</p>
+                  </td>
+                </tr>
+              )}
+              </>
             ))}
           </tbody>
           {/* 합계 행 */}
