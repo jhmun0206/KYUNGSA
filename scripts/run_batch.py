@@ -190,6 +190,11 @@ def main() -> None:
         "--station-delay", type=float, default=0.3,
         help="--update-station-names 물건 간 대기 시간(초, 기본 0.3)",
     )
+    # --fix-duplicate-units 는 독립 플래그 (--court 와 조합 가능)
+    parser.add_argument(
+        "--fix-duplicate-units", action="store_true",
+        help="building_info.units 중복 제거 (floor=0 전유부 행, ho 기준 dedup)",
+    )
     parser.add_argument(
         "--coverage-below", type=float, default=0.30,
         help="--rescore-db 시 이 미만 coverage 물건만 재채점 (기본값 0.30)",
@@ -230,13 +235,30 @@ def main() -> None:
 
     # 모드 검증
     update_station = getattr(args, "update_station_names", False)
-    if not (args.court or args.all_seoul or args.rescore_db or update_station):
-        parser.error("--court, --all-seoul, --rescore-db, 또는 --update-station-names 중 하나를 지정하세요")
+    fix_dup_units = getattr(args, "fix_duplicate_units", False)
+    if not (args.court or args.all_seoul or args.rescore_db or update_station or fix_dup_units):
+        parser.error("--court, --all-seoul, --rescore-db, --update-station-names, 또는 --fix-duplicate-units 중 하나를 지정하세요")
     if args.all_seoul and args.rescore_db:
         parser.error("--all-seoul 과 --rescore-db 는 함께 사용할 수 없습니다")
 
     if args.dry_run:
         print("*** DRY-RUN 모드: DB 저장 없이 수집만 수행 ***\n")
+
+    if fix_dup_units:
+        court_label = SEOUL_COURTS.get(args.court, args.court) if args.court else "전체"
+        print(f"\nbuilding_info.units 중복 제거 시작 ({court_label})")
+        db = SessionLocal()
+        try:
+            collector = BatchCollector(db=db)
+            result = collector.fix_duplicate_units(
+                court_code=args.court,
+                max_items=args.max,
+                dry_run=args.dry_run,
+            )
+            print(f"\nunits 중복 제거 완료: {result}")
+        finally:
+            db.close()
+        return
 
     if update_station:
         court_label = SEOUL_COURTS.get(args.court, args.court) if args.court else "전체"

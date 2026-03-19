@@ -361,6 +361,27 @@ def _apply_building_normalized(auction: Auction, building: BuildingInfo) -> None
 # ──────────────────────────────────────────
 
 
+def _sync_auction_round_fields(db: Session, auction: Auction) -> None:
+    """auction_rounds 테이블에서 current_round + auction_date 동기화.
+
+    auction_rounds flush 직후, db.commit() 이전에 호출.
+    """
+    from sqlalchemy import func
+
+    row = (
+        db.query(
+            func.max(AuctionRoundORM.round_number).label("max_round"),
+            func.max(AuctionRoundORM.round_date).label("latest_date"),
+        )
+        .filter(AuctionRoundORM.auction_id == auction.id)
+        .one()
+    )
+    if row.max_round is not None:
+        auction.current_round = row.max_round
+    if row.latest_date is not None:
+        auction.auction_date = row.latest_date
+
+
 def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
     """EnrichedCase → DB 전체 저장 (upsert 방식)
 
@@ -474,6 +495,8 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
                 minimum_bid=rnd.minimum_bid,
                 result=normalize_round_result(rnd.result),
             ))
+        db.flush()
+        _sync_auction_round_fields(db, auction)
 
     db.commit()
     db.refresh(auction)

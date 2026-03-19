@@ -932,3 +932,99 @@ class BatchCollector:
         result = {"updated": updated, "skipped": skipped, "errors": errors, "dry_run": dry_run}
         logger.info("역 이름 보완 완료: %s", result)
         return result
+
+    def fix_duplicate_units(
+        self,
+        court_code: str | None = None,
+        max_items: int = 0,
+        dry_run: bool = False,
+    ) -> dict:
+        """building_info.units 중복 제거 (floor=0 전유부 행 제거, ho 기준 중복 dedup).
+
+        getBrExposPubuseAreaInfo API가 전유/공용 두 행씩 반환하는 버그로
+        수집된 floor=0 중복 데이터를 in-place 정리한다.
+        ho_nm 기준 중복은 area_m2가 큰 행(공용/층정보 있는 행)만 남긴다.
+        """
+        from sqlalchemy import text
+
+        # floor=0 인 units 행이 있는 물건 조회 (PostgreSQL JSONB)
+        sql = text("""
+            SELECT id FROM auctions
+            WHERE building_info IS NOT NULL
+              AND building_info->'units' IS NOT NULL
+              AND jsonb_array_length(building_info->'units') > 0
+              AND EXISTS (
+                  SELECT 1 FROM jsonb_array_elements(building_info->'units') u
+                  WHERE (u->>'floor')::int = 0
+              )
+            {}
+            {}
+        """.format(
+            "AND court_office_code = :court_code" if court_code else "",
+            f"LIMIT {max_items}" if max_items > 0 else "",
+        ))
+        params = {"court_code": court_code} if court_code else {}
+        rows = self._db.execute(sql, params).fetchall()
+        ids = [r[0] for r in rows]
+
+        total = len(ids)
+        logger.info(
+            "중복 units 대상: %d건%s%s",
+            total,
+            f" (court={court_code})" if court_code else "",
+            " [dry-run]" if dry_run else "",
+        )
+
+        updated = 0
+        skipped = 0
+        errors = 0
+
+        for auction_id in ids:
+            try:
+                auction = self._db.query(Auction).filter(Auction.id == auction_id).one()
+                building_info = auction.building_info
+                if not building_info or not building_info.get("units"):
+                    skipped += 1
+                    continue
+
+                units: list[dict] = building_info["units"]
+                # ho 기준 중복 제거: area_m2 큰 행 유지
+                seen: dict[str, dict] = {}
+                for u in units:
+                    ho = str(u.get("ho") or "").strip()
+                    area = u.get("area_m2") or 0.0
+                    if not ho:
+                        continue
+                    existing = seen.get(ho)
+                    if existing is None or area > existing.get("area_m2", 0):
+                        seen[ho] = u
+
+                deduped = sorted(seen.values(), key=lambda x: (x.get("floor", 0), x.get("ho", "")))
+
+                if len(deduped) == len(units):
+                    skipped += 1
+                    continue
+
+                logger.info(
+                    "%s: units %d → %d건",
+                    auction.case_number, len(units), len(deduped),
+                )
+
+                if not dry_run:
+                    new_building_info = {**building_info, "units": deduped}
+                    auction.building_info = new_building_info
+                    self._db.commit()
+
+                updated += 1
+
+            except Exception as e:
+                try:
+                    self._db.rollback()
+                except Exception:
+                    pass
+                logger.error("중복 units 수정 실패 [%s]: %s", auction_id, e)
+                errors += 1
+
+        result = {"total": total, "updated": updated, "skipped": skipped, "errors": errors, "dry_run": dry_run}
+        logger.info("중복 units 수정 완료: %s", result)
+        return result
