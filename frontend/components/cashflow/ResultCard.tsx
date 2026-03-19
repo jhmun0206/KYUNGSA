@@ -1,3 +1,5 @@
+"use client"
+
 import { formatMan } from "@/lib/utils"
 import type { CashflowResult } from "@/lib/cashflow"
 
