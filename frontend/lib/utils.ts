@@ -7,7 +7,8 @@ export function cn(...inputs: ClassValue[]) {
 
 /** 만원 → 억/만 표기 (cashflow 컴포넌트 전용, 예: 30000 → "3억") */
 export function formatMan(manwon: number | null | undefined): string {
-  if (manwon == null) return "-"
+  if (manwon == null || isNaN(manwon)) return "-"
+  if (manwon === 0) return "0만원"
   return formatPrice(manwon * 10000)
 }
 

@@ -217,7 +217,9 @@ class PublicDataClient:
             if not isinstance(raw_items, list):
                 return []
 
-            units: list[dict] = []
+            # 호실별 중복 제거: API가 전유/공용 두 행씩 반환
+            # → ho_nm 기준으로 면적 큰 쪽 유지 (층 정보 포함된 행이 면적 큼)
+            seen: dict[str, dict] = {}
             for item in raw_items:
                 ho_nm = str(item.get("hoNm") or "").strip()
                 flr_no_nm = str(item.get("flrNoNm") or "").strip()
@@ -228,8 +230,11 @@ class PublicDataClient:
                     # 층 번호: 숫자만 추출
                     digits = "".join(c for c in flr_no_nm if c.isdigit())
                     floor = int(digits) if digits else 0
-                    units.append({"ho": ho_nm, "floor": floor, "area_m2": round(area, 2)})
+                    existing = seen.get(ho_nm)
+                    if existing is None or area > existing["area_m2"]:
+                        seen[ho_nm] = {"ho": ho_nm, "floor": floor, "area_m2": round(area, 2)}
 
+            units = list(seen.values())
             units.sort(key=lambda x: (x["floor"], x["ho"]))
             logger.info("전유부 %d호실 수신 (sigungu=%s bun=%s)", len(units), sigungu_cd, bun)
             return units

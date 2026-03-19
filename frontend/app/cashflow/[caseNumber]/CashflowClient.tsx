@@ -29,7 +29,9 @@ export default function CashflowClient({ auction }: Props) {
   const defaultLtv = getDefaultLtv(category)
   const defaultLoanRate = auction.default_loan_rate ?? 0.045
 
-  const [bidPrice, setBidPrice] = useState(minBid > 0 ? minBid : Math.round(appraisedVal * 0.7))
+  // 초기 낙찰가: 최저매각가격 → 감정가 70% → 1억 순으로 fallback
+  const initBid = minBid > 0 ? minBid : appraisedVal > 0 ? Math.round(appraisedVal * 0.7) : 10000
+  const [bidPrice, setBidPrice] = useState(initBid)
   const [legalFee, setLegalFee] = useState(300)
   const [otherCosts, setOtherCosts] = useState(0)
   const [ltv, setLtv] = useState(defaultLtv)
