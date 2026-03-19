@@ -161,7 +161,7 @@ export function initUnits(auction: AuctionDetailResponse): CashflowUnit[] {
     const ref = findRefRent(rentInfo, area)
     return [{
       label: specificHo,
-      areaSqm: area,
+      areaSqm: area != null ? Math.round(area * 10) / 10 : null,
       deposit: ref ? Math.round(ref.avgDeposit) : 0,
       monthlyRent: ref ? Math.round(ref.avgRent) : 0,
       isEstimated: !!ref,
@@ -175,7 +175,7 @@ export function initUnits(auction: AuctionDetailResponse): CashflowUnit[] {
     const ref = findRefRent(rentInfo, area)
     return [{
       label: '건물 전체',
-      areaSqm: area,
+      areaSqm: area != null ? Math.round(area * 10) / 10 : null,
       deposit: 0,
       monthlyRent: ref ? Math.round(ref.avgRent) : 0,
       isEstimated: !!ref,
@@ -197,7 +197,7 @@ export function initUnits(auction: AuctionDetailResponse): CashflowUnit[] {
       const ref = findRefRent(rentInfo, u.area_m2)
       return {
         label: u.ho || `${u.floor}층`,
-        areaSqm: u.area_m2,
+        areaSqm: u.area_m2 != null ? Math.round(u.area_m2 * 10) / 10 : null,
         deposit: ref ? Math.round(ref.avgDeposit) : 0,
         monthlyRent: ref ? Math.round(ref.avgRent) : 0,
         isEstimated: !!ref,

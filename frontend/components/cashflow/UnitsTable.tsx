@@ -15,15 +15,18 @@ function NumInput({
   value,
   onChange,
   placeholder,
+  step,
 }: {
   value: number
   onChange: (v: number) => void
   placeholder?: string
+  step?: string
 }) {
   return (
     <input
       type="number"
       min={0}
+      step={step}
       value={value || ''}
       placeholder={placeholder ?? '0'}
       onChange={e => onChange(Number(e.target.value) || 0)}
@@ -94,9 +97,10 @@ export function UnitsTable({ units, address, propertyCategory, onChange }: Props
                 {/* 면적 */}
                 <td className="py-1.5 px-2 w-20">
                   <NumInput
-                    value={unit.areaSqm ?? 0}
-                    onChange={v => updateUnit(i, { areaSqm: v || null })}
+                    value={unit.areaSqm != null ? Math.round(unit.areaSqm * 10) / 10 : 0}
+                    onChange={v => updateUnit(i, { areaSqm: v ? Math.round(v * 10) / 10 : null })}
                     placeholder="-"
+                    step="0.1"
                   />
                 </td>
                 {/* 보증금 */}

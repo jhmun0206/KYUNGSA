@@ -5,6 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** 면적(㎡) 표시 — 정수면 그대로, 소수 있으면 1자리 (예: 1012.0→"1012", 33.05→"33.1") */
+export function formatArea(area: number | null | undefined): string {
+  if (area == null || area === 0) return '-'
+  return area % 1 === 0 ? `${area}` : `${area.toFixed(1)}`
+}
+
 /** 만원 → 억/만 표기 (cashflow 컴포넌트 전용, 예: 30000 → "3억") */
 export function formatMan(manwon: number | null | undefined): string {
   if (manwon == null || isNaN(manwon)) return "-"

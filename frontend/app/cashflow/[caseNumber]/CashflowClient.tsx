@@ -52,6 +52,9 @@ export default function CashflowClient({ auction }: Props) {
     salePrice: salePrice > 0 ? salePrice : undefined,
   })
 
+  // DEBUG: 브라우저 콘솔에서 확인 후 제거
+  console.log('[CF]', { bidPrice, legalFee, ltv, loanRate, taxRate }, result)
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 items-start">
       {/* 왼쪽: 입력 패널 */}
