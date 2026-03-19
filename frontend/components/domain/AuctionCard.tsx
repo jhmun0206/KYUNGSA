@@ -23,7 +23,7 @@ interface Props {
 export function AuctionCard({ item, className }: Props) {
   const failCount = item.bid_count - 1
   const discount = calcDiscount(item.minimum_bid, item.appraised_value)
-  const dday = calcDday(item.auction_date)
+  const dday = calcDday(item.auction_date, item.status)
   const courtLabel = COURT_LABELS[item.court_office_code] ?? item.court
 
   return (

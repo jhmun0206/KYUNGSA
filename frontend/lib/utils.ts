@@ -24,7 +24,9 @@ export function formatPrice(won: number | null | undefined): string {
 }
 
 /** 경매일 기준 D-day 계산 (예: "D-3", "D+2", "오늘") */
-export function calcDday(dateStr: string | null | undefined): string {
+export function calcDday(dateStr: string | null | undefined, status?: string | null): string {
+  if (status === "기일경과") return "기일경과"
+  if (status === "매각") return "매각완료"
   if (!dateStr) return "-"
   const target = new Date(dateStr)
   const today = new Date()

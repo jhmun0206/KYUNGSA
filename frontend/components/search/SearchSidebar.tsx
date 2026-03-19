@@ -194,6 +194,11 @@ export function SearchSidebar() {
             </button>
           ))}
         </div>
+        {selectedBuildingType && (
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+            ※ 건물형태 데이터는 일부 물건만 수집됩니다
+          </p>
+        )}
       </SidebarSection>
 
       {/* 감정가 — 단일셀렉 칩 */}

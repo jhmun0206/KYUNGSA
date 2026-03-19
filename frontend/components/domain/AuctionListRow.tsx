@@ -12,7 +12,7 @@ import type { AuctionListItem } from "@/lib/types"
 export function AuctionListRow({ item }: { item: AuctionListItem }) {
   const failCount = Math.max(0, item.bid_count - 1)
   const discount = calcDiscount(item.minimum_bid, item.appraised_value)
-  const dday = calcDday(item.auction_date)
+  const dday = calcDday(item.auction_date, item.status)
   const ddayColor = getDdayColor(item.auction_date)
   const courtLabel =
     COURT_OPTIONS.find((c) => c.code === item.court_office_code)?.label ?? item.court

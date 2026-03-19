@@ -166,7 +166,7 @@ function DesktopRow({ item, onClick }: { item: AuctionListItem; onClick: () => v
           {item.auction_date ? item.auction_date.replace(/-/g, ".") : "-"}
         </div>
         <div className={`text-[11px] font-bold mt-0.5 ${getDdayColor(item.auction_date)}`}>
-          {calcDday(item.auction_date)}
+          {calcDday(item.auction_date, item.status)}
         </div>
       </td>
 
@@ -263,7 +263,7 @@ function MobileRow({ item, onClick }: { item: AuctionListItem; onClick: () => vo
           감정 {formatPrice(item.appraised_value)}
         </span>
         <span className={`ml-auto text-[12px] font-semibold ${getDdayColor(item.auction_date)}`}>
-          {calcDday(item.auction_date)}
+          {calcDday(item.auction_date, item.status)}
         </span>
       </div>
     </div>

@@ -54,11 +54,13 @@ function CoverageBar({ coverage }: { coverage: number | null | undefined }) {
 
 export function BasicInfoGrid({ auction }: Props) {
   const discount = calcDiscount(auction.minimum_bid, auction.appraised_value)
-  const dday = calcDday(auction.auction_date)
+  const dday = calcDday(auction.auction_date, auction.status)
   const failCount = Math.max(0, auction.bid_count - 1)
 
   const ddayClass =
-    dday.startsWith('D-') && parseInt(dday.slice(2)) <= 3
+    dday === '기일경과' || dday === '매각완료'
+      ? 'text-slate-400 dark:text-slate-500'
+      : dday.startsWith('D-') && parseInt(dday.slice(2)) <= 3
       ? 'text-red-600 dark:text-red-400 font-semibold'
       : dday.startsWith('D+') || dday === '오늘'
       ? 'text-slate-400 dark:text-slate-500 line-through'
