@@ -515,6 +515,7 @@ class BatchCollector:
         active_only: bool = True,
         status_filter: str | None = None,
         missing_location_only: bool = False,
+        missing_building_info_only: bool = False,
     ) -> BatchResult:
         """DB 기반 재채점 모드
 
@@ -572,6 +573,7 @@ class BatchCollector:
                 active_only=active_only,
                 status_filter=status_filter,
                 missing_location_only=missing_location_only,
+                missing_building_info_only=missing_building_info_only,
             )
         except Exception as e:
             logger.error("DB 재채점 치명적 오류: %s", e)
@@ -625,6 +627,7 @@ class BatchCollector:
         active_only: bool = True,
         status_filter: str | None = None,
         missing_location_only: bool = False,
+        missing_building_info_only: bool = False,
     ) -> None:
         """DB 재채점 루프"""
         # 목록 검색 없이 바로 상세조회하면 세션 쿠키가 없어 실패하므로 워밍업
@@ -658,18 +661,28 @@ class BatchCollector:
                 Auction.location_data.is_(None),
                 Auction.lat.isnot(None),
             )
+        if missing_building_info_only:
+            from sqlalchemy import func, text as sa_text
+            # building_info IS NULL OR jsonb_typeof(building_info) != 'object'
+            query = query.filter(
+                Auction.status == "진행",
+            ).filter(
+                (Auction.building_info.is_(None)) |
+                (func.jsonb_typeof(Auction.building_info) != "object")
+            )
 
         total = query.count()
         result.total_searched = total
         result.total_pages = 1  # DB 모드에서는 페이지 없음
 
         logger.info(
-            "DB 재채점 대상: %d건 (coverage < %.2f%s%s%s)",
+            "DB 재채점 대상: %d건 (coverage < %.2f%s%s%s%s)",
             total,
             coverage_below,
             f", court={court_code}" if court_code else "",
             ", score_exists=True" if score_exists else "",
             ", missing_location=True" if missing_location_only else "",
+            ", missing_building_info=True" if missing_building_info_only else "",
         )
 
         if max_items > 0:

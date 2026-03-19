@@ -107,6 +107,7 @@ def run_rescore_db(
     active_only: bool = True,
     status_filter: str | None = None,
     missing_location_only: bool = False,
+    missing_building_info_only: bool = False,
 ) -> BatchResult:
     """DB 기반 재채점"""
     label = SEOUL_COURTS.get(court_code, court_code) if court_code else "전체"
@@ -114,7 +115,8 @@ def run_rescore_db(
     active_label = "진행중만" if active_only else "매각 포함 전체"
     status_label = f", status={status_filter}" if status_filter else ""
     loc_label = ", location_data IS NULL + lat 있는 건만" if missing_location_only else ""
-    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%}, {scope}, {active_label}{status_label}{loc_label})")
+    bld_label = ", building_info IS NULL 진행 물건만" if missing_building_info_only else ""
+    print(f"\nDB 재채점 시작: {label} (coverage < {coverage_below:.0%}, {scope}, {active_label}{status_label}{loc_label}{bld_label})")
 
     db = SessionLocal()
     try:
@@ -130,6 +132,7 @@ def run_rescore_db(
             active_only=active_only,
             status_filter=status_filter,
             missing_location_only=missing_location_only,
+            missing_building_info_only=missing_building_info_only,
         )
         print_result(result)
         return result
@@ -219,6 +222,10 @@ def main() -> None:
         "--missing-location", action="store_true",
         help="--rescore-db 시 location_data IS NULL AND lat IS NOT NULL 인 물건만 처리",
     )
+    parser.add_argument(
+        "--missing-building-info", action="store_true",
+        help="building_info IS NULL 인 '진행' 물건만 재채점 (--rescore-db 자동 활성화)",
+    )
 
     parser.add_argument("--max", type=int, default=0, help="최대 처리 건수 (0=전체)")
     parser.add_argument("--force", action="store_true", help="기존 데이터 덮어쓰기")
@@ -236,6 +243,10 @@ def main() -> None:
     # 모드 검증
     update_station = getattr(args, "update_station_names", False)
     fix_dup_units = getattr(args, "fix_duplicate_units", False)
+    missing_building = getattr(args, "missing_building_info", False)
+    # --missing-building-info 는 --rescore-db 자동 활성화
+    if missing_building:
+        args.rescore_db = True
     if not (args.court or args.all_seoul or args.rescore_db or update_station or fix_dup_units):
         parser.error("--court, --all-seoul, --rescore-db, --update-station-names, 또는 --fix-duplicate-units 중 하나를 지정하세요")
     if args.all_seoul and args.rescore_db:
@@ -291,6 +302,7 @@ def main() -> None:
             active_only=not args.include_sold,
             status_filter=args.status,
             missing_location_only=args.missing_location,
+            missing_building_info_only=missing_building,
         )
         return
 
