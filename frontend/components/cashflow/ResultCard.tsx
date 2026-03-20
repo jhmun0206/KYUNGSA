@@ -103,31 +103,30 @@ export function ResultCard({ result, bidPrice, appraisedValue }: Props) {
 
       {/* 임대 수익률 */}
       <SectionLabel>임대 수익률</SectionLabel>
-      {hasRent ? (
-        <div className="space-y-2">
+      <div className="space-y-2">
+        <Row
+          label="연 임대수익"
+          value={hasRent ? `${result.annualRentIncome.toLocaleString()}만원` : "-"}
+        />
+        <Row
+          label="연 임대수익률"
+          value={hasRent ? `${result.annualYield.toFixed(1)}%` : "-"}
+          highlight={hasRent}
+        />
+        {result.netEquity > 0 && (
           <Row
-            label="연 임대수익"
-            value={`${result.annualRentIncome.toLocaleString()}만원`}
+            label="에퀴티 수익률"
+            value={hasRent ? `${result.equityYield.toFixed(1)}%` : "-"}
+            sub="만실후 투자금 기준"
+            highlight={hasRent}
           />
-          <Row
-            label="연 임대수익률"
-            value={`${result.annualYield > 0 ? '' : ''}${result.annualYield}%`}
-            highlight
-          />
-          {result.netEquity > 0 && (
-            <Row
-              label="에퀴티 수익률"
-              value={`${result.equityYield}%`}
-              sub="만실후 투자금 기준"
-              highlight
-            />
-          )}
-        </div>
-      ) : (
-        <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg">
-          호실 월세를 입력하면 수익률이 계산됩니다
-        </p>
-      )}
+        )}
+        {!hasRent && (
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+            ↑ 호실 월세를 입력하면 계산됩니다
+          </p>
+        )}
+      </div>
 
       {/* 매도 (입력 시만) */}
       {result.saleProfit !== undefined && (
