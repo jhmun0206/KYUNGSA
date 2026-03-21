@@ -394,7 +394,7 @@ def get_auctions(
 
     # 상태 필터: 기본값은 매각/취하/기각/변경 제외 (진행+예정만)
     if status is None:
-        query = query.filter(Auction.status.notin_(["매각", "취하", "기각", "변경"]))
+        query = query.filter(Auction.status.notin_(["매각", "취하", "기각", "변경", "기일경과"]))
     elif status not in ("전체", "all"):
         statuses = [s.strip() for s in status.split(",") if s.strip()]
         if statuses:
