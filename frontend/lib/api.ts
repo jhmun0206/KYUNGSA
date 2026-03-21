@@ -4,6 +4,7 @@ import type {
   AuctionListParams,
   AuctionListResponse,
   MapResponse,
+  RentReference,
 } from "@/lib/types"
 
 export class ApiNotFoundError extends Error {
@@ -53,4 +54,18 @@ export async function fetchMapItems(
   params: Omit<AuctionListParams, "page" | "size" | "sort">
 ): Promise<MapResponse> {
   return apiFetch<MapResponse>("/api/v1/auctions/map", params as Record<string, string | number | undefined>)
+}
+
+/** 인근 상가 임대료 레퍼런스 (클라이언트 전용, useEffect에서 호출) */
+export async function fetchRentReference(caseNumber: string): Promise<RentReference> {
+  let normalized = caseNumber
+  try { normalized = decodeURIComponent(caseNumber) } catch { /* ignore */ }
+  const url = `${API_BASE}/api/v1/auctions/${encodeURIComponent(normalized)}/rent-reference`
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return { available: false, region: null, rent: null, vacancy: null }
+    return res.json() as Promise<RentReference>
+  } catch {
+    return { available: false, region: null, rent: null, vacancy: null }
+  }
 }

@@ -174,6 +174,21 @@ export interface BuildingInfo {
   units?: BuildingUnitItem[]  // 전유부 호실별 면적 (전유부 API 있을 때만)
 }
 
+export interface RentReferenceItem {
+  region: string
+  value: number   // 원/㎡/월 (임대료) 또는 % (공실률)
+  unit: string
+  period: string
+  source: string
+}
+
+export interface RentReference {
+  available: boolean
+  region: string | null
+  rent: RentReferenceItem | null
+  vacancy: RentReferenceItem | null
+}
+
 export interface MapItem {
   case_number: string
   lat: number

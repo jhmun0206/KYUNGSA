@@ -555,3 +555,53 @@ def get_auction_detail(
         location_data=location_data_raw,
         default_loan_rate=settings.DEFAULT_LOAN_RATE,
     )
+
+
+@router.get("/auctions/{case_number}/rent-reference")
+def get_rent_reference(
+    case_number: str,
+    db: Session = Depends(get_db),
+) -> dict:
+    """물건 주소 기반 인근 상가 임대료 레퍼런스 반환
+
+    자치구 추출 후 소규모 상가 임대료 + 공실률 조회.
+    자치구 데이터 없으면 서울 전체로 fallback.
+    상가/근린 물건에만 의미 있는 데이터 반환.
+    """
+    import os
+    import re
+
+    from app.services.crawler.reb_api import (
+        RebApiClient,
+        STATBL_SMALL_SHOP_RENT,
+        STATBL_SMALL_SHOP_VACANCY,
+    )
+
+    auction = db.query(Auction).filter(Auction.case_number == case_number).first()
+    if not auction:
+        raise HTTPException(status_code=404, detail=f"물건을 찾을 수 없습니다: {case_number}")
+
+    api_key = os.getenv("REB_API_KEY")
+    if not api_key:
+        return {"available": False, "reason": "REB_API_KEY not configured"}
+
+    # 주소에서 자치구 추출 ("서울특별시 강남구 ..." → "강남구")
+    gu_match = re.search(r"([가-힣]+구)", auction.address or "")
+    region = gu_match.group(1) if gu_match else "서울"
+
+    client = RebApiClient(api_key)
+    rent = client.fetch_rent_by_region(STATBL_SMALL_SHOP_RENT, region)
+    vacancy = client.fetch_rent_by_region(STATBL_SMALL_SHOP_VACANCY, region)
+
+    # 자치구 데이터 없으면 서울 전체 fallback
+    if not rent and region != "서울":
+        rent = client.fetch_rent_by_region(STATBL_SMALL_SHOP_RENT, "서울")
+        vacancy = client.fetch_rent_by_region(STATBL_SMALL_SHOP_VACANCY, "서울")
+        region = "서울"
+
+    return {
+        "available": bool(rent),
+        "region": region,
+        "rent": rent,
+        "vacancy": vacancy,
+    }

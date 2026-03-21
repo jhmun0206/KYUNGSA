@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import type { AuctionDetailResponse } from "@/lib/types"
+import { useState, useEffect } from "react"
+import type { AuctionDetailResponse, RentReference } from "@/lib/types"
 import {
   calcCashflow,
   getDefaultLtv,
@@ -9,12 +9,16 @@ import {
   initUnits,
   type CashflowUnit,
 } from "@/lib/cashflow"
+import { fetchRentReference } from "@/lib/api"
 import { BidSlider } from "@/components/cashflow/BidSlider"
 import { CostSection } from "@/components/cashflow/CostSection"
 import { LoanSection } from "@/components/cashflow/LoanSection"
 import { UnitsTable } from "@/components/cashflow/UnitsTable"
 import { SaleSection } from "@/components/cashflow/SaleSection"
 import { ResultCard } from "@/components/cashflow/ResultCard"
+import { RentReferenceBanner } from "@/components/cashflow/RentReferenceBanner"
+
+const SHOP_CATEGORIES = ["상가/근린", "근린1종", "근린2종"]
 
 interface Props {
   auction: AuctionDetailResponse
@@ -38,6 +42,13 @@ export default function CashflowClient({ auction }: Props) {
   const [loanRate, setLoanRate] = useState(defaultLoanRate)
   const [units, setUnits] = useState<CashflowUnit[]>(() => initUnits(auction))
   const [salePrice, setSalePrice] = useState(0)
+  const [rentRef, setRentRef] = useState<RentReference | null>(null)
+
+  // 상가/근린 물건일 때만 1회 임대료 레퍼런스 조회
+  useEffect(() => {
+    if (!SHOP_CATEGORIES.includes(category ?? "")) return
+    fetchRentReference(auction.case_number).then(setRentRef)
+  }, [auction.case_number, category])
 
   const taxRate = getAcquisitionTaxRate(category, bidPrice)
 
@@ -81,6 +92,7 @@ export default function CashflowClient({ auction }: Props) {
           onLtvChange={setLtv}
           onLoanRateChange={setLoanRate}
         />
+        {rentRef && <RentReferenceBanner data={rentRef} />}
         <UnitsTable
           units={units}
           address={auction.address}
