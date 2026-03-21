@@ -152,12 +152,19 @@ export function initUnits(auction: AuctionDetailResponse): CashflowUnit[] {
     ? hoMatch[hoMatch.length - 1]  // "603호", "302호" 등
     : null
 
+  // 건물 전체 면적 (sanity check 기준: 단위 오류로 비정상적 큰 값 걸러냄)
+  const buildingTotalArea = auction.exclusive_area_m2_real ?? auction.building_info?.exclusive_area_m2 ?? null
+
   // 단일 호실 경매 (주소에 호수 명시)
   if (specificHo && unitItems.length > 0) {
     const targetUnit = unitItems.find(u =>
       u.ho?.includes(specificHo.replace('호', ''))
     )
-    const area = targetUnit?.area_m2 ?? auction.exclusive_area_m2_real ?? null
+    const rawArea = targetUnit?.area_m2 ?? auction.exclusive_area_m2_real ?? null
+    // sanity check: 단위 오류로 호실 면적이 건물 전체 면적보다 크면 무시
+    const area = rawArea != null && buildingTotalArea != null && rawArea > buildingTotalArea
+      ? null
+      : rawArea
     const ref = findRefRent(rentInfo, area)
     return [{
       label: specificHo,
@@ -194,10 +201,15 @@ export function initUnits(auction: AuctionDetailResponse): CashflowUnit[] {
       }
     }
     return Array.from(seen.values()).map(u => {
-      const ref = findRefRent(rentInfo, u.area_m2)
+      // sanity check: 단위 오류로 호실 면적이 건물 전체보다 크면 null
+      const rawArea = u.area_m2
+      const safeArea = rawArea != null && buildingTotalArea != null && rawArea > buildingTotalArea
+        ? null
+        : rawArea
+      const ref = findRefRent(rentInfo, safeArea)
       return {
         label: u.ho || `${u.floor}층`,
-        areaSqm: u.area_m2 != null ? Math.round(u.area_m2 * 10) / 10 : null,
+        areaSqm: safeArea != null ? Math.round(safeArea * 10) / 10 : null,
         deposit: ref ? Math.round(ref.avgDeposit) : 0,
         monthlyRent: ref ? Math.round(ref.avgRent) : 0,
         isEstimated: !!ref,

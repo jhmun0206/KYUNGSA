@@ -4,7 +4,7 @@ import { formatMan } from "@/lib/utils"
 import type { CashflowResult } from "@/lib/cashflow"
 
 function mv(value: number | null | undefined): string {
-  if (!value || value === 0) return "-"
+  if (value == null || isNaN(value) || value === 0) return "-"
   return formatMan(value)
 }
 

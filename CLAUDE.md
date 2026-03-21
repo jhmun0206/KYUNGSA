@@ -719,24 +719,27 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 
 > 이 섹션은 매 작업 세션 시작/종료 시 업데이트한다.
 
-**현재 단계:** 5단계 진행 중 — 5A 완료, 다음 5B (배치 수집기)
+**현재 단계:** Phase K 완료 — Phase K-1(상세 페이지 재설계) + K-2(검색 페이지 전면 재설계) + 현금흐름 분석 페이지 개선
 **완료된 것:**
-- 0단계: API 검증 및 데이터소스 확정
-- 1단 필터링: crawler → enricher → filter_engine (RED/YELLOW/GREEN + CostGate)
-- 등기부 파서/분석기: RegistryParser + RegistryAnalyzer (PDF/텍스트 경로)
-- CODEF 등기부 연동: CodefRegistryProvider + CodefMapper + RegistryPipeline (API 경로)
-- 3A 통합: 주소파싱(address_parser) + 매칭(matcher) + AuctionPipeline 1단+2단 연결
-- 3B API: FastAPI 엔드포인트 4개 + 스키마 + 테스트 33개
-- 4A 문서정리: 불일치 7건 해소, 홈서버 로드맵 재구성
-- 4B 실전검증: E2E 10건 실행, BUG 7건 발견
-- 4C 버그수정: Vworld 데이터셋(LT_C_UQ111), CF-13007 재시도, 지번 fallback
-- 4E CODEF 전면 교정: inquiryType=0, password/ePrepayPass 분리, CF-12826/12411/13328 해소
-- **5-0 홈서버 세팅 완료:** Ubuntu 24.04 LTS + PostgreSQL 16 + pyenv 3.11 + systemd + Tailscale
-- **5A DB 스키마 + ORM 완료:** SQLAlchemy ORM 5개 + Alembic + converter + 421개 테스트 통과
+- 0단계~5F: 파이프라인 전체 구현 (크롤러 → 보강 → 필터 → 등기부 분석 → 점수 엔진 → 배치 수집)
+- Phase 6~8: 입지 데이터 + 낙찰 추적 + 명도 데이터 + CatBoost ML 낙찰가율 예측
+- Phase 8 (프론트): kyungsa.com 배포 (Vercel + Cloudflare Tunnel), 디자인 시스템 구축
+- Phase 9: UX 재설계 (랜딩/검색 분리, MobileNav, Framer Motion)
+- Phase B~F: AuctionListRow + SearchResultsList + pillar Accordion + 등급 Tooltip + InvestmentCalculator
+- Phase G: InvestmentCalculator v1 (낙찰가 슬라이더 + 취등록세/대출/수익률)
+- Phase H-1~H-4: 건축물대장 자동 채움 + 월세 실거래가 + 대출 금리 + InvestmentCalculator 전면 개편 (룸 테이블)
+- Phase I: Google OAuth (NextAuth.js v5) + 백엔드 JWT + 즐겨찾기/저장검색 DB + localStorage 마이그레이션
+- Phase K-1: 상세 페이지 2컬럼 레이아웃 + 로드뷰 + 전유부 호실 자동채움
+- Phase K-2: 검색 페이지 전면 재설계 (SearchSidebar 8섹션 + AuctionTable 고정폭 + 리스크 신호등 🟢🟡🔴⚫)
+- **현금흐름 분석 페이지 (app/cashflow/):** 현금흐름 계산 엔진(lib/cashflow.ts) + BidSlider + CostSection + LoanSection + UnitsTable + SaleSection + ResultCard
+  - 면적 소수점 표시 수정 (`formatArea()` + `Math.round(area*10)/10`)
+  - ResultCard `"use client"` 추가 (Production 에러 수정)
+  - 임대 수익률 섹션 항상 표시 (월세 입력 전 "-" 표시, `toFixed(1)` 포맷)
+- **테스트:** 763개 통과 (백엔드 mock)
 
-**다음 할 일:** 5B 배치 수집기 (BatchCollector + cron 스케줄)
+**다음 할 일:** Phase J (알림 시스템) 또는 현금흐름 페이지 추가 개선
 **블로커:** 없음
-**최근 변경:** 2026-02-15 — 5A DB 스키마 + ORM 구현 완료
+**최근 변경:** 2026-03-20 — 현금흐름 분석 페이지 버그 수정 (ResultCard use client + 임대수익률 섹션 + 면적 표시)
 
 ---
 

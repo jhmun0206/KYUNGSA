@@ -218,12 +218,14 @@ class PublicDataClient:
                 return []
 
             # 호실별 중복 제거: API가 전유/공용 두 행씩 반환
-            # → ho_nm 기준으로 면적 큰 쪽 유지 (층 정보 포함된 행이 면적 큼)
+            # expoArea(전용면적) 우선 사용 — 공용부 행에는 expoArea가 없거나 0
+            # 면적은 min 유지: 공용부 행의 area 값이 비정상적으로 클 수 있으므로
             seen: dict[str, dict] = {}
             for item in raw_items:
                 ho_nm = str(item.get("hoNm") or "").strip()
                 flr_no_nm = str(item.get("flrNoNm") or "").strip()
-                area_raw = item.get("area") or item.get("expoArea") or ""
+                # 전용면적(expoArea) 우선, 없으면 area 필드 fallback
+                area_raw = item.get("expoArea") or item.get("area") or ""
                 area = _safe_float_val(area_raw)
 
                 if ho_nm and area and area > 0:
@@ -231,7 +233,8 @@ class PublicDataClient:
                     digits = "".join(c for c in flr_no_nm if c.isdigit())
                     floor = int(digits) if digits else 0
                     existing = seen.get(ho_nm)
-                    if existing is None or area > existing["area_m2"]:
+                    # min 유지: 전용면적(작은 값)이 공용포함 면적(큰 값)보다 우선
+                    if existing is None or area < existing["area_m2"]:
                         seen[ho_nm] = {"ho": ho_nm, "floor": floor, "area_m2": round(area, 2)}
 
             units = list(seen.values())

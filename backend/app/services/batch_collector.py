@@ -283,14 +283,40 @@ class BatchCollector:
                 continue
             self._seen_cases.add(case_number)
 
-            # skip-existing
+            # skip-existing — 단, 경매 기본 정보 4개는 경량 upsert
             if not force_update and not dry_run:
                 existing = (
-                    self._db.query(Auction.id)
+                    self._db.query(Auction)
                     .filter(Auction.case_number == case_number)
                     .first()
                 )
                 if existing:
+                    # API 재호출 없이 목록 데이터로 기본 정보만 갱신
+                    changed = False
+                    # auction_date: 변경된 경우만 갱신
+                    if item.auction_date and item.auction_date != existing.auction_date:
+                        existing.auction_date = item.auction_date
+                        changed = True
+                    # status: 대법원 목록에 표시된 최신 상태
+                    if item.status and item.status != existing.status:
+                        existing.status = item.status
+                        changed = True
+                    # bid_count: 증가만 허용 (감소 = 다른 호실 오인 방지)
+                    if (item.bid_count is not None
+                            and item.bid_count > (existing.bid_count or 0)):
+                        existing.bid_count = item.bid_count
+                        changed = True
+                    # minimum_bid: 유찰 후 80% 재매각가 반영
+                    if item.minimum_bid and item.minimum_bid != existing.minimum_bid:
+                        existing.minimum_bid = item.minimum_bid
+                        changed = True
+                    if changed:
+                        existing.updated_at = datetime.now(timezone.utc)
+                        try:
+                            self._db.commit()
+                        except Exception as e:
+                            self._db.rollback()
+                            logger.warning("경량 upsert 실패 [%s]: %s", case_number, e)
                     result.skipped += 1
                     logger.debug("스킵 (기존): %s", case_number)
                     continue

@@ -364,6 +364,20 @@ KYUNGSA/
   - `lib/risk-signals.ts`: 신호등 타입 + `calcListSignal()` + `getSignalLabel()`
   - `AuctionListItem` 신규 필드: `station_distance_m`, `build_year`, `building_type`, `property_category`
 
+### Phase K: 프론트엔드 재설계 + 현금흐름 분석 (진행 중)
+
+- [x] **Phase K-1**: 상세 페이지 2컬럼 레이아웃 + 로드뷰 + 전유부 호실 자동채움
+- [x] **Phase K-2**: 검색 페이지 전면 재설계 (사이드바 8섹션 + AuctionTable 고정폭 + 리스크 신호등)
+- [x] **현금흐름 분석 페이지** (`app/cashflow/[caseNumber]/`)
+  - `lib/cashflow.ts`: 캐시플로우 계산 엔진 (취등록세, 대출, 임대수익률, 에퀴티수익률, 매도수익)
+  - `BidSlider`: 낙찰가 슬라이더 + 직접 입력 + ML 참고 범위 표시
+  - `CostSection`: 취등록세 + 법무비용 + 기타비용
+  - `LoanSection`: LTV + 대출금리 + 월 이자
+  - `UnitsTable`: 호실별 면적/월세/보증금 입력 (건축물대장 자동 채움)
+  - `SaleSection`: 매도 희망가 → 매도차익/수익률
+  - `ResultCard`: 낙찰가 요약 + 총 매입가 + 필요자금 + 임대수익률 + 에퀴티수익률
+  - 버그 수정: 면적 소수점 `formatArea()` + `"use client"` + 임대 수익률 섹션 항상 표시
+
 ### 미착수 / 백로그
 
 - [ ] **Phase J: 알림 시스템** — 저장된 검색 조건으로 신규 물건 매칭 시 알림 (텔레그램/이메일)
@@ -686,3 +700,4 @@ chore: 빌드, 설정 변경
 | 2026-03-08 | Phase I 사용자 인증 시스템 | Google OAuth + JWT + 즐겨찾기/저장검색 DB + localStorage 마이그레이션 |
 | 2026-03-08 | Alembic heads 병합 | 4d0e491c6f8f merge (b1c2d3e4f5a6 + d2e3f4a5b6c7) |
 | 2026-03-16 | Phase K-2 검색 페이지 전면 재설계 | 사이드바 필터 + 고정폭 테이블 + 리스크 신호등 + property-category/risk-signals lib |
+| 2026-03-20 | 현금흐름 분석 페이지 버그 수정 | ResultCard `"use client"` + 임대 수익률 항상 표시 + 면적 소수점 `formatArea()` + `toFixed(1)` |
