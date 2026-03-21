@@ -1,0 +1,15 @@
+[Unit]
+Description=KYUNGSA Fix Past-Due Auctions (유찰 후 재매각 기일 갱신)
+After=kyungsa-batch.service postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=eric
+WorkingDirectory=/home/eric/projects/KYUNGSA
+ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/fix_past_due.py
+Environment=PYTHONPATH=/home/eric/projects/KYUNGSA/backend
+EnvironmentFile=/home/eric/projects/KYUNGSA/backend/.env
+TimeoutStartSec=7200
+StandardOutput=journal
+StandardError=journal

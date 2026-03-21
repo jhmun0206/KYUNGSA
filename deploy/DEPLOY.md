@@ -26,7 +26,11 @@ sudo systemctl start  kyungsa-winning-bids.timer
 sudo systemctl enable kyungsa-occupancy.timer
 sudo systemctl start  kyungsa-occupancy.timer
 
-# 7. 타이머 목록 확인
+# 7. 기일경과 물건 재조회 타이머 (신규, 매일 04:30 배치 완료 후)
+sudo systemctl enable kyungsa-fix-past-due.timer
+sudo systemctl start  kyungsa-fix-past-due.timer
+
+# 8. 타이머 목록 확인
 systemctl list-timers | grep kyungsa
 ```
 
@@ -38,6 +42,7 @@ systemctl list-timers | grep kyungsa
 | kyungsa-sale-results.timer | 매일 06:00 KST | 전국 낙찰 완료 건 수집 (SaleResultCollector, ~11분) |
 | kyungsa-occupancy.timer | 매일 04:00 KST | 분석대기 물건 현황조사서 수집 (OccupancyService, 200건) |
 | kyungsa-winning-bids.timer | 매주 일 07:00 KST | 기수집 물건 낙찰가 사후 추적 (WinningBidCollector) |
+| kyungsa-fix-past-due.timer | 매일 04:30 KST | 기일경과 물건 재조회 — 유찰 후 재매각 기일 갱신 (fix_past_due.py) |
 
 ## 로그 확인
 
