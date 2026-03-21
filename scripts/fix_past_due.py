@@ -130,15 +130,16 @@ def update_past_due(
                 time.sleep(delay)
 
             try:
-                # DB JSONB에서 internal_case_number 복원
+                # DB JSONB에서 internal_case_number + property_sequence 복원
                 detail_dto = auction_orm_to_detail(auction)
                 case_num = detail_dto.internal_case_number or auction.case_number
+                prop_seq = detail_dto.property_sequence or "1"
 
                 # 대법원 상세 재조회
                 fresh = crawler.fetch_case_detail(
                     case_number=case_num,
                     court_office_code=auction.court_office_code or "",
-                    property_sequence="1",
+                    property_sequence=prop_seq,
                 )
 
                 changed: list[str] = []
@@ -158,8 +159,8 @@ def update_past_due(
                     if not dry_run:
                         auction.status = "진행"
 
-                # bid_count 갱신 (유찰 후 증가)
-                if fresh.bid_count and fresh.bid_count != auction.bid_count:
+                # bid_count 갱신 (유찰 후 증가만 — 감소는 데이터 불일치 가능성, 스킵)
+                if fresh.bid_count and fresh.bid_count > auction.bid_count:
                     changed.append(
                         f"bid_count: {auction.bid_count} → {fresh.bid_count}"
                     )
