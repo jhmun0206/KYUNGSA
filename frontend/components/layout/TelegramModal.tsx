@@ -15,7 +15,6 @@ export function TelegramModal({ onClose }: { onClose: () => void }) {
 
   const handleIssueCode = async () => {
     const token = session?.backendToken
-    console.log("[TelegramModal] session:", session, "token:", token)
     if (!token) {
       setError("인증 토큰이 없습니다. 로그아웃 후 다시 로그인해주세요.")
       return
