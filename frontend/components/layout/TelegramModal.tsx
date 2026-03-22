@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function TelegramModal({ onClose }: Props) {
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const token = session?.backendToken
 
   const [connected, setConnected] = useState<boolean | null>(null)
@@ -25,12 +25,15 @@ export function TelegramModal({ onClose }: Props) {
   const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? ""
 
   useEffect(() => {
+    // 세션이 아직 로딩 중이면 대기 (token이 null이어도 진짜 null인지 모름)
+    if (sessionStatus === "loading") return
     if (!token) { setLoading(false); return }
+    setLoading(true)
     fetchTelegramStatus(token)
       .then((s) => { setConnected(s.connected); setVerifiedAt(s.verified_at) })
       .catch(() => setConnected(false))
       .finally(() => setLoading(false))
-  }, [token])
+  }, [token, sessionStatus])
 
   // 카운트다운
   useEffect(() => {
