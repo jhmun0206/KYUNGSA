@@ -593,11 +593,11 @@ def get_rent_reference(
     rent = client.fetch_rent_by_region(STATBL_SMALL_SHOP_RENT, region)
     vacancy = client.fetch_rent_by_region(STATBL_SMALL_SHOP_VACANCY, region)
 
-    # 자치구 데이터 없으면 서울 전체 fallback
+    # 자치구 데이터 없으면 서울 광역 평균으로 fallback
     if not rent and region != "서울":
         rent = client.fetch_rent_by_region(STATBL_SMALL_SHOP_RENT, "서울")
         vacancy = client.fetch_rent_by_region(STATBL_SMALL_SHOP_VACANCY, "서울")
-        region = "서울"
+        region = "서울 전체 평균"
 
     return {
         "available": bool(rent),

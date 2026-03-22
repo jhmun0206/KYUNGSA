@@ -64,12 +64,18 @@ class RebApiClient:
             body = data.get("SttsApiTblData", [])
             rows = body[1].get("row", []) if len(body) > 1 else []
 
-            # CLS_FULLNM = "서울>강남구", CLS_NM = "강남구"
-            matched = [
-                r for r in rows
-                if region in (r.get("CLS_FULLNM") or "")
-                or region == (r.get("CLS_NM") or "")
-            ]
+            # CLS_NM 정확 일치 우선.
+            # "서울" 광역 평균은 CLS_FULLNM="서울" (하위 구 없음) 인 행.
+            def _match(r: dict) -> bool:
+                cls_nm = r.get("CLS_NM") or ""
+                cls_fullnm = r.get("CLS_FULLNM") or ""
+                if cls_nm == region:
+                    return True
+                if region == "서울" and cls_fullnm == "서울":
+                    return True
+                return False
+
+            matched = [r for r in rows if _match(r)]
             if not matched:
                 return None
 
