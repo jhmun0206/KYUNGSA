@@ -24,16 +24,18 @@ export function TelegramModal({ onClose }: Props) {
 
   const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? ""
 
+  // 세션 인증 완료 시 1회만 텔레그램 연동 상태 조회
   useEffect(() => {
-    // 세션이 아직 로딩 중이면 대기 (token이 null이어도 진짜 null인지 모름)
-    if (sessionStatus === "loading") return
-    if (!token) { setLoading(false); return }
-    setLoading(true)
+    if (sessionStatus !== "authenticated" || !token) {
+      // 로딩/비인증 상태면 스피너 해제 (세션 로딩 중일 때는 유지)
+      if (sessionStatus !== "loading") setLoading(false)
+      return
+    }
     fetchTelegramStatus(token)
       .then((s) => { setConnected(s.connected); setVerifiedAt(s.verified_at) })
       .catch(() => setConnected(false))
       .finally(() => setLoading(false))
-  }, [token, sessionStatus])
+  }, [sessionStatus, token])
 
   // 카운트다운
   useEffect(() => {
