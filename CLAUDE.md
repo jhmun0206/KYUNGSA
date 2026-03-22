@@ -719,7 +719,7 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 
 > 이 섹션은 매 작업 세션 시작/종료 시 업데이트한다.
 
-**현재 단계:** Phase K 완료 — Phase K-1(상세 페이지 재설계) + K-2(검색 페이지 전면 재설계) + 현금흐름 분석 페이지 개선
+**현재 단계:** Phase K 완료 + 데이터 품질 개선 (2026-03-22)
 **완료된 것:**
 - 0단계~5F: 파이프라인 전체 구현 (크롤러 → 보강 → 필터 → 등기부 분석 → 점수 엔진 → 배치 수집)
 - Phase 6~8: 입지 데이터 + 낙찰 추적 + 명도 데이터 + CatBoost ML 낙찰가율 예측
@@ -728,34 +728,40 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 - Phase B~F: AuctionListRow + SearchResultsList + pillar Accordion + 등급 Tooltip + InvestmentCalculator
 - Phase G: InvestmentCalculator v1 (낙찰가 슬라이더 + 취등록세/대출/수익률)
 - Phase H-1~H-4: 건축물대장 자동 채움 + 월세 실거래가 + 대출 금리 + InvestmentCalculator 전면 개편 (룸 테이블)
+- Phase H-5: 한국부동산원 R-ONE API 상가 임대료 레퍼런스 (cashflow 페이지 배너)
 - Phase I: Google OAuth (NextAuth.js v5) + 백엔드 JWT + 즐겨찾기/저장검색 DB + localStorage 마이그레이션
 - Phase K-1: 상세 페이지 2컬럼 레이아웃 + 로드뷰 + 전유부 호실 자동채움
 - Phase K-2: 검색 페이지 전면 재설계 (SearchSidebar 8섹션 + AuctionTable 고정폭 + 리스크 신호등 🟢🟡🔴⚫)
-- **현금흐름 분석 페이지 (app/cashflow/):** 현금흐름 계산 엔진(lib/cashflow.ts) + BidSlider + CostSection + LoanSection + UnitsTable + SaleSection + ResultCard
-  - 면적 소수점 표시 수정 (`formatArea()` + `Math.round(area*10)/10`)
-  - ResultCard `"use client"` 추가 (Production 에러 수정)
-  - 임대 수익률 섹션 항상 표시 (월세 입력 전 "-" 표시, `toFixed(1)` 포맷)
+- **현금흐름 분석 페이지:** 현금흐름 계산 엔진 + 전체 컴포넌트 구현, 호실 면적 ×100 버그 수정
+- **데이터 품질 (2026-03-22):**
+  - 기일경과 749건 복원 (fix_past_due.py + systemd 04:30 타이머)
+  - batch_collector skip-existing 경량 upsert (4개 필드 갱신)
+  - 역이름+호선 검색/상세 표시 (formatStation, AuctionTable, BuildingInfoBar)
+  - location_score NULL인데 location_data 있는 610건 → 역이름 표시로 해결
+  - 남은 325건: location_data 자체 없음 (좌표 수집 실패) → "데이터 수집 중" 정상 표시
 - **테스트:** 763개 통과 (백엔드 mock)
 
-**다음 할 일:** Phase J (알림 시스템) 또는 현금흐름 페이지 추가 개선
+**다음 할 일:** Phase J (알림 시스템) 또는 325건 location_data 재수집 (geocode 실패 케이스)
 **블로커:** 없음
-**최근 변경:** 2026-03-20 — 현금흐름 분석 페이지 버그 수정 (ResultCard use client + 임대수익률 섹션 + 면적 표시)
+**최근 변경:** 2026-03-22 — 역이름+호선 표시, location_score/data 불일치 610건 해결
 
 ---
 
 ## 📋 백로그 (미구현 예정 기능)
 
-### Phase H-5: 상가 임대료 레퍼런스 추가
+### Phase J: 알림 시스템
+- 관심 물건 기일 D-day 알림 (Telegram Bot 또는 이메일)
+- 즐겨찾기 물건 상태 변경 알림 (낙찰/유찰/기일변경)
 
-- **한국부동산원 상업용부동산임대동향조사 API 연동**
-  - 소규모 상가 ㎡당 임대료 (자치구/상권 단위)
-  - 엔드포인트: https://www.reb.or.kr (오픈API 신청 필요)
-- **서울시 상권분석서비스 연동**
-  - 유동인구/카드매출 데이터
-  - 엔드포인트: https://golmok.seoul.go.kr
-- **InvestmentCalculator 수익률 밴드 시각화**
-  - "시장 평균 4~6% 대비 현재 입력값 위치" 표시
-- **선행 조건:** H-4 완성 후 진행
+### 데이터 품질 개선
+- **325건 location_data 재수집**: geocode 실패 케이스 → 주소 정규화 후 재시도
+  - `auctions JOIN scores WHERE location_score IS NULL AND location_data IS NULL`
+- **잘못된 area_m2 DB 데이터 재수집**: enricher 재실행 (`expoArea` 수정 반영)
+
+### 미구현 기능
+- **서울시 상권분석서비스 연동**: 유동인구/카드매출 (golmok.seoul.go.kr)
+- **InvestmentCalculator 수익률 밴드 시각화**: 시장 평균 대비 위치 표시
+- **Nginx 리버스프록시 설정**: 홈서버 직접 배포 구성
 
 ---
 

@@ -54,6 +54,62 @@ def send_telegram(message: str) -> bool:
         return False
 
 
+def send_to_chat(chat_id: str, message: str) -> bool:
+    """특정 chat_id로 텔레그램 메시지 발송 (개인 알림용)"""
+    token = settings.TELEGRAM_BOT_TOKEN
+    if not token or not chat_id:
+        return False
+
+    url = f"{TELEGRAM_API}/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+
+    try:
+        resp = httpx.post(url, json=payload, timeout=10)
+        if resp.status_code == 200:
+            return True
+        logger.warning("개인 알림 발송 실패 chat_id=%s: %d %s", chat_id, resp.status_code, resp.text[:200])
+        return False
+    except Exception as e:
+        logger.warning("개인 알림 발송 오류 chat_id=%s: %s", chat_id, e)
+        return False
+
+
+def send_personal_alert(
+    chat_id: str,
+    search_name: str,
+    matched_auctions: list[dict],
+) -> bool:
+    """저장 검색 매칭 개인 알림 (상위 5건)"""
+    if not matched_auctions:
+        return False
+
+    grade_emoji = {"A": "🟢", "B": "🟡", "C": "🟠", "D": "🔴"}
+    lines = [f"🔔 <b>[{search_name}]</b> 신규 매칭 {len(matched_auctions)}건\n"]
+
+    for i, a in enumerate(matched_auctions[:5], 1):
+        grade = a.get("grade") or "-"
+        emoji = grade_emoji.get(grade, "⚫")
+        addr = (a.get("address") or "")[:30]
+        min_bid = a.get("minimum_bid") or 0
+        if min_bid >= 100_000_000:
+            bid_str = f"{min_bid // 100_000_000}억"
+        else:
+            bid_str = f"{min_bid // 10_000}만"
+        case_number = a.get("case_number", "")
+        lines.append(
+            f"{i}. {emoji} {grade}등급 | {bid_str}\n"
+            f"   {addr}\n"
+            f'   <a href="https://kyungsa.com/auction/{case_number}">{case_number}</a>'
+        )
+
+    return send_to_chat(chat_id, "\n".join(lines))
+
+
 def format_batch_summary(
     *,
     court_code: str,

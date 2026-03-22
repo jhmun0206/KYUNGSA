@@ -3,10 +3,11 @@
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { Home, Search, Map, Heart, Scale, LogIn, LogOut, ChevronDown } from "lucide-react"
+import { Bell, Home, Search, Map, Heart, Scale, LogIn, LogOut, ChevronDown } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { useSession, signIn, signOut } from "next-auth/react"
 import { ThemeToggle } from "./ThemeToggle"
+import { TelegramModal } from "./TelegramModal"
 import { cn } from "@/lib/utils"
 import { getCompareCount } from "@/lib/compare"
 import { migrateLocalFavoritesToDB } from "@/lib/favorites"
@@ -25,6 +26,7 @@ export function Header() {
   const { data: session, status } = useSession()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [imgError, setImgError] = useState(false)
+  const [telegramModalOpen, setTelegramModalOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // 비교 카운트
@@ -58,6 +60,7 @@ export function Header() {
   }, [])
 
   return (
+    <>
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between">
@@ -139,6 +142,13 @@ export function Header() {
                       관심 목록
                     </Link>
                     <button
+                      onClick={() => { setTelegramModalOpen(true); setDropdownOpen(false) }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                    >
+                      <Bell size={14} />
+                      텔레그램 알림
+                    </button>
+                    <button
                       onClick={() => { signOut(); setDropdownOpen(false) }}
                       className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                     >
@@ -161,5 +171,7 @@ export function Header() {
         </div>
       </div>
     </header>
+    {telegramModalOpen && <TelegramModal onClose={() => setTelegramModalOpen(false)} />}
+    </>
   )
 }

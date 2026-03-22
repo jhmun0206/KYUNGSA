@@ -81,3 +81,26 @@ export async function deleteSavedSearch(token: string, id: string): Promise<void
     method: "DELETE",
   })
 }
+
+// ── 텔레그램 연동 (Phase J) ───────────────────────────────────────────────
+
+export interface TelegramStatus {
+  connected: boolean
+  verified_at: string | null
+}
+
+export async function fetchTelegramStatus(token: string): Promise<TelegramStatus> {
+  return authFetch<TelegramStatus>("/api/v1/users/me/telegram", token)
+}
+
+export async function issueTelegramCode(token: string): Promise<{ code: string; expires_in: number }> {
+  return authFetch<{ code: string; expires_in: number }>("/api/v1/users/me/telegram/code", token, {
+    method: "POST",
+  })
+}
+
+export async function disconnectTelegram(token: string): Promise<void> {
+  await authFetch<void>("/api/v1/users/me/telegram", token, {
+    method: "DELETE",
+  })
+}

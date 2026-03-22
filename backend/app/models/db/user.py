@@ -26,6 +26,8 @@ class User(Base):
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     image: Mapped[str | None] = mapped_column(Text, nullable=True)
     google_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    telegram_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -103,3 +105,26 @@ class UserSavedSearch(Base):
     )
 
     user: Mapped[User] = relationship("User", back_populates="saved_searches")
+
+
+class TelegramVerification(Base):
+    """텔레그램 연동 인증 코드 (10분 유효)"""
+
+    __tablename__ = "telegram_verifications"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    code: Mapped[str] = mapped_column(String(8), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )

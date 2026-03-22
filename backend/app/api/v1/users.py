@@ -1,13 +1,15 @@
-"""Phase I: 사용자 API 엔드포인트
+"""Phase I + J: 사용자 API 엔드포인트
 
-즐겨찾기(favorites) + 저장 검색(saved-searches) CRUD.
+즐겨찾기(favorites) + 저장 검색(saved-searches) CRUD + 텔레그램 연동.
 모든 엔드포인트는 Authorization: Bearer <token> 필수.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+import random
+import string
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
 from app.api.v1.auth import verify_token
-from app.models.db.user import User, UserFavorite, UserSavedSearch
+from app.models.db.user import TelegramVerification, User, UserFavorite, UserSavedSearch
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +94,16 @@ class SavedSearchItem(BaseModel):
 class SaveSearchRequest(BaseModel):
     name: str
     params_json: dict[str, Any]
+
+
+class TelegramStatusResponse(BaseModel):
+    connected: bool
+    verified_at: datetime | None
+
+
+class TelegramCodeResponse(BaseModel):
+    code: str
+    expires_in: int  # 초
 
 
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────
@@ -255,3 +267,63 @@ def delete_saved_search(
     db.commit()
     if not deleted:
         raise HTTPException(status_code=404, detail="저장 검색을 찾을 수 없습니다")
+
+
+# ── 텔레그램 연동 (Phase J) ────────────────────────────────────────────────
+
+def _generate_code() -> str:
+    """6자리 숫자 인증 코드 생성"""
+    return "".join(random.choices(string.digits, k=6))
+
+
+@router.post("/users/me/telegram/code", response_model=TelegramCodeResponse)
+def issue_telegram_code(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TelegramCodeResponse:
+    """텔레그램 연동 인증 코드 발급 (10분 유효)
+
+    기존 미사용 코드는 삭제 후 새로 발급.
+    """
+    # 기존 코드 삭제 (만료 여부 무관)
+    db.query(TelegramVerification).filter(
+        TelegramVerification.user_id == current_user.id
+    ).delete()
+
+    # 신규 코드 생성 (충돌 시 재시도)
+    for _ in range(5):
+        code = _generate_code()
+        if not db.query(TelegramVerification).filter(TelegramVerification.code == code).first():
+            break
+
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    verification = TelegramVerification(
+        user_id=current_user.id,
+        code=code,
+        expires_at=expires_at,
+    )
+    db.add(verification)
+    db.commit()
+    return TelegramCodeResponse(code=code, expires_in=600)
+
+
+@router.get("/users/me/telegram", response_model=TelegramStatusResponse)
+def get_telegram_status(
+    current_user: User = Depends(get_current_user),
+) -> TelegramStatusResponse:
+    """텔레그램 연동 상태 조회"""
+    return TelegramStatusResponse(
+        connected=current_user.telegram_chat_id is not None,
+        verified_at=current_user.telegram_verified_at,
+    )
+
+
+@router.delete("/users/me/telegram", status_code=status.HTTP_204_NO_CONTENT)
+def disconnect_telegram(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """텔레그램 연동 해제"""
+    current_user.telegram_chat_id = None
+    current_user.telegram_verified_at = None
+    db.commit()

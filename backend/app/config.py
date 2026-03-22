@@ -57,9 +57,10 @@ class Settings(BaseSettings):
     # 투자 분석 시뮬레이터 기본값
     DEFAULT_LOAN_RATE: float = 0.045   # 대출 금리 기본값 (4.5%)
 
-    # 텔레그램 알림 (배치 수집 결과 알림)
+    # 텔레그램 알림 (배치 수집 결과 알림 + 개인 알림)
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
+    TELEGRAM_WEBHOOK_SECRET: str = ""  # Webhook 검증용 (setWebhook secret_token)
 
     # JWT 인증 (Phase I — 사용자 API)
     JWT_SECRET: str = "change-me-in-production"   # .env에서 반드시 재설정
