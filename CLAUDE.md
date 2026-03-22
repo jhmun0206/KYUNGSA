@@ -697,7 +697,7 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 
 ## 🧪 현재 테스트 현황
 
-- **총 391개 mock 테스트 전체 통과** (`cd backend && python -m pytest tests/ -v`)
+- **총 763개 mock 테스트 전체 통과** (`cd backend && python -m pytest tests/ -v`)
   - 크롤러: 61개 (기타 19 + 대법원 40 + URL-decode 2)
   - Enricher: 22개
   - FilterEngine: 27개 (RED 11 + YELLOW 12 + FilterEngine 6 + CostGate 3)
@@ -706,11 +706,11 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
   - RegistryMatcher: 13개 (지번일치 3 + 건물명 2 + 부분 1 + 동 1 + 실패 2 + 선택 2 + 결과 2)
   - RegistryParser: 40개
   - RegistryAnalyzer: 35개
-  - CODEF Registry: 62개 (mapper 40 + provider fetch 13 + search 6 + RSA 3 + Validation 9 = 71 → 실제 62)
+  - CODEF Registry: 62개 (mapper 40 + provider fetch 13 + search 6 + RSA 3 + Validation 9)
   - RegistryPipeline(2단): 27개
   - API 스키마: 16개 (summary 5 + detail 7 + registry 2 + request 2)
   - API 엔드포인트: 17개 (health 1 + list 5 + detail 4 + analyze 3 + registry 4)
-  - 기타: 23개
+  - 기타: 396개 (ML예측 + 점수엔진 + 명도 + Phase I 인증 포함)
 - **E2E 실전 검증 (4E, 2026-02-14):** address 100%, geocode 60%, land_use 100%, building 100%, market 100%, codef_search 70%, registry_full 86% (6/7)
 
 ---
@@ -719,7 +719,7 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 
 > 이 섹션은 매 작업 세션 시작/종료 시 업데이트한다.
 
-**현재 단계:** Phase K 완료 + 데이터 품질 개선 (2026-03-22)
+**현재 단계:** Phase J 인프라 완료 (텔레그램 연동 백엔드+프론트) + DB-REBUILD + 저장검색 태그 UI
 **완료된 것:**
 - 0단계~5F: 파이프라인 전체 구현 (크롤러 → 보강 → 필터 → 등기부 분석 → 점수 엔진 → 배치 수집)
 - Phase 6~8: 입지 데이터 + 낙찰 추적 + 명도 데이터 + CatBoost ML 낙찰가율 예측
@@ -728,30 +728,29 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 - Phase B~F: AuctionListRow + SearchResultsList + pillar Accordion + 등급 Tooltip + InvestmentCalculator
 - Phase G: InvestmentCalculator v1 (낙찰가 슬라이더 + 취등록세/대출/수익률)
 - Phase H-1~H-4: 건축물대장 자동 채움 + 월세 실거래가 + 대출 금리 + InvestmentCalculator 전면 개편 (룸 테이블)
-- Phase H-5: 한국부동산원 R-ONE API 상가 임대료 레퍼런스 (cashflow 페이지 배너)
+- Phase H-5: 한국부동산원 R-ONE API 상가 임대료 레퍼런스 (면적구간별 임대료 밴드)
 - Phase I: Google OAuth (NextAuth.js v5) + 백엔드 JWT + 즐겨찾기/저장검색 DB + localStorage 마이그레이션
 - Phase K-1: 상세 페이지 2컬럼 레이아웃 + 로드뷰 + 전유부 호실 자동채움
 - Phase K-2: 검색 페이지 전면 재설계 (SearchSidebar 8섹션 + AuctionTable 고정폭 + 리스크 신호등 🟢🟡🔴⚫)
-- **현금흐름 분석 페이지:** 현금흐름 계산 엔진 + 전체 컴포넌트 구현, 호실 면적 ×100 버그 수정
-- **데이터 품질 (2026-03-22):**
-  - 기일경과 749건 복원 (fix_past_due.py + systemd 04:30 타이머)
-  - batch_collector skip-existing 경량 upsert (4개 필드 갱신)
-  - 역이름+호선 검색/상세 표시 (formatStation, AuctionTable, BuildingInfoBar)
-  - location_score NULL인데 location_data 있는 610건 → 역이름 표시로 해결
-  - 남은 325건: location_data 자체 없음 (좌표 수집 실패) → "데이터 수집 중" 정상 표시
+- **현금흐름 분석 페이지:** 현금흐름 계산 엔진(lib/cashflow.ts) + 전체 컴포넌트, 면적/수익률 버그 수정
+- **Phase DB-REBUILD (2026-03-21):** 정규화 11컬럼 추출 + auction_rounds 테이블 신설 (5e6f7a8b9c0d)
+- **Phase J 인프라 (2026-03-21):** telegram_verifications 테이블(e3f4a5b6c7d8) + Webhook + TelegramModal + 코드 발급 API
+- **SearchSidebar 저장검색 태그 UI:** 전체 너비 태그 + summarizeParams + activeSearchId 토글
+- **데이터 품질:** 기일경과 749건 복원 (fix_past_due.py + 04:30 타이머), 역이름 fallback
 - **테스트:** 763개 통과 (백엔드 mock)
 
-**다음 할 일:** Phase J (알림 시스템) 또는 325건 location_data 재수집 (geocode 실패 케이스)
+**다음 할 일:** Phase J 알림 발송 로직 (저장검색 매칭→텔레그램) 또는 325건 location_data 재수집
 **블로커:** 없음
-**최근 변경:** 2026-03-22 — 역이름+호선 표시, location_score/data 불일치 610건 해결
+**최근 변경:** 2026-03-22 — RoundTimeline 예정/진행중 버그 수정 + 역이름 location_data fallback
 
 ---
 
 ## 📋 백로그 (미구현 예정 기능)
 
-### Phase J: 알림 시스템
-- 관심 물건 기일 D-day 알림 (Telegram Bot 또는 이메일)
-- 즐겨찾기 물건 상태 변경 알림 (낙찰/유찰/기일변경)
+### Phase J: 알림 발송 로직 (인프라 완료, 발송 미구현)
+- **완료된 것:** telegram_verifications DB + Webhook + TelegramModal + 코드 발급 API
+- **미구현:** 저장 검색 조건으로 신규 물건 매칭 시 텔레그램 메시지 발송 (cron job)
+- **미구현:** 즐겨찾기 물건 기일 D-day 알림, 상태 변경 알림
 
 ### 데이터 품질 개선
 - **325건 location_data 재수집**: geocode 실패 케이스 → 주소 정규화 후 재시도

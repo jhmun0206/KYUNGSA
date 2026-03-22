@@ -7,8 +7,8 @@
 | 항목 | 상태 |
 |------|------|
 | 프로젝트명 | KYUNGSA |
-| 현재 단계 | `Phase K-2 완료` (검색 페이지 전면 재설계) |
-| 최종 업데이트 | 2026-03-16 |
+| 현재 단계 | `Phase J 인프라 완료` (텔레그램 연동 + DB-REBUILD + 저장검색 태그 UI) |
+| 최종 업데이트 | 2026-03-22 |
 | 테스트 | 763개 통과 |
 | 배포 | https://kyungsa.com (Vercel) / https://api.kyungsa.com (Cloudflare Tunnel) |
 | 개발 도구 | Claude Code |
@@ -95,6 +95,7 @@ KYUNGSA/
 │   │   │   │   ├── auctions.py  # ⭐ v1 DB 기반 대시보드 API (3 엔드포인트)
 │   │   │   │   ├── auth.py      # ⭐ Phase I: OAuth upsert + JWT 발급
 │   │   │   │   ├── users.py     # ⭐ Phase I: 즐겨찾기 + 저장 검색 CRUD
+│   │   │   └── telegram.py  # ⭐ Phase J: 텔레그램 Webhook + /start 연동
 │   │   │   │   └── schemas.py   # v1 응답 스키마
 │   │   │   ├── schemas.py       # v0 응답/요청 스키마
 │   │   │   └── dependencies.py  # 의존성 주입
@@ -166,7 +167,9 @@ KYUNGSA/
 │   │   ├── a8f3c2d1e9b7_phase_h2_rent_price_info.py
 │   │   ├── b1c2d3e4f5a6_fix_pipeline_run_id_text.py
 │   │   ├── d2e3f4a5b6c7_phase_i_users.py   # ⭐ Phase I: users 3개 테이블
-│   │   └── 4d0e491c6f8f_merge_b1c2_and_d2e3.py  # merge head
+│   │   ├── 4d0e491c6f8f_merge_b1c2_and_d2e3.py  # merge head
+│   │   ├── 5e6f7a8b9c0d_db_rebuild_normalize_columns.py  # ⭐ DB-REBUILD: 정규화 11컬럼 + auction_rounds
+│   │   └── e3f4a5b6c7d8_phase_j_telegram.py  # ⭐ Phase J: telegram_verifications 테이블
 │   └── tests/                   # 763개 테스트 전체 통과
 ├── scripts/
 │   ├── run_batch.py             # 배치 수집기 CLI (--rescore-db 포함)
@@ -178,6 +181,7 @@ KYUNGSA/
 │   ├── retrain_model.py         # 월간 자동 재학습 (개선 시만 교체)
 │   ├── eda_prediction.py        # ML 학습 데이터 EDA
 │   ├── collect_occupancy.py     # 현황조사서 수집 CLI (단건/backfill)
+│   ├── fix_past_due.py          # ⭐ 기일경과 물건 상태 복원 (매일 04:30)
 │   ├── backfill_bcode.py        # b_code 역채움 CLI (geocode 기반)
 │   ├── run_pipeline.py          # 1단 파이프라인 실행
 │   ├── parse_registry.py        # 등기부 파싱 CLI
@@ -200,8 +204,8 @@ KYUNGSA/
     │   ├── compare/page.tsx     # 비교 페이지 (최대 3건)
     │   └── api/auth/[...nextauth]/route.ts  # ⭐ Phase I: NextAuth 핸들러
     ├── components/
-    │   ├── layout/              # Header (로그인/아바타), Footer, MobileNav, ThemeProvider,
-    │   │                        #   ThemeToggle, AuthSessionProvider
+    │   ├── layout/              # Header (로그인/아바타/텔레그램), Footer, MobileNav, ThemeProvider,
+    │   │                        #   ThemeToggle, AuthSessionProvider, TelegramModal
     │   ├── domain/              # AuctionListRow, AuctionCard, GradeBadge, CoveragePill,
     │   │                        #   PredictionPill, DisclaimerBanner, FavoriteButton(DB동기화),
     │   │                        #   CompareButton, CompareBar
@@ -378,10 +382,26 @@ KYUNGSA/
   - `ResultCard`: 낙찰가 요약 + 총 매입가 + 필요자금 + 임대수익률 + 에퀴티수익률
   - 버그 수정: 면적 소수점 `formatArea()` + `"use client"` + 임대 수익률 섹션 항상 표시
 
-### 미착수 / 백로그
+### Phase H-5: 상가 임대료 레퍼런스 ✅ 완료
 
-- [ ] **Phase J: 알림 시스템** — 저장된 검색 조건으로 신규 물건 매칭 시 알림 (텔레그램/이메일)
-- [ ] **Phase H-5: 상가 임대료 레퍼런스** — 한국부동산원 상업용부동산임대동향조사 API + 수익률 밴드 시각화
+- [x] **한국부동산원 R-ONE API** — 소규모상가 ㎡당 임대료 (자치구 단위, `rent_price_info` 연동)
+- [x] **InvestmentCalculator 임대료 참고 표시** — 면적구간별 시장 임대료 밴드 표시
+
+### Phase DB-REBUILD: DB 정규화 ✅ 완료
+
+- [x] **11개 정규화 컬럼 추출** — `auctions` 테이블에 `property_category`, `building_type`, `build_year`, `station_distance_m`, `exclusive_area_m2_real`, `floor_count`, `units_count_real`, `current_round` 등 정규화 컬럼 추가
+- [x] **`auction_rounds` 테이블 신설** — 기일 히스토리 별도 테이블 (round_no, bid_date, minimum_bid, result)
+- [x] **마이그레이션** — `5e6f7a8b9c0d_db_rebuild_normalize_columns.py`
+
+### Phase J: 텔레그램 알림 (인프라 완료, 발송 로직 미구현)
+
+- [x] **DB**: `telegram_verifications` 테이블 (code 6자리, 10분 만료), `users` 테이블에 `telegram_chat_id`, `telegram_verified_at` 컬럼 추가
+- [x] **API**: `POST /api/v1/users/me/telegram/code` (코드 발급), `GET/DELETE /api/v1/users/me/telegram` (상태/해제)
+- [x] **Webhook**: `POST /api/v1/telegram/webhook` — `/start <code>` 수신 → chat_id 연동
+- [x] **프론트엔드**: `TelegramModal.tsx` — Header 드롭다운에서 열기, 코드 발급/복사 UI
+- [ ] **알림 발송 로직** — 저장된 검색 조건 매칭 → 텔레그램 메시지 발송 (cron job, 미구현)
+
+### 미착수 / 백로그
 - [ ] **비교 페이지 고도화** — 현재 기본 UI만, 데이터 시각화 없음
 - [ ] **LLM 연동** — 자연어 리스크 설명 생성 (OpenAI GPT-4o, `services/llm/` 플레이스홀더)
 - [ ] **Validator 레이어** — ParseValidator, RuleValidator (`services/validator/` 플레이스홀더)
@@ -414,6 +434,10 @@ KYUNGSA/
 | GET | `/api/v1/users/me/saved-searches` | 저장된 검색 조건 목록 | ✅ Phase I |
 | POST | `/api/v1/users/me/saved-searches` | 검색 조건 저장 (최대 20개) | ✅ Phase I |
 | DELETE | `/api/v1/users/me/saved-searches/{id}` | 저장 검색 삭제 | ✅ Phase I |
+| GET | `/api/v1/users/me/telegram` | 텔레그램 연동 상태 조회 | ✅ Phase J |
+| POST | `/api/v1/users/me/telegram/code` | 텔레그램 연동 코드 발급 (6자리, 10분 만료) | ✅ Phase J |
+| DELETE | `/api/v1/users/me/telegram` | 텔레그램 연동 해제 | ✅ Phase J |
+| POST | `/api/v1/telegram/webhook` | 텔레그램 Bot Webhook 수신 (`/start <code>`) | ✅ Phase J |
 | GET | `/health` | 헬스 체크 | ✅ |
 
 **주요 쿼리 파라미터 (GET `/api/v1/auctions`)**
@@ -576,6 +600,8 @@ WinningBidCollector (매주 일 07:00) → 기수집 물건 낙찰가 사후 추
 | `kyungsa.service` | FastAPI 백엔드 (port 8000) | 상시 |
 | `cloudflared.service` | Cloudflare Tunnel | 상시 |
 | `kyungsa-batch.timer` | 일일 배치 수집 (서울 5개 법원) | 매일 03:00 |
+| `kyungsa-occupancy.timer` | 진행 물건 현황조사서 수집 | 매일 04:00 |
+| `kyungsa-fix-past-due.timer` | 기일경과 물건 상태 복원 | 매일 04:30 |
 | `kyungsa-sale-results.timer` | 전국 낙찰 완료 건 수집 | 매일 06:00 |
 | `kyungsa-winning-bids.timer` | 낙찰가 사후 추적 | 매주 일 07:00 |
 
@@ -585,7 +611,14 @@ WinningBidCollector (매주 일 07:00) → 기수집 물건 낙찰가 사후 추
 ```
 DATABASE_URL, PUBLIC_DATA_API_KEY, KAKAO_REST_API_KEY, VWORLD_API_KEY
 CODEF_CLIENT_ID, CODEF_CLIENT_SECRET, CODEF_PUBLIC_KEY
-OPENAI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+CODEF_SERVICE_TYPE=sandbox|demo|production   # 기본값: sandbox
+CODEF_SANDBOX_CLIENT_ID, CODEF_SANDBOX_CLIENT_SECRET
+CODEF_DEMO_CLIENT_ID, CODEF_DEMO_CLIENT_SECRET
+IROS_PHONE_NO, IROS_PASSWORD                 # 인터넷등기소 비회원 로그인
+IROS_EPREPAY_NO, IROS_EPREPAY_PASS           # 전자민원캐시 (700원/건)
+OPENAI_API_KEY
+TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID        # 배치 알림
+TELEGRAM_WEBHOOK_SECRET                      # ⭐ Phase J: Webhook 검증
 DEFAULT_LOAN_RATE=0.045
 JWT_SECRET          # Phase I: 임의 랜덤 문자열 (프론트 AUTH_SECRET과 무관)
 ```
@@ -598,6 +631,7 @@ NEXTAUTH_URL=https://kyungsa.com          # Phase I
 AUTH_SECRET=<랜덤>                         # Phase I
 AUTH_GOOGLE_ID=<Google Cloud Console>     # Phase I
 AUTH_GOOGLE_SECRET=<Google Cloud Console> # Phase I
+NEXT_PUBLIC_TELEGRAM_BOT=<봇 username>    # ⭐ Phase J: TelegramModal 봇 링크용
 ```
 
 ### 배포 흐름
@@ -701,3 +735,9 @@ chore: 빌드, 설정 변경
 | 2026-03-08 | Alembic heads 병합 | 4d0e491c6f8f merge (b1c2d3e4f5a6 + d2e3f4a5b6c7) |
 | 2026-03-16 | Phase K-2 검색 페이지 전면 재설계 | 사이드바 필터 + 고정폭 테이블 + 리스크 신호등 + property-category/risk-signals lib |
 | 2026-03-20 | 현금흐름 분석 페이지 버그 수정 | ResultCard `"use client"` + 임대 수익률 항상 표시 + 면적 소수점 `formatArea()` + `toFixed(1)` |
+| 2026-03-20 | Phase H-5 상가 임대료 레퍼런스 완료 | 한국부동산원 R-ONE API + 면적구간별 임대료 밴드 |
+| 2026-03-21 | Phase DB-REBUILD 완료 | 정규화 11컬럼 추출 + auction_rounds 테이블 신설 (5e6f7a8b9c0d) |
+| 2026-03-21 | Phase J 텔레그램 인프라 완료 | telegram_verifications + Webhook + TelegramModal + 코드 발급 API (e3f4a5b6c7d8) |
+| 2026-03-21 | 호실 면적 ×100 버그 수정 | expoArea 우선 + min 방어로 공용부 잘못된 값 차단 |
+| 2026-03-22 | 버그 수정 2건 | RoundTimeline 예정/진행중 + 역이름 location_data fallback |
+| 2026-03-22 | SearchSidebar 저장 검색 태그 UI 개선 | 전체 너비 태그 + summarizeParams + activeSearchId 토글 |
