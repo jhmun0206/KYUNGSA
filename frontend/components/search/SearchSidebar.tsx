@@ -3,8 +3,10 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { useCallback } from "react"
 import { RotateCcw } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { PROPERTY_CATEGORIES } from "@/lib/property-category"
 import { SEOUL_DISTRICTS, PRICE_RANGES } from "@/lib/constants"
+import { SavedSearchPanel } from "@/components/search/SavedSearchPanel"
 
 const REGION_OPTIONS = ["서울", "경기", "인천"]
 
@@ -49,6 +51,7 @@ export function SearchSidebar() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { data: session } = useSession()
 
   // 현재 선택 상태 (URL param 기준, 전부 서버 파라미터)
   const selectedTypes = (searchParams.get("category") ?? "").split(",").filter(Boolean)
@@ -300,6 +303,13 @@ export function SearchSidebar() {
           <RotateCcw size={13} />
           필터 초기화
         </button>
+      )}
+
+      {/* 저장된 검색 조건 — 로그인 시에만 표시 */}
+      {session && (
+        <SavedSearchPanel
+          currentParams={Object.fromEntries(searchParams.entries())}
+        />
       )}
     </div>
   )
