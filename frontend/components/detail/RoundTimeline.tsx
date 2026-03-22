@@ -82,7 +82,7 @@ export function RoundTimeline({ rounds }: Props) {
             <span
               className={`ml-auto px-2.5 py-0.5 rounded-full text-xs font-semibold ${getResultStyle(round.result)}`}
             >
-              {round.result || '진행중'}
+              {round.result || (isLatest ? '진행중' : '예정')}
             </span>
           </div>
         )
