@@ -165,7 +165,26 @@ export function calcLocationSignal(auction: AuctionDetailResponse): RiskSignal {
   const st = auction.nearest_station
   const stationDist = auction.station_distance_m
 
+  // 역 정보 텍스트 구성 (score 유무와 무관)
+  let stationText: string | null = null
+  if (st?.distance_m) {
+    const namePart = st.name ?? '가장 가까운 역'
+    const linePart = st.line ? ` (${st.line})` : ''
+    stationText = `${namePart}${linePart} ${st.distance_m}m`
+  } else if (stationDist != null) {
+    stationText = `가장 가까운 역 ${stationDist}m`
+  }
+
   if (score == null) {
+    // location_data는 있지만 점수 미산출인 경우: 역 정보 표시 + 점수 산출 중
+    if (stationText) {
+      return {
+        category: '입지',
+        color: 'unknown',
+        label: '점수 산출 중',
+        reason: stationText,
+      }
+    }
     return {
       category: '입지',
       color: 'unknown',
@@ -174,18 +193,8 @@ export function calcLocationSignal(auction: AuctionDetailResponse): RiskSignal {
     }
   }
 
-  let stationText: string
-  if (st?.distance_m) {
-    const namePart = st.name ?? '가장 가까운 역'
-    const linePart = st.line ? ` (${st.line})` : ''
-    stationText = `${namePart}${linePart} ${st.distance_m}m`
-  } else if (stationDist != null) {
-    stationText = `가장 가까운 역 ${stationDist}m`
-  } else {
-    stationText = '역거리 데이터 없음'
-  }
-
-  if (score >= 70) return { category: '입지', color: 'green', label: '양호', reason: stationText }
-  if (score >= 45) return { category: '입지', color: 'yellow', label: '주의', reason: stationText }
-  return { category: '입지', color: 'red', label: '위험', reason: stationText }
+  const reasonText = stationText ?? '역거리 데이터 없음'
+  if (score >= 70) return { category: '입지', color: 'green', label: '양호', reason: reasonText }
+  if (score >= 45) return { category: '입지', color: 'yellow', label: '주의', reason: reasonText }
+  return { category: '입지', color: 'red', label: '위험', reason: reasonText }
 }
