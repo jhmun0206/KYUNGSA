@@ -1,3 +1,4 @@
+import { formatStation } from "@/lib/utils"
 import type { AuctionDetailResponse } from "@/lib/types"
 
 interface Props {
@@ -56,6 +57,18 @@ export function BuildingInfoBar({ auction }: Props) {
         <div className="flex flex-col gap-0.5 min-w-[80px]">
           <span className="text-[11px] text-slate-400 dark:text-slate-500">위반건축물</span>
           <span className="text-sm font-semibold text-red-600 dark:text-red-400">⚠ 있음</span>
+        </div>
+      )}
+      {formatStation(
+        auction.nearest_station?.name,
+        auction.nearest_station?.line,
+        auction.nearest_station?.distance_m
+      ) && (
+        <div className="flex flex-col gap-0.5 min-w-[80px]">
+          <span className="text-[11px] text-slate-400 dark:text-slate-500">인근 역</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            🚇 {formatStation(auction.nearest_station?.name, auction.nearest_station?.line, auction.nearest_station?.distance_m)}
+          </span>
         </div>
       )}
     </div>

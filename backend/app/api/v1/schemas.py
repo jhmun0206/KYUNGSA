@@ -49,6 +49,8 @@ class AuctionListItem(BaseModel):
     property_category: str | None = None
     building_type: str | None = None        # '일반'/'집합'
     station_distance_m: int | None = None   # 역까지 거리(m)
+    nearest_station_name: str | None = None # 가장 가까운 역 이름
+    nearest_station_line: str | None = None # 호선
     build_year: int | None = None           # 사용승인연도
     exclusive_area_m2_real: float | None = None
     current_round: int = 1

@@ -305,6 +305,8 @@ def _auction_to_list_item(auction: Auction, score: Score | None) -> AuctionListI
         property_category=auction.property_category,
         building_type=auction.building_type,
         station_distance_m=auction.station_distance_m,
+        nearest_station_name=(auction.location_data or {}).get("nearest_station_name"),
+        nearest_station_line=(auction.location_data or {}).get("nearest_station_line"),
         build_year=auction.build_year,
         exclusive_area_m2_real=auction.exclusive_area_m2_real,
         current_round=auction.current_round,

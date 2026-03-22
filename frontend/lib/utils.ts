@@ -64,6 +64,19 @@ export function truncateAddress(addr: string, maxLen = 25): string {
   return addr.slice(0, maxLen) + "…"
 }
 
+/** 역 정보 포맷 (예: "역삼역 (2호선) 350m"). 이름 없으면 거리만, 모두 없으면 null */
+export function formatStation(
+  name: string | null | undefined,
+  line: string | null | undefined,
+  distanceM: number | null | undefined
+): string | null {
+  if (!name && !distanceM) return null
+  const parts: string[] = []
+  if (name) parts.push(line ? `${name} (${line})` : name)
+  if (distanceM) parts.push(`${distanceM.toLocaleString()}m`)
+  return parts.join(" ") || null
+}
+
 /** 매각기일까지 남은 일수 (숫자). 음수=지남, 0=오늘, 양수=미래 */
 export function calcDdayNumber(dateStr: string | null | undefined): number | null {
   if (!dateStr) return null

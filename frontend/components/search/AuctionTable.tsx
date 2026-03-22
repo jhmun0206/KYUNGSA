@@ -5,7 +5,7 @@ import { FavoriteButton } from "@/components/domain/FavoriteButton"
 import { CompareButton } from "@/components/domain/CompareButton"
 import { normalizePropertyType } from "@/lib/property-category"
 import { SIGNAL_EMOJI, calcListSignal, getSignalLabel } from "@/lib/risk-signals"
-import { formatPrice, calcDday, getDdayColor } from "@/lib/utils"
+import { formatPrice, calcDday, getDdayColor, formatStation } from "@/lib/utils"
 import type { AuctionListItem } from "@/lib/types"
 
 const SORTABLE_COLUMNS = [
@@ -141,6 +141,11 @@ function DesktopRow({ item, onClick }: { item: AuctionListItem; onClick: () => v
         <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
           {item.court} · {item.case_number}
         </div>
+        {formatStation(item.nearest_station_name, item.nearest_station_line, item.station_distance_m) && (
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+            🚇 {formatStation(item.nearest_station_name, item.nearest_station_line, item.station_distance_m)}
+          </div>
+        )}
       </td>
 
       {/* 감정가 */}
@@ -247,7 +252,12 @@ function MobileRow({ item, onClick }: { item: AuctionListItem; onClick: () => vo
       <p className="text-[13px] font-medium text-slate-900 dark:text-slate-100 truncate">
         {item.address}
       </p>
-      <p className="text-[11px] text-slate-400 mt-0.5">{item.court}</p>
+      <p className="text-[11px] text-slate-400 mt-0.5">
+        {item.court}
+        {formatStation(item.nearest_station_name, item.nearest_station_line, item.station_distance_m) && (
+          <> · 🚇 {formatStation(item.nearest_station_name, item.nearest_station_line, item.station_distance_m)}</>
+        )}
+      </p>
 
       {/* 가격 + 기일 */}
       <div className="flex items-baseline gap-3 mt-2">
