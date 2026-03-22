@@ -212,34 +212,33 @@ export function SearchSidebar() {
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             저장된 검색
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-col gap-1">
             {savedSearches.map((s) => {
               const active = activeSearchId === s.id
               const summary = summarizeParams(s.params_json)
               return (
                 <div
                   key={s.id}
-                  title={summary}
-                  className={`flex items-center gap-0.5 rounded-full pl-2.5 pr-1 py-1 transition-colors ${
+                  className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
                     active
                       ? "bg-primary text-primary-foreground"
-                      : "bg-primary/10 text-primary"
+                      : "bg-primary/10 text-primary hover:bg-primary/20"
                   }`}
                 >
                   <button
                     onClick={() => applySearch(s)}
-                    className="flex flex-col items-start leading-tight"
+                    className="flex-1 min-w-0 text-left"
                   >
-                    <span className="text-xs font-medium">{s.name}</span>
+                    <span className="text-xs font-medium block truncate">{s.name}</span>
                     {summary !== "전체 조건" && (
-                      <span className={`text-[10px] truncate max-w-[90px] ${active ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                      <span className={`text-[10px] block truncate ${active ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                         {summary}
                       </span>
                     )}
                   </button>
                   <button
                     onClick={() => handleDelete(s.id)}
-                    className={`ml-0.5 rounded-full p-0.5 transition-colors ${
+                    className={`ml-2 shrink-0 transition-colors ${
                       active
                         ? "text-primary-foreground/70 hover:text-primary-foreground"
                         : "text-muted-foreground hover:text-destructive"
