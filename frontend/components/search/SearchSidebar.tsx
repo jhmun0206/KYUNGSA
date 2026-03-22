@@ -1,12 +1,12 @@
 "use client"
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { useCallback } from "react"
-import { RotateCcw } from "lucide-react"
+import { useCallback, useState, useEffect } from "react"
+import { RotateCcw, Loader2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { PROPERTY_CATEGORIES } from "@/lib/property-category"
 import { SEOUL_DISTRICTS, PRICE_RANGES } from "@/lib/constants"
-import { SavedSearchPanel } from "@/components/search/SavedSearchPanel"
+import { fetchSavedSearches, saveSearch, deleteSavedSearch, type SavedSearch } from "@/lib/auth-api"
 
 const REGION_OPTIONS = ["서울", "경기", "인천"]
 
@@ -52,6 +52,46 @@ export function SearchSidebar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { data: session } = useSession()
+
+  // 저장된 검색 조건 상태
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
+  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [saveName, setSaveName] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  // 세션 로드 시 저장 목록 fetch
+  useEffect(() => {
+    if (!session?.backendToken) return
+    fetchSavedSearches(session.backendToken)
+      .then(setSavedSearches)
+      .catch(() => {})
+  }, [session?.backendToken])
+
+  const applySearch = (params: Record<string, string>) => {
+    router.push(`${pathname}?${new URLSearchParams(params).toString()}`)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!session?.backendToken) return
+    try {
+      await deleteSavedSearch(session.backendToken, id)
+      setSavedSearches((prev) => prev.filter((s) => s.id !== id))
+    } catch {}
+  }
+
+  const handleSave = async () => {
+    if (!session?.backendToken || !saveName.trim()) return
+    setSaving(true)
+    try {
+      const params = Object.fromEntries(searchParams.entries())
+      const created = await saveSearch(session.backendToken, saveName.trim(), params)
+      setSavedSearches((prev) => [created, ...prev])
+      setSaveName("")
+      setShowSaveInput(false)
+    } catch {} finally {
+      setSaving(false)
+    }
+  }
 
   // 현재 선택 상태 (URL param 기준, 전부 서버 파라미터)
   const selectedTypes = (searchParams.get("category") ?? "").split(",").filter(Boolean)
@@ -133,6 +173,37 @@ export function SearchSidebar() {
 
   return (
     <div className="space-y-5 text-sm">
+
+      {/* 저장된 검색 조건 태그 — 로그인 + 항목 있을 때만 */}
+      {session && savedSearches.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            저장된 검색
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {savedSearches.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center gap-0.5 rounded-full bg-primary/10 pl-2.5 pr-1 py-1"
+              >
+                <button
+                  onClick={() => applySearch(s.params_json)}
+                  className="text-xs text-primary font-medium hover:underline"
+                >
+                  {s.name}
+                </button>
+                <button
+                  onClick={() => handleDelete(s.id)}
+                  className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+                  aria-label="삭제"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 물건 종류 — 멀티셀렉 칩 */}
       <SidebarSection title="물건 종류" count={selectedTypes.length}>
@@ -305,11 +376,41 @@ export function SearchSidebar() {
         </button>
       )}
 
-      {/* 저장된 검색 조건 — 로그인 시에만 표시 */}
+      {/* 현재 조건 저장 — 로그인 시에만 표시 */}
       {session && (
-        <SavedSearchPanel
-          currentParams={Object.fromEntries(searchParams.entries())}
-        />
+        <div>
+          {!showSaveInput ? (
+            <button
+              onClick={() => setShowSaveInput(true)}
+              className="w-full rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-3 py-2 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+            >
+              💾 현재 조건 저장
+            </button>
+          ) : (
+            <div className="flex gap-1.5">
+              <input
+                autoFocus
+                type="text"
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSave()
+                  if (e.key === "Escape") { setShowSaveInput(false); setSaveName("") }
+                }}
+                placeholder="조건 이름 입력..."
+                maxLength={30}
+                className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+              />
+              <button
+                onClick={handleSave}
+                disabled={saving || !saveName.trim()}
+                className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+              >
+                {saving ? <Loader2 size={12} className="animate-spin" /> : "저장"}
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
