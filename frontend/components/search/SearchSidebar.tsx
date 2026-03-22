@@ -36,6 +36,29 @@ const BUILDING_TYPE_OPTIONS = [
   { value: "집합", label: "집합" },
 ]
 
+// 저장된 검색 조건 요약 텍스트
+function summarizeParams(params: Record<string, string>): string {
+  const parts: string[] = []
+  if (params.category) parts.push(params.category)
+  if (params.region) parts.push(params.region)
+  if (params.district) parts.push(params.district)
+  if (params.min_price || params.max_price) {
+    const fmt = (v: string) => {
+      const n = Number(v)
+      if (n >= 1_0000_0000) return `${n / 1_0000_0000}억`
+      if (n >= 1_000_0000) return `${n / 1_000_0000}천만`
+      return v
+    }
+    const min = params.min_price ? fmt(params.min_price) : ""
+    const max = params.max_price ? fmt(params.max_price) : ""
+    parts.push(`${min}~${max}`)
+  }
+  if (params.bid_count_min) parts.push(`유찰 ${params.bid_count_min}회+`)
+  if (params.grade) parts.push(`${params.grade}등급`)
+  if (params.building_type) parts.push(params.building_type)
+  return parts.join(" · ") || "전체 조건"
+}
+
 // 칩 스타일 헬퍼
 function chip(selected: boolean, sm = false) {
   return [
@@ -55,6 +78,7 @@ export function SearchSidebar() {
 
   // 저장된 검색 조건 상태
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
+  const [activeSearchId, setActiveSearchId] = useState<string | null>(null)
   const [showSaveInput, setShowSaveInput] = useState(false)
   const [saveName, setSaveName] = useState("")
   const [saving, setSaving] = useState(false)
@@ -67,8 +91,15 @@ export function SearchSidebar() {
       .catch(() => {})
   }, [session?.backendToken])
 
-  const applySearch = (params: Record<string, string>) => {
-    router.push(`${pathname}?${new URLSearchParams(params).toString()}`)
+  const applySearch = (s: SavedSearch) => {
+    if (activeSearchId === s.id) {
+      // 동일 태그 재클릭 → 조건 초기화
+      setActiveSearchId(null)
+      router.push(pathname)
+      return
+    }
+    setActiveSearchId(s.id)
+    router.push(`${pathname}?${new URLSearchParams(s.params_json).toString()}`)
   }
 
   const handleDelete = async (id: string) => {
@@ -76,6 +107,7 @@ export function SearchSidebar() {
     try {
       await deleteSavedSearch(session.backendToken, id)
       setSavedSearches((prev) => prev.filter((s) => s.id !== id))
+      if (activeSearchId === id) setActiveSearchId(null)
     } catch {}
   }
 
@@ -181,26 +213,44 @@ export function SearchSidebar() {
             저장된 검색
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {savedSearches.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center gap-0.5 rounded-full bg-primary/10 pl-2.5 pr-1 py-1"
-              >
-                <button
-                  onClick={() => applySearch(s.params_json)}
-                  className="text-xs text-primary font-medium hover:underline"
+            {savedSearches.map((s) => {
+              const active = activeSearchId === s.id
+              const summary = summarizeParams(s.params_json)
+              return (
+                <div
+                  key={s.id}
+                  title={summary}
+                  className={`flex items-center gap-0.5 rounded-full pl-2.5 pr-1 py-1 transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-primary/10 text-primary"
+                  }`}
                 >
-                  {s.name}
-                </button>
-                <button
-                  onClick={() => handleDelete(s.id)}
-                  className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors"
-                  aria-label="삭제"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+                  <button
+                    onClick={() => applySearch(s)}
+                    className="flex flex-col items-start leading-tight"
+                  >
+                    <span className="text-xs font-medium">{s.name}</span>
+                    {summary !== "전체 조건" && (
+                      <span className={`text-[10px] truncate max-w-[90px] ${active ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                        {summary}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(s.id)}
+                    className={`ml-0.5 rounded-full p-0.5 transition-colors ${
+                      active
+                        ? "text-primary-foreground/70 hover:text-primary-foreground"
+                        : "text-muted-foreground hover:text-destructive"
+                    }`}
+                    aria-label="삭제"
+                  >
+                    ×
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
