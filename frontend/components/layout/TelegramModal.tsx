@@ -14,10 +14,10 @@ export function TelegramModal({ onClose }: { onClose: () => void }) {
   const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? ""
 
   const handleIssueCode = async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const token = (session as any)?.backendToken as string | undefined
+    const token = session?.backendToken
+    console.log("[TelegramModal] session:", session, "token:", token)
     if (!token) {
-      setError("로그인이 필요합니다.")
+      setError("인증 토큰이 없습니다. 로그아웃 후 다시 로그인해주세요.")
       return
     }
     setLoading(true)
