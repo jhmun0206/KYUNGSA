@@ -134,6 +134,10 @@ class RuleEngineV2:
             occupancy_score=occupancy_result.score if occupancy_result else None,
             needs_expert_review=needs_expert,
             fail_count=fail_count,
+            appraised_value=case.appraised_value,
+            minimum_bid=case.minimum_bid,
+            court_office_code=case.court_office_code or "",
+            address=case.address or "",
         )
 
         return EvaluationResult(

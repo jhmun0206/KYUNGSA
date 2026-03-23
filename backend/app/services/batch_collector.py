@@ -519,6 +519,7 @@ class BatchCollector:
             predicted_winning_ratio=ts.predicted_winning_ratio,
             prediction_method=ts.prediction_method,
             scorer_version=ts.scorer_version,
+            scored_at=datetime.now(timezone.utc),
             pipeline_run_id=run_id,
         )
         self._db.add(score_orm)

@@ -75,6 +75,15 @@ class TotalScorer:
         occupancy_score: float | None = None,
         needs_expert_review: bool = False,
         fail_count: int = 0,
+        # WinningBidPredictor용 선택적 파라미터 (있으면 ML 예측, 없으면 rule_v1)
+        appraised_value: int | None = None,
+        minimum_bid: int | None = None,
+        court_office_code: str = "",
+        address: str = "",
+        rolling_avg: float | None = None,
+        rolling_count: int | None = None,
+        tenant_count: int = 0,
+        total_deposit: int = 0,
     ) -> TotalScoreResult:
         """통합 점수 산출
 
@@ -86,6 +95,14 @@ class TotalScorer:
             occupancy_score: 명도 리스크 점수 (0~100) — Phase 7
             needs_expert_review: 전문가 검토 필요 여부 (pillar에서 전달)
             fail_count: 유찰 횟수 (bid_count - 1). predicted_winning_ratio 산출에 사용.
+            appraised_value: 감정가 (원). WinningBidPredictor 호출 시 필수.
+            minimum_bid: 최저입찰가 (원). WinningBidPredictor 호출 시 필수.
+            court_office_code: 법원코드. WinningBidPredictor 선택 파라미터.
+            address: 소재지 주소. WinningBidPredictor 선택 파라미터.
+            rolling_avg: 유사 물건 3개월 평균 낙찰가율. WinningBidPredictor 선택 파라미터.
+            rolling_count: 유사 물건 3개월 건수. WinningBidPredictor 선택 파라미터.
+            tenant_count: 임차인 수. WinningBidPredictor 선택 파라미터.
+            total_deposit: 총 보증금 (원). WinningBidPredictor 선택 파라미터.
 
         Returns:
             TotalScoreResult
@@ -140,8 +157,20 @@ class TotalScorer:
         grade = self._assign_grade(total_score)
         grade_provisional = score_coverage < 0.70
 
-        # 7. 예측 낙찰가율 (rule_v1: 유찰 횟수 기반 통계값)
-        predicted_ratio = self._calc_predicted_ratio(category, fail_count)
+        # 7. 예측 낙찰가율: WinningBidPredictor 우선, rule_v1 fallback
+        predicted_ratio, prediction_method = self._calc_predicted_ratio_with_ml(
+            category=category,
+            fail_count=fail_count,
+            appraised_value=appraised_value,
+            minimum_bid=minimum_bid,
+            property_type=property_type,
+            court_office_code=court_office_code,
+            address=address,
+            rolling_avg=rolling_avg,
+            rolling_count=rolling_count,
+            tenant_count=tenant_count,
+            total_deposit=total_deposit,
+        )
 
         return TotalScoreResult(
             total_score=total_score,
@@ -159,7 +188,7 @@ class TotalScorer:
             needs_expert_review=needs_expert_review,
             scorer_version=SCORER_VERSION,
             predicted_winning_ratio=predicted_ratio,
-            prediction_method=PREDICTION_METHOD,
+            prediction_method=prediction_method,
         )
 
     @staticmethod
@@ -203,7 +232,55 @@ class TotalScorer:
 
         Phase 5F 백테스트에서 실데이터 기반으로 교체될 초기값.
         4회 이상 유찰은 마지막 값(인덱스 4)으로 클램프.
+        ※ predictor.py의 _predict_rule_v1에서도 호출됨. 시그니처 변경 금지.
         """
         table = _PREDICTED_RATIO_TABLE.get(category, _PREDICTED_RATIO_TABLE[DEFAULT_CATEGORY])
         idx = min(fail_count, len(table) - 1)
         return table[idx]
+
+    @staticmethod
+    def _calc_predicted_ratio_with_ml(
+        *,
+        category: str,
+        fail_count: int,
+        appraised_value: int | None,
+        minimum_bid: int | None,
+        property_type: str,
+        court_office_code: str,
+        address: str,
+        rolling_avg: float | None,
+        rolling_count: int | None,
+        tenant_count: int,
+        total_deposit: int,
+    ) -> tuple[float, str]:
+        """예측 낙찰가율 + prediction_method 반환.
+
+        appraised_value/minimum_bid가 제공되면 WinningBidPredictor를 호출한다.
+        ML 모델이 없으면 predictor 내부에서 rule_v1로 자동 fallback.
+        파라미터 부족 또는 예외 시 rule_v1 테이블 직접 조회.
+        지연 임포트(lazy import)로 순환 참조 방지.
+        """
+        if appraised_value is not None and minimum_bid is not None:
+            try:
+                from app.services.prediction.predictor import WinningBidPredictor  # noqa: PLC0415
+                predictor = WinningBidPredictor.get_instance()
+                result = predictor.predict(
+                    appraised_value=appraised_value,
+                    minimum_bid=minimum_bid,
+                    fail_count=fail_count,
+                    property_type=property_type,
+                    court_office_code=court_office_code,
+                    address=address,
+                    rolling_avg=rolling_avg,
+                    rolling_count=rolling_count,
+                    tenant_count=tenant_count,
+                    total_deposit=total_deposit,
+                )
+                return result.predicted_ratio, result.model_version
+            except Exception as exc:
+                logger.warning("WinningBidPredictor 호출 실패, rule_v1 fallback: %s", exc)
+
+        # rule_v1 fallback: 유찰 횟수 기반 테이블 조회
+        table = _PREDICTED_RATIO_TABLE.get(category, _PREDICTED_RATIO_TABLE[DEFAULT_CATEGORY])
+        idx = min(fail_count, len(table) - 1)
+        return table[idx], PREDICTION_METHOD
