@@ -16,9 +16,10 @@ export interface CashflowInput {
   acquisitionTaxRate: number // 취득세율 (예: 0.046)
   legalFee: number           // 법무사비 (만원)
   otherCosts: number         // 기타비용 (만원)
-  ltv: number                // 대출비율 (예: 0.80)
+  ltv: number                // 대출비율 (예: 0.70)
   loanRate: number           // 대출금리 (예: 0.045)
   units: CashflowUnit[]
+  vacancyRate: number        // 공실률 (예: 0.05 = 5%)
   salePrice?: number         // 매도 희망가 (만원, 선택)
 }
 
@@ -54,7 +55,7 @@ export interface CashflowResult {
 }
 
 export function calcCashflow(input: CashflowInput): CashflowResult {
-  const { bidPrice, acquisitionTaxRate, legalFee, otherCosts, ltv, loanRate, units, salePrice } = input
+  const { bidPrice, acquisitionTaxRate, legalFee, otherCosts, ltv, loanRate, units, vacancyRate, salePrice } = input
 
   // 매입 비용
   const acquisitionTax = Math.round(bidPrice * acquisitionTaxRate)
@@ -71,8 +72,9 @@ export function calcCashflow(input: CashflowInput): CashflowResult {
   const requiredEquity = Math.max(0, totalCost - loanAmount)
   const netEquity = Math.max(0, requiredEquity - totalDeposit)
 
-  // 수익률
-  const annualRentIncome = (totalMonthlyRent - monthlyInterest) * 12
+  // 수익률 (공실률 반영)
+  const effectiveMonthlyRent = totalMonthlyRent * (1 - (vacancyRate ?? 0))
+  const annualRentIncome = (effectiveMonthlyRent - monthlyInterest) * 12
   const annualYield = totalCost > 0
     ? parseFloat((annualRentIncome / totalCost * 100).toFixed(2))
     : 0
@@ -103,7 +105,7 @@ export function calcCashflow(input: CashflowInput): CashflowResult {
 /** 물건유형별 기본 LTV */
 export function getDefaultLtv(propertyCategory: string | null | undefined): number {
   const map: Record<string, number> = {
-    '상가/근린': 0.80, '근린1종': 0.80, '근린2종': 0.80,
+    '상가/근린': 0.70, '근린1종': 0.70, '근린2종': 0.70,  // 전문가 검증 기반 70%로 하향
     '오피스텔': 0.65,
     '아파트': 0.70,
     '다세대/빌라': 0.60, '단독/다가구': 0.60,
@@ -123,7 +125,11 @@ export function getAcquisitionTaxRate(
   // 주택 구간별 (1세대 1주택 기준)
   const won = bidPriceMan * 10000
   if (won <= 600_000_000) return 0.011
-  if (won <= 900_000_000) return 0.022
+  if (won <= 900_000_000) {
+    // 6~9억 선형 계산: 취득세 본세 = 1% + (취득가 - 6억) / 3억 × 2%, 지방교육세 10% 포함
+    const baseTax = 0.01 + ((won - 600_000_000) / 300_000_000) * 0.02
+    return parseFloat((baseTax * 1.1).toFixed(6))
+  }
   return 0.033
 }
 

@@ -41,6 +41,7 @@ export default function CashflowClient({ auction }: Props) {
   const [ltv, setLtv] = useState(defaultLtv)
   const [loanRate, setLoanRate] = useState(defaultLoanRate)
   const [units, setUnits] = useState<CashflowUnit[]>(() => initUnits(auction))
+  const [vacancyRate, setVacancyRate] = useState(0.05)
   const [salePrice, setSalePrice] = useState(0)
   const [rentRef, setRentRef] = useState<RentReference | null>(null)
 
@@ -60,6 +61,7 @@ export default function CashflowClient({ auction }: Props) {
     ltv,
     loanRate,
     units,
+    vacancyRate,
     salePrice: salePrice > 0 ? salePrice : undefined,
   })
 
@@ -97,6 +99,8 @@ export default function CashflowClient({ auction }: Props) {
           units={units}
           address={auction.address}
           propertyCategory={category}
+          vacancyRate={vacancyRate}
+          onVacancyRateChange={setVacancyRate}
           onChange={setUnits}
         />
         <SaleSection
@@ -113,6 +117,7 @@ export default function CashflowClient({ auction }: Props) {
             result={result}
             bidPrice={bidPrice}
             appraisedValue={appraisedVal > 0 ? appraisedVal : bidPrice}
+            vacancyRate={vacancyRate}
           />
         </div>
       </div>

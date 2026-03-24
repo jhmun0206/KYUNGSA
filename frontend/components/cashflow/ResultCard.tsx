@@ -12,6 +12,7 @@ interface Props {
   result: CashflowResult
   bidPrice: number       // 만원
   appraisedValue: number // 만원
+  vacancyRate?: number   // 공실률 (예: 0.05)
 }
 
 function Row({
@@ -58,7 +59,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function ResultCard({ result, bidPrice, appraisedValue }: Props) {
+export function ResultCard({ result, bidPrice, appraisedValue, vacancyRate }: Props) {
   const hasRent = result.totalMonthlyRent > 0
   const ratio = appraisedValue > 0 ? Math.round(bidPrice / appraisedValue * 100) : 0
 
@@ -105,7 +106,9 @@ export function ResultCard({ result, bidPrice, appraisedValue }: Props) {
       <SectionLabel>임대 수익률</SectionLabel>
       <div className="space-y-2">
         <Row
-          label="연 임대수익"
+          label={vacancyRate != null && vacancyRate > 0
+            ? `연 임대수익 (공실 ${(vacancyRate * 100).toFixed(0)}% 반영)`
+            : "연 임대수익"}
           value={hasRent ? `${result.annualRentIncome.toLocaleString()}만원` : "-"}
         />
         <Row

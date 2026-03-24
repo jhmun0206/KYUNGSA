@@ -4,10 +4,14 @@ import { Trash2 } from "lucide-react"
 import type { CashflowUnit } from "@/lib/cashflow"
 import { NearbyRentLink } from "./NearbyRentLink"
 
+const VACANCY_OPTIONS = [0, 0.05, 0.10, 0.15, 0.20]
+
 interface Props {
   units: CashflowUnit[]
   address: string
   propertyCategory: string | null | undefined
+  vacancyRate: number
+  onVacancyRateChange: (v: number) => void
   onChange: (units: CashflowUnit[]) => void
 }
 
@@ -35,7 +39,7 @@ function NumInput({
   )
 }
 
-export function UnitsTable({ units, address, propertyCategory, onChange }: Props) {
+export function UnitsTable({ units, address, propertyCategory, vacancyRate, onVacancyRateChange, onChange }: Props) {
   const hasEstimated = units.some(u => u.isEstimated)
   const hasRentData = units.some(u => u.isEstimated)
 
@@ -57,6 +61,26 @@ export function UnitsTable({ units, address, propertyCategory, onChange }: Props
           호실별 임대수익
         </h3>
         <NearbyRentLink address={address} propertyCategory={propertyCategory} />
+      </div>
+
+      {/* 공실률 선택 */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">공실률 가정</span>
+        <div className="flex gap-1 flex-wrap">
+          {VACANCY_OPTIONS.map(v => (
+            <button
+              key={v}
+              onClick={() => onVacancyRateChange(v)}
+              className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors ${
+                vacancyRate === v
+                  ? 'bg-blue-600 text-white border-blue-600 dark:bg-blue-500 dark:border-blue-500'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500'
+              }`}
+            >
+              {v === 0 ? '0%' : `${(v * 100).toFixed(0)}%`}
+            </button>
+          ))}
+        </div>
       </div>
 
       {hasEstimated && (

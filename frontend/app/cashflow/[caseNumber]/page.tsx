@@ -43,8 +43,11 @@ export default async function CashflowPage({ params }: PageProps) {
               <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                 현금흐름 분석
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                참고용 시뮬레이션입니다. 실제 세금·수익과 다를 수 있으며 투자 판단의 근거로 사용할 수 없습니다.
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 space-y-0.5">
+                <span className="block">참고용 시뮬레이션입니다. 실제 세금·수익과 다를 수 있으며 투자 판단의 근거로 사용할 수 없습니다.</span>
+                <span className="block">· 취득세는 낙찰가 기준 계산. 실제 납부액은 시가표준액·보유 주택 수에 따라 다를 수 있습니다.</span>
+                <span className="block">· LTV는 금융기관·물건·지역에 따라 크게 달라집니다. 필요 시 직접 수정하세요.</span>
+                <span className="block">· 수도권 규제지역 아파트는 유주택자 경락대출이 제한될 수 있습니다.</span>
               </p>
             </div>
             <span className="shrink-0 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
