@@ -78,7 +78,30 @@ export default async function LandingPage() {
         <HeroSearch />
       </section>
 
-      {/* 섹션 1: 이번 주 매각기일 */}
+      {/* 섹션 1: 통계 위젯 */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <Stat
+          label="진행중 물건"
+          value={stats.total_active > 0 ? `${stats.total_active.toLocaleString()}건` : "–"}
+        />
+        <Stat
+          label="이번 주 기일"
+          value={stats.this_week > 0 ? `${stats.this_week}건` : "–"}
+          accent
+        />
+        <Stat
+          label="A·B등급"
+          value={abCount > 0 ? `${abCount.toLocaleString()}건` : "–"}
+          accent
+        />
+        <Stat
+          label="등급 분포"
+          value={`A:${stats.grade_a} B:${stats.grade_b} C:${stats.grade_c}`}
+          small
+        />
+      </section>
+
+      {/* 섹션 2: 이번 주 매각기일 */}
       {upcoming.items.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
@@ -104,7 +127,7 @@ export default async function LandingPage() {
         </section>
       )}
 
-      {/* 섹션 2: 높은 평가 물건 */}
+      {/* 섹션 3: 높은 평가 물건 */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -128,29 +151,6 @@ export default async function LandingPage() {
             <AuctionListRow key={item.case_number} item={item} />
           ))}
         </div>
-      </section>
-
-      {/* 섹션 3: 통계 위젯 */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-        <Stat
-          label="진행중 물건"
-          value={stats.total_active > 0 ? `${stats.total_active.toLocaleString()}건` : "–"}
-        />
-        <Stat
-          label="이번 주 기일"
-          value={stats.this_week > 0 ? `${stats.this_week}건` : "–"}
-          accent
-        />
-        <Stat
-          label="A·B등급"
-          value={abCount > 0 ? `${abCount.toLocaleString()}건` : "–"}
-          accent
-        />
-        <Stat
-          label="등급 분포"
-          value={`A:${stats.grade_a} B:${stats.grade_b} C:${stats.grade_c}`}
-          small
-        />
       </section>
 
       <DisclaimerBanner />
