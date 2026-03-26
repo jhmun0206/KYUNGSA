@@ -94,11 +94,14 @@ export default async function LandingPage() {
           value={abCount > 0 ? `${abCount.toLocaleString()}건` : "–"}
           accent
         />
-        <Stat
-          label="등급 분포"
-          value={`A:${stats.grade_a} B:${stats.grade_b} C:${stats.grade_c}`}
-          small
-        />
+        <div className="flex flex-col items-center gap-0.5 py-3 rounded-lg border border-border bg-card">
+          <div className="flex justify-center gap-2 text-sm">
+            <span className="font-semibold text-green-600 dark:text-green-400">A {stats.grade_a}</span>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">B {stats.grade_b}</span>
+            <span className="font-semibold text-amber-600 dark:text-amber-400">C {stats.grade_c}</span>
+          </div>
+          <span className="text-xs text-muted-foreground">등급 분포</span>
+        </div>
       </section>
 
       {/* 섹션 2: 이번 주 매각기일 */}
