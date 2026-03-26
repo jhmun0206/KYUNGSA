@@ -719,7 +719,7 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 
 > 이 섹션은 매 작업 세션 시작/종료 시 업데이트한다.
 
-**현재 단계:** Phase J 인프라 완료 (텔레그램 연동 백엔드+프론트) + DB-REBUILD + 저장검색 태그 UI
+**현재 단계:** Phase 10 ML 재학습 완료 + 진행 물건 3,716건 ml_v1 재채점 완료
 **완료된 것:**
 - 0단계~5F: 파이프라인 전체 구현 (크롤러 → 보강 → 필터 → 등기부 분석 → 점수 엔진 → 배치 수집)
 - Phase 6~8: 입지 데이터 + 낙찰 추적 + 명도 데이터 + CatBoost ML 낙찰가율 예측
@@ -737,11 +737,22 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 - **Phase J 인프라 (2026-03-21):** telegram_verifications 테이블(e3f4a5b6c7d8) + Webhook + TelegramModal + 코드 발급 API
 - **SearchSidebar 저장검색 태그 UI:** 전체 너비 태그 + summarizeParams + activeSearchId 토글
 - **데이터 품질:** 기일경과 749건 복원 (fix_past_due.py + 04:30 타이머), 역이름 fallback
+- **2026-03-22:** RoundTimeline 예정/진행중 버그 수정 + 역이름 location_data fallback
+- **Phase 10 — ML 재학습 (2026-03-23~24):**
+  - rule_v1 캘리브레이션 테이블 전면 업데이트 (서울 5개 법원 실측값 반영, 아파트/꼬마빌딩/토지 전 구간)
+  - CatBoost 재학습 완료: 학습 데이터 `auctions.winning_ratio` 12,211건, CV MAE 7.2% (기존 18.2%에서 개선)
+  - 모델 경로: `models/prediction/model_v1.cbm` (홈서버 배치)
+  - `WinningBidPredictor` → `TotalScorer._calc_predicted_ratio_with_ml()` → `RuleEngineV2` 파이프라인 연결
+    - `total_scorer.py`: ml 파라미터 추가 (`appraised_value`/`minimum_bid`/`court_office_code`/`address`)
+    - `engine.py`: `EnrichedCase.case` 필드 직접 전달, rule_v1 fallback 유지
+  - `scores.scored_at` NULL 버그 수정 (`_save_score()`에 `datetime.now(timezone.utc)` 추가)
+  - 진행 물건 3,716건 ml_v1으로 재채점 완료 (`--rescore-db`)
+  - 자동화: 매일 낙찰 데이터 수집 → 월 1회 `retrain_model.py` 자동 재학습 예정
 - **테스트:** 763개 통과 (백엔드 mock)
 
 **다음 할 일:** Phase J 알림 발송 로직 (저장검색 매칭→텔레그램) 또는 325건 location_data 재수집
 **블로커:** 없음
-**최근 변경:** 2026-03-22 — RoundTimeline 예정/진행중 버그 수정 + 역이름 location_data fallback
+**최근 변경:** 2026-03-24 | Phase 10 ML 재학습 + rule_v1 캘리브레이션 | ml_v1 파이프라인 연결, scored_at 버그 수정
 
 ---
 

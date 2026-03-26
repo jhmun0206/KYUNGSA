@@ -3,6 +3,7 @@ import type {
   AuctionDetailResponse,
   AuctionListParams,
   AuctionListResponse,
+  HomeStats,
   MapResponse,
   RentReference,
 } from "@/lib/types"
@@ -48,6 +49,10 @@ export async function fetchAuctionDetail(
     // invalid percent-encoding — use as-is
   }
   return apiFetch<AuctionDetailResponse>(`/api/v1/auctions/${encodeURIComponent(normalized)}`)
+}
+
+export async function fetchStats(): Promise<HomeStats> {
+  return apiFetch<HomeStats>("/api/v1/stats")
 }
 
 export async function fetchMapItems(

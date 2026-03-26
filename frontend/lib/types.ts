@@ -206,6 +206,16 @@ export interface MapResponse {
   items: MapItem[]
 }
 
+// 홈 통계 위젯 응답
+export interface HomeStats {
+  total_active: number
+  this_week: number
+  grade_a: number
+  grade_b: number
+  grade_c: number
+  grade_d: number
+}
+
 // 필터 파라미터 (전부 서버 필터 — 클라이언트 필터 없음)
 export interface AuctionListParams {
   court_office_code?: string
@@ -222,6 +232,8 @@ export interface AuctionListParams {
   building_type?: string  // 건물 형태: '일반' | '집합'
   build_year_min?: number // 사용승인연도 이상 (예: 2015)
   station_radius_m?: number // 역까지 거리 이내(m) (예: 500, 1000)
+  auction_date_from?: string // 매각기일 시작 (inclusive, ISO date YYYY-MM-DD)
+  auction_date_to?: string   // 매각기일 종료 (inclusive, ISO date YYYY-MM-DD)
   page?: number
   size?: number
 }

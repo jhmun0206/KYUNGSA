@@ -1,44 +1,55 @@
 import Link from "next/link"
 import { ArrowRight, Building2 } from "lucide-react"
-import { fetchAuctions } from "@/lib/api"
+import { fetchAuctions, fetchStats } from "@/lib/api"
+import type { HomeStats } from "@/lib/types"
 import { AuctionListRow } from "@/components/domain/AuctionListRow"
 import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
+import { HeroSearch } from "@/components/home/HeroSearch"
 
 export const dynamic = "force-dynamic"
+
+const DEFAULT_STATS: HomeStats = {
+  total_active: 0,
+  this_week: 0,
+  grade_a: 0,
+  grade_b: 0,
+  grade_c: 0,
+  grade_d: 0,
+}
 
 export default async function LandingPage() {
   let upcoming = { items: [] as Awaited<ReturnType<typeof fetchAuctions>>["items"], total: 0 }
   let topPicks = { items: [] as Awaited<ReturnType<typeof fetchAuctions>>["items"], total: 0 }
-  let totalCount = 0
+  let stats: HomeStats = DEFAULT_STATS
   let apiError = false
 
+  // 서버사이드에서 오늘~7일 범위 계산
+  const today = new Date()
+  const in7days = new Date(today)
+  in7days.setDate(today.getDate() + 7)
+  const todayStr = today.toISOString().slice(0, 10)
+  const in7daysStr = in7days.toISOString().slice(0, 10)
+
   try {
-    const [upcomingRes, topPicksRes, allStats] = await Promise.all([
-      fetchAuctions({ grade: "A,B", sort: "auction_date", size: 20 }),
+    const [upcomingRes, topPicksRes, statsRes] = await Promise.all([
+      fetchAuctions({
+        grade: "A,B",
+        sort: "auction_date",
+        auction_date_from: todayStr,
+        auction_date_to: in7daysStr,
+        size: 8,
+      }),
       fetchAuctions({ grade: "A,B", sort: "grade", size: 12 }),
-      fetchAuctions({ size: 1 }),
+      fetchStats(),
     ])
     upcoming = upcomingRes
     topPicks = topPicksRes
-    totalCount = allStats.total
+    stats = statsRes
   } catch {
     apiError = true
   }
 
-  // 섹션 1: 오늘~7일 이내 매각기일 필터링 (서버 컴포넌트에서)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const in7days = new Date(today)
-  in7days.setDate(today.getDate() + 7)
-  const thisWeek = upcoming.items
-    .filter((item) => {
-      if (!item.auction_date) return false
-      const d = new Date(item.auction_date)
-      return d >= today && d <= in7days
-    })
-    .slice(0, 8)
-
-  const abCount = topPicks.total
+  const abCount = stats.grade_a + stats.grade_b
 
   return (
     <div className="mx-auto max-w-4xl space-y-12 pb-16">
@@ -55,23 +66,26 @@ export default async function LandingPage() {
           <Building2 className="h-7 w-7 text-primary" />
         </div>
         <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
-          경매 리스크를
-          <br className="sm:hidden" />
-          {" "}자동으로 구조화합니다
+          서울 경매 물건,
+          <br />
+          AI가 먼저 걸러드립니다
         </h1>
         <p className="mt-3 text-base text-muted-foreground sm:text-lg">
-          70%를 먼저 걸러내고, 볼 가치 있는 물건만 큐레이션합니다
+          서울 5개 법원 경매 물건을 매일 수집·등급화합니다.
+          <br className="hidden sm:block" />
+          상가·근린·꼬마빌딩 투자자를 위한 리스크 필터링 서비스.
         </p>
+        <HeroSearch />
       </section>
 
       {/* 섹션 1: 이번 주 매각기일 */}
-      {thisWeek.length > 0 && (
+      {upcoming.items.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-foreground">이번 주 매각기일</h2>
               <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
-                {thisWeek.length}건
+                {upcoming.items.length}건
               </span>
             </div>
             <Link
@@ -83,7 +97,7 @@ export default async function LandingPage() {
             </Link>
           </div>
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {thisWeek.map((item) => (
+            {upcoming.items.map((item) => (
               <AuctionListRow key={item.case_number} item={item} />
             ))}
           </div>
@@ -117,12 +131,26 @@ export default async function LandingPage() {
       </section>
 
       {/* 섹션 3: 통계 위젯 */}
-      <section className="flex flex-wrap items-center justify-center gap-6 sm:gap-10">
-        <Stat label="수집 물건" value={totalCount > 0 ? `${totalCount.toLocaleString()}건` : "–"} />
-        <div className="h-8 w-px bg-border" />
-        <Stat label="A/B등급" value={abCount > 0 ? `${abCount.toLocaleString()}건` : "–"} accent />
-        <div className="h-8 w-px bg-border" />
-        <Stat label="서울 5개 법원" value="수집 중" />
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <Stat
+          label="진행중 물건"
+          value={stats.total_active > 0 ? `${stats.total_active.toLocaleString()}건` : "–"}
+        />
+        <Stat
+          label="이번 주 기일"
+          value={stats.this_week > 0 ? `${stats.this_week}건` : "–"}
+          accent
+        />
+        <Stat
+          label="A·B등급"
+          value={abCount > 0 ? `${abCount.toLocaleString()}건` : "–"}
+          accent
+        />
+        <Stat
+          label="등급 분포"
+          value={`A:${stats.grade_a} B:${stats.grade_b} C:${stats.grade_c}`}
+          small
+        />
       </section>
 
       <DisclaimerBanner />
@@ -134,16 +162,20 @@ function Stat({
   label,
   value,
   accent = false,
+  small = false,
 }: {
   label: string
   value: string
   accent?: boolean
+  small?: boolean
 }) {
   return (
-    <div className="flex flex-col items-center gap-0.5">
+    <div className="flex flex-col items-center gap-0.5 py-3 rounded-lg border border-border bg-card">
       <span
-        className={`text-xl font-black tabular-nums ${
-          accent ? "text-primary" : "text-foreground"
+        className={`tabular-nums ${
+          small
+            ? "text-sm font-semibold text-foreground"
+            : `font-black ${accent ? "text-xl text-primary" : "text-xl text-foreground"}`
         }`}
       >
         {value}

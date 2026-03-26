@@ -368,6 +368,55 @@ def get_map_items(
     return MapResponse(items=items)
 
 
+@router.get("/stats")
+def get_stats(db: Session = Depends(get_db)) -> dict:
+    """홈 통계 위젯용 — 진행중 건수, 이번주 기일, 등급별 분포"""
+    from datetime import date, timedelta
+
+    today = date.today()
+    week_end = today + timedelta(days=7)
+    active_statuses = ["매각", "취하", "기각", "변경", "기일경과"]
+
+    total_active = (
+        db.query(func.count(Auction.id))
+        .filter(Auction.status.notin_(active_statuses))
+        .scalar()
+        or 0
+    )
+
+    this_week = (
+        db.query(func.count(Auction.id))
+        .filter(
+            Auction.status.notin_(active_statuses),
+            Auction.auction_date >= today,
+            Auction.auction_date <= week_end,
+        )
+        .scalar()
+        or 0
+    )
+
+    grade_dist = (
+        db.query(Score.grade, func.count(Score.id))
+        .join(Auction, Auction.id == Score.auction_id)
+        .filter(
+            Auction.status.notin_(active_statuses),
+            Score.grade.isnot(None),
+        )
+        .group_by(Score.grade)
+        .all()
+    )
+    grade_map = {g: c for g, c in grade_dist}
+
+    return {
+        "total_active": total_active,
+        "this_week": this_week,
+        "grade_a": grade_map.get("A", 0),
+        "grade_b": grade_map.get("B", 0),
+        "grade_c": grade_map.get("C", 0),
+        "grade_d": grade_map.get("D", 0),
+    }
+
+
 @router.get("/auctions", response_model=AuctionListResponse)
 def get_auctions(
     court_office_code: str | None = Query(None, description="법원 코드"),
@@ -384,6 +433,8 @@ def get_auctions(
     building_type: str | None = Query(None, description="건물 형태: '일반' | '집합'"),
     build_year_min: int | None = Query(None, ge=1900, description="사용승인연도 이상 (예: 2015)"),
     station_radius_m: int | None = Query(None, ge=1, description="역까지 거리 이내(m) (예: 500, 1000)"),
+    auction_date_from: date_type | None = Query(None, description="매각기일 시작 (inclusive, ISO date YYYY-MM-DD)"),
+    auction_date_to: date_type | None = Query(None, description="매각기일 종료 (inclusive, ISO date YYYY-MM-DD)"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -461,6 +512,12 @@ def get_auctions(
             Auction.station_distance_m.isnot(None),
             Auction.station_distance_m <= station_radius_m,
         )
+
+    # 매각기일 범위 필터
+    if auction_date_from is not None:
+        query = query.filter(Auction.auction_date >= auction_date_from)
+    if auction_date_to is not None:
+        query = query.filter(Auction.auction_date <= auction_date_to)
 
     # 전체 건수 (페이지네이션 전)
     total = query.count()
