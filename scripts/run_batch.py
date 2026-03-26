@@ -6,11 +6,14 @@
     PYTHONPATH=backend python scripts/run_batch.py --court B000210
     PYTHONPATH=backend python scripts/run_batch.py --court B000210 --max 10 --force
     PYTHONPATH=backend python scripts/run_batch.py --all-seoul
+    PYTHONPATH=backend python scripts/run_batch.py --all-gyeonggi
+    PYTHONPATH=backend python scripts/run_batch.py --all-courts
     PYTHONPATH=backend python scripts/run_batch.py --court B000210 --dry-run
 
 서버 (venv 환경):
     cd /home/eric/projects/KYUNGSA
     PYTHONPATH=backend .venv/bin/python scripts/run_batch.py --all-seoul
+    PYTHONPATH=backend .venv/bin/python scripts/run_batch.py --all-gyeonggi
 """
 
 from __future__ import annotations
@@ -37,6 +40,20 @@ SEOUL_COURTS = {
     "B000211": "서울남부",
     "B000213": "서울북부",
 }
+
+# 경기/인천 7개 법원코드 (대법원 경매정보 기준)
+GYEONGGI_COURTS = {
+    "B000201": "수원",
+    "B000205": "성남",
+    "B000206": "의정부",
+    "B000209": "인천",
+    "B000204": "부천",
+    "B000207": "고양",
+    "B000208": "평택",
+}
+
+# 수도권 전체 (서울 + 경기/인천)
+ALL_COURTS = {**SEOUL_COURTS, **GYEONGGI_COURTS}
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -110,7 +127,7 @@ def run_rescore_db(
     missing_building_info_only: bool = False,
 ) -> BatchResult:
     """DB 기반 재채점"""
-    label = SEOUL_COURTS.get(court_code, court_code) if court_code else "전체"
+    label = ALL_COURTS.get(court_code, court_code) if court_code else "전체"
     scope = "Score 보유 물건만" if score_exists else "Score 없는 건 포함"
     active_label = "진행중만" if active_only else "매각 포함 전체"
     status_label = f", status={status_filter}" if status_filter else ""
@@ -149,7 +166,7 @@ def run_single_court(
     skip_occupancy: bool = False,
 ) -> BatchResult:
     """단일 법원 수집"""
-    court_name = SEOUL_COURTS.get(court_code, court_code)
+    court_name = ALL_COURTS.get(court_code, court_code)
     print(f"\n수집 시작: {court_name} ({court_code})")
 
     db = SessionLocal()
@@ -172,12 +189,12 @@ def run_single_court(
 def main() -> None:
     parser = argparse.ArgumentParser(description="KYUNGSA 배치 수집기")
 
-    # --court / --all-seoul 은 서로 배타적
+    # --court / --all-seoul / --all-gyeonggi / --all-courts 는 서로 배타적
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument("--court", type=str, help="법원코드 (예: B000210)")
-    group.add_argument(
-        "--all-seoul", action="store_true", help="서울 5개 법원 순차 수집"
-    )
+    group.add_argument("--all-seoul", action="store_true", help="서울 5개 법원 순차 수집")
+    group.add_argument("--all-gyeonggi", action="store_true", help="경기/인천 7개 법원 순차 수집")
+    group.add_argument("--all-courts", action="store_true", help="수도권 전체 법원 순차 수집 (서울+경기/인천)")
 
     # --rescore-db 는 독립 플래그 (--court 와 조합 가능)
     parser.add_argument(
@@ -247,16 +264,17 @@ def main() -> None:
     # --missing-building-info 는 --rescore-db 자동 활성화
     if missing_building:
         args.rescore_db = True
-    if not (args.court or args.all_seoul or args.rescore_db or update_station or fix_dup_units):
-        parser.error("--court, --all-seoul, --rescore-db, --update-station-names, 또는 --fix-duplicate-units 중 하나를 지정하세요")
-    if args.all_seoul and args.rescore_db:
-        parser.error("--all-seoul 과 --rescore-db 는 함께 사용할 수 없습니다")
+    all_group = args.all_seoul or args.all_gyeonggi or args.all_courts
+    if not (args.court or all_group or args.rescore_db or update_station or fix_dup_units):
+        parser.error("--court, --all-seoul, --all-gyeonggi, --all-courts, --rescore-db, --update-station-names, 또는 --fix-duplicate-units 중 하나를 지정하세요")
+    if all_group and args.rescore_db:
+        parser.error("--all-seoul/--all-gyeonggi/--all-courts 와 --rescore-db 는 함께 사용할 수 없습니다")
 
     if args.dry_run:
         print("*** DRY-RUN 모드: DB 저장 없이 수집만 수행 ***\n")
 
     if fix_dup_units:
-        court_label = SEOUL_COURTS.get(args.court, args.court) if args.court else "전체"
+        court_label = ALL_COURTS.get(args.court, args.court) if args.court else "전체"
         print(f"\nbuilding_info.units 중복 제거 시작 ({court_label})")
         db = SessionLocal()
         try:
@@ -272,7 +290,7 @@ def main() -> None:
         return
 
     if update_station:
-        court_label = SEOUL_COURTS.get(args.court, args.court) if args.court else "전체"
+        court_label = ALL_COURTS.get(args.court, args.court) if args.court else "전체"
         print(f"\n역 이름/호선 보완 시작 ({court_label})")
         db = SessionLocal()
         try:
@@ -306,9 +324,22 @@ def main() -> None:
         )
         return
 
-    if args.all_seoul:
+    if args.all_seoul or args.all_gyeonggi or args.all_courts:
+        if args.all_seoul:
+            target_courts = SEOUL_COURTS
+            label_all = "서울 5개 법원"
+            code_all = "서울전체"
+        elif args.all_gyeonggi:
+            target_courts = GYEONGGI_COURTS
+            label_all = "경기/인천 7개 법원"
+            code_all = "경기인천전체"
+        else:  # all_courts
+            target_courts = ALL_COURTS
+            label_all = "수도권 전체 법원"
+            code_all = "수도권전체"
+
         results: list[BatchResult] = []
-        for code, name in SEOUL_COURTS.items():
+        for code, name in target_courts.items():
             result = run_single_court(
                 court_code=code,
                 max_items=args.max,
@@ -323,7 +354,7 @@ def main() -> None:
         total_processed = sum(r.processed for r in results)
         total_errors = sum(len(r.errors) for r in results)
         print(f"\n{'='*50}")
-        print(f"전체 서울 수집 완료: {total_processed}건 처리, {total_errors}건 에러")
+        print(f"{label_all} 수집 완료: {total_processed}건 처리, {total_errors}건 에러")
         print(f"{'='*50}")
 
         # 텔레그램 알림 (전체 합산)
@@ -334,8 +365,8 @@ def main() -> None:
             total_searched = sum(r.total_searched for r in results)
             if total_a > 0 or total_b > 0:
                 msg = format_batch_summary(
-                    court_code="서울전체",
-                    court_label="서울 5개 법원",
+                    court_code=code_all,
+                    court_label=label_all,
                     total_searched=total_searched,
                     new_count=total_new,
                     new_a=total_a,
@@ -354,7 +385,7 @@ def main() -> None:
         )
         # 텔레그램 알림 (단일 법원)
         if not args.dry_run:
-            court_label = SEOUL_COURTS.get(args.court, args.court)
+            court_label = ALL_COURTS.get(args.court, args.court)
             notify_result(result, court_label=court_label)
 
 
