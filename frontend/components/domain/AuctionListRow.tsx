@@ -16,7 +16,8 @@ export function AuctionListRow({ item }: { item: AuctionListItem }) {
   const ddayColor = getDdayColor(item.auction_date)
   const courtLabel =
     COURT_OPTIONS.find((c) => c.code === item.court_office_code)?.label ?? item.court
-  const detailHref = `/auction/${encodeURIComponent(item.case_number)}`
+  const seqSuffix = (item.property_sequence ?? 1) > 1 ? `?seq=${item.property_sequence}` : ""
+  const detailHref = `/auction/${encodeURIComponent(item.case_number)}${seqSuffix}`
   const mapHref = `https://map.kakao.com/link/search/${encodeURIComponent(item.address ?? "")}`
   const isSold = item.status === "매각"
   const isPastDue = item.is_past_due

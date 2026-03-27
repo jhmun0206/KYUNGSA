@@ -34,7 +34,7 @@ export function AuctionCard({ item, className }: Props) {
       )}
     >
       <Link
-        href={`/auction/${encodeURIComponent(item.case_number)}`}
+        href={`/auction/${encodeURIComponent(item.case_number)}${(item.property_sequence ?? 1) > 1 ? `?seq=${item.property_sequence}` : ""}`}
         className="flex flex-col gap-3 p-4"
       >
         {/* 상단: 등급 + 태그 + 즐겨찾기 */}

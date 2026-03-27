@@ -198,7 +198,7 @@ export default function FavoritesPage() {
 
                   <div className="ml-3 flex shrink-0 items-center gap-1">
                     <Link
-                      href={`/auction/${encodeURIComponent(item.case_number)}`}
+                      href={`/auction/${encodeURIComponent(item.case_number)}${(item.property_sequence ?? 1) > 1 ? `?seq=${item.property_sequence}` : ""}`}
                       className="rounded-md bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
                     >
                       상세
@@ -266,7 +266,7 @@ export default function FavoritesPage() {
 
                     <div className="ml-3 flex shrink-0 items-center gap-1">
                       <Link
-                        href={`/auction/${encodeURIComponent(item.case_number)}`}
+                        href={`/auction/${encodeURIComponent(item.case_number)}${(item.property_sequence ?? 1) > 1 ? `?seq=${item.property_sequence}` : ""}`}
                         className="rounded-md bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
                       >
                         상세

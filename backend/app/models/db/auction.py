@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, Float, Index, Integer, String, Text
+from sqlalchemy import BigInteger, Date, Float, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.db.base import Base, JSONBOrJSON, PrimaryKeyMixin, TimestampMixin
@@ -19,7 +19,8 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "auctions"
 
     # 정규화 컬럼 (WHERE / ORDER BY 대상)
-    case_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    case_number: Mapped[str] = mapped_column(String(50), nullable=False)
+    property_sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     court: Mapped[str] = mapped_column(String(100), nullable=False)
     court_office_code: Mapped[str] = mapped_column(String(20), nullable=False, default="")
     address: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -80,7 +81,10 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
         "Score", back_populates="auction", uselist=False, cascade="all, delete-orphan"
     )
     occupancy_reports: Mapped[list[OccupancyReport]] = relationship(
-        "OccupancyReport", cascade="all, delete-orphan"
+        "OccupancyReport",
+        primaryjoin="Auction.case_number == foreign(OccupancyReport.case_number)",
+        back_populates="auction",
+        cascade="all, delete-orphan",
     )
 
     # 관계 (auction_rounds)
@@ -89,6 +93,7 @@ class Auction(PrimaryKeyMixin, TimestampMixin, Base):
     )
 
     __table_args__ = (
+        UniqueConstraint("case_number", "property_sequence", name="auctions_case_number_seq_key"),
         Index("ix_auctions_court", "court"),
         Index("ix_auctions_court_office_code", "court_office_code"),
         Index("ix_auctions_property_type", "property_type"),

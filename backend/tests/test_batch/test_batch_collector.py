@@ -450,10 +450,10 @@ class TestPropertyTypeFallback:
 
 
 class TestDuplicateCaseNumber:
-    """같은 case_number, 다른 property_sequence 중복 방지"""
+    """같은 case_number, 다른 property_sequence → 각각 별도 행으로 저장"""
 
-    def test_same_case_different_seq_processed_once(self, db_session):
-        """같은 사건번호의 물건순서 1,2,3 → 1건만 처리"""
+    def test_same_case_different_seq_all_processed(self, db_session):
+        """같은 사건번호의 물건순서 1,2,3 → 3건 모두 처리, 3행 저장"""
         items = [
             AuctionCaseListItem(
                 case_number="2026타경10001",
@@ -471,7 +471,19 @@ class TestDuplicateCaseNumber:
 
         crawler = MagicMock(spec=CourtAuctionClient)
         crawler.search_cases_with_total.return_value = (items, 3)
-        crawler.fetch_case_detail.return_value = _make_detail("2026타경10001")
+        # property_sequence를 detail에 반영해야 복합 UNIQUE 충돌 방지
+        crawler.fetch_case_detail.side_effect = (
+            lambda case_number, court_office_code, property_sequence="1": AuctionCaseDetail(
+                case_number="2026타경10001",
+                court="서울중앙지방법원",
+                court_office_code="B000210",
+                property_type="아파트",
+                address="서울특별시 강남구 역삼동 123-4",
+                appraised_value=500_000_000,
+                minimum_bid=400_000_000,
+                property_sequence=property_sequence,
+            )
+        )
 
         enricher = MagicMock()
         enricher.enrich.side_effect = lambda d: EnrichedCase(case=d)
@@ -481,14 +493,18 @@ class TestDuplicateCaseNumber:
         )
         result = collector.collect("B000210", enrich_delay=0)
 
-        assert result.processed == 1
-        assert result.skipped == 2
-        assert db_session.query(Auction).count() == 1
-        # fetch_case_detail은 1번만 호출
-        assert crawler.fetch_case_detail.call_count == 1
+        assert result.processed == 3
+        assert result.skipped == 0
+        assert db_session.query(Auction).count() == 3
+        assert crawler.fetch_case_detail.call_count == 3
+        # 각 행의 property_sequence가 다름을 확인
+        seqs = sorted(
+            r.property_sequence for r in db_session.query(Auction).all()
+        )
+        assert seqs == [1, 2, 3]
 
-    def test_force_mode_dedup(self, db_session):
-        """--force 모드에서도 같은 사건번호 중복 처리 안 함"""
+    def test_force_mode_all_seqs_processed(self, db_session):
+        """--force 모드에서도 같은 사건번호의 seq 1,2는 모두 처리"""
         items = [
             AuctionCaseListItem(
                 case_number="2026타경10001",
@@ -506,7 +522,18 @@ class TestDuplicateCaseNumber:
 
         crawler = MagicMock(spec=CourtAuctionClient)
         crawler.search_cases_with_total.return_value = (items, 2)
-        crawler.fetch_case_detail.return_value = _make_detail("2026타경10001")
+        crawler.fetch_case_detail.side_effect = (
+            lambda case_number, court_office_code, property_sequence="1": AuctionCaseDetail(
+                case_number="2026타경10001",
+                court="서울중앙지방법원",
+                court_office_code="B000210",
+                property_type="아파트",
+                address="서울특별시 강남구 역삼동 123-4",
+                appraised_value=500_000_000,
+                minimum_bid=400_000_000,
+                property_sequence=property_sequence,
+            )
+        )
 
         enricher = MagicMock()
         enricher.enrich.side_effect = lambda d: EnrichedCase(case=d)
@@ -516,9 +543,9 @@ class TestDuplicateCaseNumber:
         )
         result = collector.collect("B000210", force_update=True, enrich_delay=0)
 
-        assert result.processed == 1
-        assert result.skipped == 1
-        assert crawler.fetch_case_detail.call_count == 1
+        assert result.processed == 2
+        assert result.skipped == 0
+        assert crawler.fetch_case_detail.call_count == 2
 
     def test_different_cases_all_processed(self, db_session):
         """다른 사건번호는 모두 정상 처리"""

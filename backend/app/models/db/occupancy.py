@@ -29,9 +29,10 @@ class OccupancyReport(PrimaryKeyMixin, TimestampMixin, Base):
 
     __tablename__ = "occupancy_reports"
 
+    # auctions.case_number가 복합 UNIQUE(case_number, property_sequence)로 변경됨.
+    # 단독 FK 참조 불가 → 소프트 참조(unique index만 유지)로 변경.
     case_number: Mapped[str] = mapped_column(
         String(50),
-        ForeignKey("auctions.case_number"),
         unique=True,
         nullable=False,
     )
@@ -47,7 +48,9 @@ class OccupancyReport(PrimaryKeyMixin, TimestampMixin, Base):
 
     # 관계
     auction: Mapped[Auction] = relationship(
-        "Auction", back_populates="occupancy_reports"
+        "Auction",
+        primaryjoin="foreign(OccupancyReport.case_number) == Auction.case_number",
+        back_populates="occupancy_reports",
     )
     tenants: Mapped[list[OccupancyTenant]] = relationship(
         "OccupancyTenant",

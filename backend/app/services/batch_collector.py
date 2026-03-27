@@ -276,18 +276,27 @@ class BatchCollector:
             if not case_number:
                 continue
 
-            # 같은 배치 내 중복 스킵 (같은 사건번호, 다른 property_sequence)
-            if case_number in self._seen_cases:
+            # 같은 배치 내 중복 스킵 (case_number + property_sequence 조합 기준)
+            prop_seq_raw = item.property_sequence or "1"
+            try:
+                prop_seq_int = max(1, int(prop_seq_raw))
+            except (ValueError, TypeError):
+                prop_seq_int = 1
+            seen_key = f"{case_number}_{prop_seq_int}"
+            if seen_key in self._seen_cases:
                 result.skipped += 1
-                logger.debug("스킵 (배치 내 중복): %s", case_number)
+                logger.debug("스킵 (배치 내 중복): %s seq=%d", case_number, prop_seq_int)
                 continue
-            self._seen_cases.add(case_number)
+            self._seen_cases.add(seen_key)
 
             # skip-existing — 단, 경매 기본 정보 4개는 경량 upsert
             if not force_update and not dry_run:
                 existing = (
                     self._db.query(Auction)
-                    .filter(Auction.case_number == case_number)
+                    .filter(
+                        Auction.case_number == case_number,
+                        Auction.property_sequence == prop_seq_int,
+                    )
                     .first()
                 )
                 if existing:
@@ -397,10 +406,17 @@ class BatchCollector:
 
         # DB 저장 (per-case commit)
         if not dry_run:
-            # upsert 여부 판단
+            # upsert 여부 판단 (복합 키)
+            try:
+                ps_int = max(1, int(detail.property_sequence)) if detail.property_sequence else 1
+            except (ValueError, TypeError):
+                ps_int = 1
             existing = (
                 self._db.query(Auction.id)
-                .filter(Auction.case_number == detail.case_number)
+                .filter(
+                    Auction.case_number == detail.case_number,
+                    Auction.property_sequence == ps_int,
+                )
                 .first()
             )
             is_update = existing is not None

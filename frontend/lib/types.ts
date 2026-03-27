@@ -4,6 +4,7 @@ export type Grade = "A" | "B" | "C" | "D"
 
 export interface AuctionListItem {
   case_number: string
+  property_sequence: number   // 물건번호 (1, 2, 3, ...)
   address: string
   property_type: string
   court: string
@@ -96,6 +97,7 @@ export interface MLPrediction {
 
 export interface AuctionDetailResponse {
   case_number: string
+  property_sequence: number   // 물건번호 (1, 2, 3, ...)
   address: string
   property_type: string
   court: string

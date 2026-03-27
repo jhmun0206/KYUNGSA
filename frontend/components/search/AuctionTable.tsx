@@ -44,8 +44,9 @@ export function AuctionTable({ items, total }: Props) {
     router.push(`${pathname}?${params.toString()}`)
   }
 
-  function navigateToDetail(caseNumber: string) {
-    router.push(`/auction/${encodeURIComponent(caseNumber)}`)
+  function navigateToDetail(caseNumber: string, seq: number = 1) {
+    const suffix = seq > 1 ? `?seq=${seq}` : ""
+    router.push(`/auction/${encodeURIComponent(caseNumber)}${suffix}`)
   }
 
   if (items.length === 0) {
@@ -88,9 +89,9 @@ export function AuctionTable({ items, total }: Props) {
           <tbody>
             {items.map((item) => (
               <DesktopRow
-                key={item.case_number}
+                key={`${item.case_number}_${item.property_sequence}`}
                 item={item}
-                onClick={() => navigateToDetail(item.case_number)}
+                onClick={() => navigateToDetail(item.case_number, item.property_sequence)}
               />
             ))}
           </tbody>
@@ -101,9 +102,9 @@ export function AuctionTable({ items, total }: Props) {
       <div className="lg:hidden divide-y divide-slate-100 dark:divide-slate-800">
         {items.map((item) => (
           <MobileRow
-            key={item.case_number}
+            key={`${item.case_number}_${item.property_sequence}`}
             item={item}
-            onClick={() => navigateToDetail(item.case_number)}
+            onClick={() => navigateToDetail(item.case_number, item.property_sequence)}
           />
         ))}
       </div>

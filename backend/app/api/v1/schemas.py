@@ -16,6 +16,7 @@ class AuctionListItem(BaseModel):
     """물건 목록 카드 (1건)"""
 
     case_number: str
+    property_sequence: int = 1
     address: str
     property_type: str
     court: str
@@ -105,6 +106,7 @@ class AuctionDetailResponse(BaseModel):
 
     # 기본 정보
     case_number: str
+    property_sequence: int = 1
     address: str
     property_type: str
     court: str

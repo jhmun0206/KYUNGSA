@@ -38,7 +38,8 @@ export async function fetchAuctions(
 }
 
 export async function fetchAuctionDetail(
-  caseNumber: string
+  caseNumber: string,
+  seq: number = 1,
 ): Promise<AuctionDetailResponse> {
   // Next.js App Router params may pass URL-encoded segments as-is.
   // Normalize: decode first (no-op if already decoded), then re-encode.
@@ -48,7 +49,8 @@ export async function fetchAuctionDetail(
   } catch {
     // invalid percent-encoding — use as-is
   }
-  return apiFetch<AuctionDetailResponse>(`/api/v1/auctions/${encodeURIComponent(normalized)}`)
+  const params = seq > 1 ? { seq } : undefined
+  return apiFetch<AuctionDetailResponse>(`/api/v1/auctions/${encodeURIComponent(normalized)}`, params)
 }
 
 export async function fetchStats(): Promise<HomeStats> {
@@ -62,10 +64,11 @@ export async function fetchMapItems(
 }
 
 /** 인근 상가 임대료 레퍼런스 (클라이언트 전용, useEffect에서 호출) */
-export async function fetchRentReference(caseNumber: string): Promise<RentReference> {
+export async function fetchRentReference(caseNumber: string, seq: number = 1): Promise<RentReference> {
   let normalized = caseNumber
   try { normalized = decodeURIComponent(caseNumber) } catch { /* ignore */ }
-  const url = `${API_BASE}/api/v1/auctions/${encodeURIComponent(normalized)}/rent-reference`
+  const seqSuffix = seq > 1 ? `?seq=${seq}` : ""
+  const url = `${API_BASE}/api/v1/auctions/${encodeURIComponent(normalized)}/rent-reference${seqSuffix}`
   try {
     const res = await fetch(url)
     if (!res.ok) return { available: false, region: null, rent: null, vacancy: null }

@@ -12,14 +12,16 @@ import { DisclaimerBanner } from "@/components/domain/DisclaimerBanner"
 
 interface PageProps {
   params: { caseNumber: string }
+  searchParams?: { seq?: string }
 }
 
-export default async function AuctionDetailPage({ params }: PageProps) {
+export default async function AuctionDetailPage({ params, searchParams }: PageProps) {
   let auction
   let apiError = false
+  const seq = Number(searchParams?.seq ?? 1) || 1
 
   try {
-    auction = await fetchAuctionDetail(params.caseNumber)
+    auction = await fetchAuctionDetail(params.caseNumber, seq)
   } catch (err) {
     if (err instanceof ApiNotFoundError) {
       notFound()
@@ -63,6 +65,13 @@ export default async function AuctionDetailPage({ params }: PageProps) {
 
       {/* 1. 헤더: 신호등 + 주소 + 버튼 */}
       <DetailHeader auction={auction} />
+      {auction.property_sequence > 1 && (
+        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950 px-2.5 py-0.5">
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+            물건번호 {auction.property_sequence}
+          </span>
+        </div>
+      )}
 
       {/* 2. 기본정보 + 위치 */}
       <div className="mt-6">

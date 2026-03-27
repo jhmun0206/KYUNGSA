@@ -79,8 +79,16 @@ def auction_detail_to_orm(
     rent_price: RentPriceInfo | None = None,
 ) -> Auction:
     """AuctionCaseDetail (+ enrichment) → Auction ORM"""
+    # property_sequence: str("1","2",...) → int, 빈값/파싱실패 시 1
+    try:
+        prop_seq = int(detail.property_sequence) if detail.property_sequence else 1
+        prop_seq = max(1, prop_seq)
+    except (ValueError, TypeError):
+        prop_seq = 1
+
     orm = Auction(
         case_number=detail.case_number,
+        property_sequence=prop_seq,
         court=detail.court,
         court_office_code=detail.court_office_code,
         address=detail.address,
@@ -385,11 +393,25 @@ def _sync_auction_round_fields(db: Session, auction: Auction) -> None:
 def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
     """EnrichedCase → DB 전체 저장 (upsert 방식)
 
-    기존 case_number가 있으면 업데이트, 없으면 생성.
+    기존 (case_number, property_sequence)가 있으면 업데이트, 없으면 생성.
     모든 하위 테이블(filter, events, analysis) 포함.
     """
-    # 기존 조회
-    existing = db.query(Auction).filter(Auction.case_number == enriched.case.case_number).first()
+    # property_sequence 정수 변환
+    try:
+        prop_seq = int(enriched.case.property_sequence) if enriched.case.property_sequence else 1
+        prop_seq = max(1, prop_seq)
+    except (ValueError, TypeError):
+        prop_seq = 1
+
+    # 기존 조회 (복합 키)
+    existing = (
+        db.query(Auction)
+        .filter(
+            Auction.case_number == enriched.case.case_number,
+            Auction.property_sequence == prop_seq,
+        )
+        .first()
+    )
 
     if existing:
         auction = existing

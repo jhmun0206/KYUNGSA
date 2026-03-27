@@ -281,6 +281,7 @@ def _auction_to_list_item(auction: Auction, score: Score | None) -> AuctionListI
     )
     return AuctionListItem(
         case_number=auction.case_number,
+        property_sequence=auction.property_sequence,
         address=auction.address,
         property_type=auction.property_type,
         court=auction.court,
@@ -557,17 +558,21 @@ def get_auctions(
 @router.get("/auctions/{case_number}", response_model=AuctionDetailResponse)
 def get_auction_detail(
     case_number: str,
+    seq: int = Query(default=1, ge=1, description="물건번호 (기본값: 1)"),
     db: Session = Depends(get_db),
 ) -> AuctionDetailResponse:
-    """물건 상세 조회"""
+    """물건 상세 조회. seq 파라미터로 복수 물건번호 지원."""
     row = (
         db.query(Auction, Score)
         .outerjoin(Score, Auction.id == Score.auction_id)
-        .filter(Auction.case_number == case_number)
+        .filter(
+            Auction.case_number == case_number,
+            Auction.property_sequence == seq,
+        )
         .first()
     )
     if row is None:
-        raise HTTPException(status_code=404, detail=f"물건을 찾을 수 없습니다: {case_number}")
+        raise HTTPException(status_code=404, detail=f"물건을 찾을 수 없습니다: {case_number} seq={seq}")
 
     auction, score = row
     lat, lng = _parse_coords(auction.coordinates)
@@ -584,6 +589,7 @@ def get_auction_detail(
 
     return AuctionDetailResponse(
         case_number=auction.case_number,
+        property_sequence=auction.property_sequence,
         address=auction.address,
         property_type=auction.property_type,
         court=auction.court,
@@ -619,6 +625,7 @@ def get_auction_detail(
 @router.get("/auctions/{case_number}/rent-reference")
 def get_rent_reference(
     case_number: str,
+    seq: int = Query(default=1, ge=1, description="물건번호 (기본값: 1)"),
     db: Session = Depends(get_db),
 ) -> dict:
     """물건 주소 기반 인근 상가 임대료 레퍼런스 반환
@@ -636,9 +643,13 @@ def get_rent_reference(
         STATBL_SMALL_SHOP_VACANCY,
     )
 
-    auction = db.query(Auction).filter(Auction.case_number == case_number).first()
+    auction = (
+        db.query(Auction)
+        .filter(Auction.case_number == case_number, Auction.property_sequence == seq)
+        .first()
+    )
     if not auction:
-        raise HTTPException(status_code=404, detail=f"물건을 찾을 수 없습니다: {case_number}")
+        raise HTTPException(status_code=404, detail=f"물건을 찾을 수 없습니다: {case_number} seq={seq}")
 
     api_key = os.getenv("REB_API_KEY")
     if not api_key:
