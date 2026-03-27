@@ -7,11 +7,12 @@ Wants=network-online.target
 Type=oneshot
 User=eric
 WorkingDirectory=/home/eric/projects/KYUNGSA
-ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/run_batch.py --all-seoul
+ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/run_batch.py --all-courts
+ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/send_alerts.py
 Environment=PYTHONPATH=/home/eric/projects/KYUNGSA/backend
-TimeoutStartSec=3600
+TimeoutStartSec=7200
 StandardOutput=journal
 StandardError=journal
 
 # 환경변수 (.env 파일에서 로드)
-EnvironmentFile=/home/eric/projects/KYUNGSA/backend/.env
+EnvironmentFile=/home/eric/projects/KYUNGSA/.env
