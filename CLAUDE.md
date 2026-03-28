@@ -719,7 +719,7 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 
 > 이 섹션은 매 작업 세션 시작/종료 시 업데이트한다.
 
-**현재 단계:** Phase 10 ML 재학습 완료 + 진행 물건 3,716건 ml_v1 재채점 완료
+**현재 단계:** property_sequence 다물건 지원 + 경기 법원 코드 전면 수정 + batch --all-courts
 **완료된 것:**
 - 0단계~5F: 파이프라인 전체 구현 (크롤러 → 보강 → 필터 → 등기부 분석 → 점수 엔진 → 배치 수집)
 - Phase 6~8: 입지 데이터 + 낙찰 추적 + 명도 데이터 + CatBoost ML 낙찰가율 예측
@@ -743,16 +743,29 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
   - CatBoost 재학습 완료: 학습 데이터 `auctions.winning_ratio` 12,211건, CV MAE 7.2% (기존 18.2%에서 개선)
   - 모델 경로: `models/prediction/model_v1.cbm` (홈서버 배치)
   - `WinningBidPredictor` → `TotalScorer._calc_predicted_ratio_with_ml()` → `RuleEngineV2` 파이프라인 연결
-    - `total_scorer.py`: ml 파라미터 추가 (`appraised_value`/`minimum_bid`/`court_office_code`/`address`)
-    - `engine.py`: `EnrichedCase.case` 필드 직접 전달, rule_v1 fallback 유지
-  - `scores.scored_at` NULL 버그 수정 (`_save_score()`에 `datetime.now(timezone.utc)` 추가)
+  - `scores.scored_at` NULL 버그 수정
   - 진행 물건 3,716건 ml_v1으로 재채점 완료 (`--rescore-db`)
-  - 자동화: 매일 낙찰 데이터 수집 → 월 1회 `retrain_model.py` 자동 재학습 예정
+- **2026-03-27 — property_sequence 다물건 지원:**
+  - `auctions.property_sequence` 컬럼 추가 + UNIQUE(case_number, property_sequence)로 복합 키 변경
+  - Alembic `f8a9b0c1d2e3_add_property_sequence.py`: `detail->>'maemulSer'` 백필 포함
+  - `batch_collector._seen_cases` 키 → `f"{case_number}_{seq}"` (다물건 중복 방지)
+  - API `?seq=N` 파라미터 추가, 프론트엔드 `?seq=N` 전파
+  - `OccupancyReport` FK 제거 → `primaryjoin="foreign(...) == ..."` explicit 소프트 참조로 전환
+  - SQLAlchemy `Could not determine join condition` 에러 해소 (45/45 occupancy 테스트 통과)
+- **2026-03-27 — GYEONGGI_COURTS 법원 코드 전면 수정 (`run_batch.py`):**
+  - 기존 B000201~B000209 전부 잘못된 코드였음 → DB 실측값으로 전면 교체
+  - 수원(B000250), 성남(B000251), 인천(B000240), 부천(B000241), 고양(B214807), 평택(B000253)
+  - 신규 추가: 안양(B000254), 남양주(B214804), 안산(B250826) — 9개 법원으로 확장
+  - SEOUL_COURTS: 라벨 수정 + 서울서부(B000215) 추가, B000214=의정부 명확화
+- **2026-03-27 — kyungsa-batch.service 수정:**
+  - `run_batch.py --all-courts` (서울+경기 통합) + `send_alerts.py` ExecStart 추가
+  - `TimeoutStartSec=7200` (2시간), `.env` 위치 루트 디렉토리로 확정
+  - `deploy/kyungsa-batch.service` 파일 서버 설정과 동기화 완료
 - **테스트:** 763개 통과 (백엔드 mock)
 
 **다음 할 일:** Phase J 알림 발송 로직 (저장검색 매칭→텔레그램) 또는 325건 location_data 재수집
 **블로커:** 없음
-**최근 변경:** 2026-03-24 | Phase 10 ML 재학습 + rule_v1 캘리브레이션 | ml_v1 파이프라인 연결, scored_at 버그 수정
+**최근 변경:** 2026-03-27 | property_sequence 다물건 지원 + GYEONGGI_COURTS 코드 수정 + batch --all-courts
 
 ---
 

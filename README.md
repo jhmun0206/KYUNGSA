@@ -7,8 +7,8 @@
 | 항목 | 상태 |
 |------|------|
 | 프로젝트명 | KYUNGSA |
-| 현재 단계 | `Phase J 인프라 완료` (텔레그램 연동 + DB-REBUILD + 저장검색 태그 UI) |
-| 최종 업데이트 | 2026-03-22 |
+| 현재 단계 | `Phase 10 완료` (ML 재학습 + property_sequence 다물건 + 경기 법원 코드 수정) |
+| 최종 업데이트 | 2026-03-27 |
 | 테스트 | 763개 통과 |
 | 배포 | https://kyungsa.com (Vercel) / https://api.kyungsa.com (Cloudflare Tunnel) |
 | 개발 도구 | Claude Code |
@@ -169,7 +169,8 @@ KYUNGSA/
 │   │   ├── d2e3f4a5b6c7_phase_i_users.py   # ⭐ Phase I: users 3개 테이블
 │   │   ├── 4d0e491c6f8f_merge_b1c2_and_d2e3.py  # merge head
 │   │   ├── 5e6f7a8b9c0d_db_rebuild_normalize_columns.py  # ⭐ DB-REBUILD: 정규화 11컬럼 + auction_rounds
-│   │   └── e3f4a5b6c7d8_phase_j_telegram.py  # ⭐ Phase J: telegram_verifications 테이블
+│   │   ├── e3f4a5b6c7d8_phase_j_telegram.py  # ⭐ Phase J: telegram_verifications 테이블
+│   │   └── f8a9b0c1d2e3_add_property_sequence.py  # ⭐ 다물건: property_sequence + UNIQUE(case_number, seq)
 │   └── tests/                   # 763개 테스트 전체 통과
 ├── scripts/
 │   ├── run_batch.py             # 배치 수집기 CLI (--rescore-db 포함)
@@ -599,7 +600,7 @@ WinningBidCollector (매주 일 07:00) → 기수집 물건 낙찰가 사후 추
 |--------|------|---------|
 | `kyungsa.service` | FastAPI 백엔드 (port 8000) | 상시 |
 | `cloudflared.service` | Cloudflare Tunnel | 상시 |
-| `kyungsa-batch.timer` | 일일 배치 수집 (서울 5개 법원) | 매일 03:00 |
+| `kyungsa-batch.timer` | 일일 배치 수집 (`--all-courts`, 서울+경기 전체) + 알림 발송 | 매일 03:00 |
 | `kyungsa-occupancy.timer` | 진행 물건 현황조사서 수집 | 매일 04:00 |
 | `kyungsa-fix-past-due.timer` | 기일경과 물건 상태 복원 | 매일 04:30 |
 | `kyungsa-sale-results.timer` | 전국 낙찰 완료 건 수집 | 매일 06:00 |
@@ -741,3 +742,7 @@ chore: 빌드, 설정 변경
 | 2026-03-21 | 호실 면적 ×100 버그 수정 | expoArea 우선 + min 방어로 공용부 잘못된 값 차단 |
 | 2026-03-22 | 버그 수정 2건 | RoundTimeline 예정/진행중 + 역이름 location_data fallback |
 | 2026-03-22 | SearchSidebar 저장 검색 태그 UI 개선 | 전체 너비 태그 + summarizeParams + activeSearchId 토글 |
+| 2026-03-24 | Phase 10 ML 재학습 + rule_v1 캘리브레이션 | CatBoost MAE 18.2%→7.2%, ml_v1 파이프라인 연결, 3,716건 재채점 |
+| 2026-03-27 | property_sequence 다물건 지원 | Alembic f8a9b0c1d2e3 + UNIQUE(case_number,seq) + batch_collector 키 분리 + API ?seq=N |
+| 2026-03-27 | GYEONGGI_COURTS 법원 코드 전면 수정 | DB 실측값 기준 9개 법원으로 전면 교체 (수원/성남/인천/부천/고양/평택/안양/남양주/안산) |
+| 2026-03-27 | kyungsa-batch.service 수정 | --all-courts + send_alerts.py + TimeoutStartSec=7200, deploy/ 동기화 |

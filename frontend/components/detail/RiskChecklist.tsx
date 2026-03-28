@@ -8,6 +8,7 @@ import {
 } from "@/lib/risk-signals"
 import type { RiskSignal } from "@/lib/risk-signals"
 import type { AuctionDetailResponse } from "@/lib/types"
+import { RegistryButton } from "./RegistryButton"
 
 interface Props {
   auction: AuctionDetailResponse
@@ -55,17 +56,34 @@ function RiskRow({ risk }: { risk: RiskSignal }) {
   )
 }
 
+function RegistryRow({ caseNumber, seq }: { caseNumber: string; seq: number }) {
+  return (
+    <div className={`p-4 rounded-xl border ${SIGNAL_BG_CLASS["unknown"]}`}>
+      <div className="flex items-start gap-3">
+        <span className="text-base mt-0.5 shrink-0">{SIGNAL_EMOJI["unknown"]}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              선순위권리
+            </span>
+            <span className={`text-xs font-medium ${SIGNAL_TEXT_CLASS["unknown"]}`}>
+              등기부 열람 후 확인
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            근저당·가압류·가처분 등 인수 권리 여부 — 자동 분석 또는 직접 열람
+          </p>
+          <div className="mt-2">
+            <RegistryButton caseNumber={caseNumber} seq={seq} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function RiskChecklist({ auction }: Props) {
-  const risks: RiskSignal[] = [
-    // 선순위권리 — 등기부 미열람이므로 항상 미확인
-    {
-      category: '선순위권리',
-      color: 'unknown',
-      label: '등기부 열람 후 확인',
-      reason: '근저당·가압류·가처분 등 — 등기부등본 직접 열람 필요',
-      actionUrl: 'https://www.iros.go.kr',
-      actionLabel: '인터넷등기소',
-    },
+  const scoreRisks: RiskSignal[] = [
     // 유치권/법정지상권 — 항상 미확인
     {
       category: '유치권/법정지상권',
@@ -83,7 +101,12 @@ export function RiskChecklist({ auction }: Props) {
 
   return (
     <div className="space-y-2">
-      {risks.map((risk) => (
+      {/* 선순위권리 — RegistryButton 내장 */}
+      <RegistryRow
+        caseNumber={auction.case_number}
+        seq={auction.property_sequence}
+      />
+      {scoreRisks.map((risk) => (
         <RiskRow key={risk.category} risk={risk} />
       ))}
     </div>

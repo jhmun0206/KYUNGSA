@@ -1,6 +1,6 @@
 """Registry ORM 모델
 
-RegistryEvent (정규화) + RegistryAnalysis (1:1).
+RegistryEvent (정규화) + RegistryAnalysis (1:N).
 """
 
 from __future__ import annotations
@@ -57,13 +57,17 @@ class RegistryEventORM(PrimaryKeyMixin, Base):
 
 
 class RegistryAnalysisORM(PrimaryKeyMixin, Base):
-    """등기부 분석 결과 (Auction과 1:1)"""
+    """등기부 분석 결과 (Auction과 1:N — 동일 물건 재조회 허용)"""
 
     __tablename__ = "registry_analyses"
 
-    auction_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("auctions.id", ondelete="CASCADE"), unique=True, nullable=False
+    auction_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("auctions.id", ondelete="SET NULL"), nullable=True
     )
+    case_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    property_sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    fetched_by_user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     registry_unique_no: Mapped[str | None] = mapped_column(String(100), nullable=True)
     registry_match_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     cancellation_base_event_id: Mapped[str | None] = mapped_column(

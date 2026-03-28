@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db
 from app.config import settings
+from app.models.db.registry import RegistryAnalysisORM
+from app.api.v1.users import get_current_user as _get_current_user_lazy
 from app.api.v1.schemas import (
     AuctionDetailResponse,
     AuctionListItem,
@@ -675,3 +677,146 @@ def get_rent_reference(
         "rent": rent,
         "vacancy": vacancy,
     }
+
+
+# ── 등기부 자동 분석 ───────────────────────────────────────────────────────
+
+
+def _rights_to_list(rights: list) -> list[dict]:
+    """AnalyzedRight 목록 → JSON 직렬화 가능 dict 목록"""
+    return [
+        {
+            "event_type": r.event.event_type.value,
+            "purpose": r.event.purpose,
+            "holder": r.event.holder,
+            "amount": r.event.amount,
+            "accepted_at": r.event.accepted_at,
+            "classification": r.classification.value,
+            "reason": r.reason,
+        }
+        for r in rights
+    ]
+
+
+def _hard_stops_to_list(flags: list) -> list[dict]:
+    """HardStopFlag 목록 → JSON 직렬화 가능 dict 목록"""
+    return [
+        {"rule_id": f.rule_id, "name": f.name, "description": f.description}
+        for f in flags
+    ]
+
+
+def _registry_orm_to_response(orm: RegistryAnalysisORM, source: str) -> dict:
+    """RegistryAnalysisORM → API 응답 dict"""
+    return {
+        "source": source,
+        "has_hard_stop": orm.has_hard_stop,
+        "hard_stop_flags": orm.hard_stop_flags or [],
+        "confidence": orm.confidence,
+        "summary": orm.summary,
+        "extinguished_rights": orm.extinguished_rights or [],
+        "surviving_rights": orm.surviving_rights or [],
+        "uncertain_rights": orm.uncertain_rights or [],
+        "warnings": orm.warnings or [],
+        "fetched_at": orm.fetched_at.isoformat() if orm.fetched_at else None,
+        "registry_unique_no": orm.registry_unique_no,
+    }
+
+
+@router.post("/auctions/{case_number}/registry")
+def fetch_registry_analysis(
+    case_number: str,
+    seq: int = Query(default=1, ge=1, description="물건번호"),
+    db: Session = Depends(get_db),
+    current_user=Depends(_get_current_user_lazy),
+) -> dict:
+    """등기부 자동 분석 — 로그인 필수, 7일 캐시 우선.
+
+    CODEF API를 통해 등기부를 열람하고 말소기준권리/인수소멸/HardStop을 분석한다.
+    동일 (case_number, seq) 조합의 7일 이내 분석 결과가 있으면 캐시를 반환한다.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.db.auction import Auction
+    from app.services.address_parser import extract_codef_params
+    from app.services.registry.codef_provider import CodefRegistryProvider
+    from app.services.registry.pipeline import RegistryPipeline
+    from app.services.parser.registry_analyzer import RegistryAnalyzer
+
+    # 1. 캐시 확인 (7일 이내 가장 최신 분석)
+    cache_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cached = (
+        db.query(RegistryAnalysisORM)
+        .filter(
+            RegistryAnalysisORM.case_number == case_number,
+            RegistryAnalysisORM.property_sequence == seq,
+            RegistryAnalysisORM.fetched_at >= cache_cutoff,
+        )
+        .order_by(RegistryAnalysisORM.fetched_at.desc())
+        .first()
+    )
+    if cached:
+        return _registry_orm_to_response(cached, source="cache")
+
+    # 2. 물건 주소 조회
+    auction = (
+        db.query(Auction)
+        .filter(
+            Auction.case_number == case_number,
+            Auction.property_sequence == seq,
+        )
+        .first()
+    )
+    if not auction:
+        raise HTTPException(status_code=404, detail=f"물건을 찾을 수 없습니다: {case_number} seq={seq}")
+
+    # 3. 주소 파싱 → CODEF 파라미터 매핑
+    try:
+        p = extract_codef_params(auction.address)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"주소 파싱 실패: {exc}") from exc
+
+    codef_kwargs = {
+        "sido": p.sido,
+        "sigungu": p.sigungu,
+        "addr_dong": p.dong,
+        "addr_lot_number": p.lot_number,
+        "addr_road_name": p.road_name,
+        "addr_building_number": p.building_number,
+        "building_name": p.building_name,
+        "address": p.address_text,
+    }
+
+    # 4. CODEF 파이프라인 실행
+    try:
+        provider = CodefRegistryProvider()
+        pipeline = RegistryPipeline(provider=provider, analyzer=RegistryAnalyzer())
+        result = pipeline.analyze_by_address(**codef_kwargs)
+    except Exception as exc:
+        logger.error("등기부 조회 실패 %s seq=%s: %s", case_number, seq, exc)
+        raise HTTPException(status_code=503, detail=f"등기부 조회 실패: {exc}") from exc
+
+    # 5. DB 저장
+    now = datetime.now(timezone.utc)
+    orm = RegistryAnalysisORM(
+        auction_id=auction.id,
+        case_number=case_number,
+        property_sequence=seq,
+        fetched_by_user_id=current_user.id if current_user else None,
+        fetched_at=now,
+        registry_unique_no=result.unique_no,
+        has_hard_stop=result.analysis.has_hard_stop,
+        hard_stop_flags=_hard_stops_to_list(result.analysis.hard_stop_flags),
+        confidence=result.analysis.confidence.value,
+        summary=result.analysis.summary,
+        extinguished_rights=_rights_to_list(result.analysis.extinguished_rights),
+        surviving_rights=_rights_to_list(result.analysis.surviving_rights),
+        uncertain_rights=_rights_to_list(result.analysis.uncertain_rights),
+        warnings=list(result.analysis.warnings),
+        analyzed_at=now,
+    )
+    db.add(orm)
+    db.commit()
+    db.refresh(orm)
+
+    return _registry_orm_to_response(orm, source="fresh")
