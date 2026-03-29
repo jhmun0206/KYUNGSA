@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 TILKO_DEV_HOST = "https://dev.tilko.net"
 TILKO_PROD_HOST = "https://api.tilko.net"
-ADDRESS_SEARCH_PATH = "/api/v2.0/iros/risuconfirmsimplec"
+ADDRESS_SEARCH_PATH = "/api/v2.0/Iros2/RetrieveSmplSrchList"
 REGISTRY_PATH = "/api/v2.0/Iros2IdLogin/RealtyRegistry"
 
 
@@ -125,11 +125,11 @@ class TilkoRegistryProvider:
 
         aes_key = os.urandom(16)
         body = {
-            "Auth": {
-                "UserId": self._aes_encrypt(aes_key, settings.IROS_PHONE_NO),
-                "UserPassword": self._aes_encrypt(aes_key, settings.IROS_PASSWORD),
-            },
-            "SearchAddr": self._aes_encrypt(aes_key, address),
+            "Address":     self._aes_encrypt(aes_key, address),
+            "Sangtae":     self._aes_encrypt(aes_key, ""),
+            "KindClsFlag": self._aes_encrypt(aes_key, ""),
+            "Region":      self._aes_encrypt(aes_key, ""),
+            "Page":        self._aes_encrypt(aes_key, "1"),
         }
 
         logger.info("틸코 주소 검색 요청: address=%s... host=%s", address[:20], self._host)
@@ -141,21 +141,27 @@ class TilkoRegistryProvider:
         )
         resp.raise_for_status()
         data = resp.json()
+        logger.info("틸코 주소검색: status=%s", data.get("Status"))
 
         if data.get("Status") != "OK":
             msg = data.get("Message", "알 수 없는 오류")
             raise RuntimeError(f"틸코 주소 검색 실패: {msg}")
 
-        result_list = data.get("ResultList") or []
+        # 응답 구조: Result.DataList
+        result_obj = data.get("Result") or {}
+        data_list = result_obj.get("DataList") or []
+
         candidates = []
-        for item in result_list:
-            pin_raw = item.get("BudongsanGoyubeonho", "")
-            pin = pin_raw.replace("-", "")
+        for item in data_list:
+            pin = (item.get("pin") or "").replace("-", "").strip()
+            if not pin:
+                continue
+            addr = item.get("rd_addr_detail") or item.get("rd_addr") or ""
             candidates.append({
-                "pin": pin,
-                "gubun": item.get("Gubun", ""),
-                "address": item.get("Addr", ""),
-                "sangtae": item.get("Sangtae", ""),
+                "pin":     pin,
+                "gubun":   item.get("real_cls_cd", ""),
+                "address": addr,
+                "sangtae": item.get("addItem", ""),
             })
         logger.info("틸코 주소 검색 결과: %d건", len(candidates))
         return candidates
