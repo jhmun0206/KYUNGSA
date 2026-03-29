@@ -727,39 +727,26 @@ def _registry_orm_to_response(orm: RegistryAnalysisORM, source: str) -> dict:
 def fetch_registry_analysis(
     case_number: str,
     seq: int = Query(default=1, ge=1, description="물건번호"),
-    realty_pin: str | None = Query(default=None, description="부동산 고유번호 14자리 (하이픈 제외)"),
     db: Session = Depends(get_db),
     current_user=Depends(_get_current_user_lazy),
 ) -> dict:
-    """등기부 자동 분석 — 로그인 필수, 7일 캐시 우선 (틸코블렛 API, 100포인트/건).
+    """등기부 자동 분석 — 로그인 필수, 스마트 캐시 (틸코블렛 API, 120pt/건).
 
-    동일 (case_number, seq) 조합의 7일 이내 분석 결과가 있으면 캐시를 반환한다.
-    realty_pin 미입력 시 DB의 detail 필드에서 자동 추출을 시도하며,
-    고유번호를 찾을 수 없으면 422 오류를 반환한다.
+    캐시 정책:
+        - status='매각': 영구 캐시 (낙찰 완료 물건은 재조회 불필요)
+        - 미래 기일 있음: 다음 기일 당일까지 유효 (최대 90일)
+        - 미래 기일 없음: 30일 캐시
+    주소 기반 자동 조회 (고유번호 불필요).
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import date, datetime, time, timedelta, timezone
 
     from app.models.db.auction import Auction
+    from app.models.db.auction_round import AuctionRound
     from app.services.parser.registry_analyzer import RegistryAnalyzer
     from app.services.parser.registry_parser import RegistryParser
     from app.services.registry.tilko_provider import TilkoRegistryProvider
 
-    # 1. 캐시 확인 (7일 이내 가장 최신 분석)
-    cache_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-    cached = (
-        db.query(RegistryAnalysisORM)
-        .filter(
-            RegistryAnalysisORM.case_number == case_number,
-            RegistryAnalysisORM.property_sequence == seq,
-            RegistryAnalysisORM.fetched_at >= cache_cutoff,
-        )
-        .order_by(RegistryAnalysisORM.fetched_at.desc())
-        .first()
-    )
-    if cached:
-        return _registry_orm_to_response(cached, source="cache")
-
-    # 2. 물건 존재 확인
+    # 1. 물건 확인
     auction = (
         db.query(Auction)
         .filter(
@@ -771,44 +758,65 @@ def fetch_registry_analysis(
     if not auction:
         raise HTTPException(status_code=404, detail=f"물건을 찾을 수 없습니다: {case_number} seq={seq}")
 
-    # 3. 부동산 고유번호(Pin) 확인
-    pin = realty_pin
-    if not pin and auction.detail:
-        # detail JSONB에서 자동 추출 시도
-        for field in ("uniqueNo", "realtySeq", "pinNo", "realty_pin", "unique_no"):
-            val = auction.detail.get(field)
-            if val and str(val).strip():
-                pin = str(val).strip()
-                break
+    now = datetime.now(timezone.utc)
 
-    if not pin:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "부동산 고유번호(Pin)가 필요합니다. "
-                "인터넷등기소(iros.go.kr)에서 주소 검색 후 14자리 고유번호를 "
-                "?realty_pin= 파라미터로 전달해주세요."
-            ),
+    # 2. 스마트 캐시 확인
+    cached = (
+        db.query(RegistryAnalysisORM)
+        .filter(
+            RegistryAnalysisORM.case_number == case_number,
+            RegistryAnalysisORM.property_sequence == seq,
+            RegistryAnalysisORM.fetched_at.isnot(None),
         )
+        .order_by(RegistryAnalysisORM.fetched_at.desc())
+        .first()
+    )
+    if cached and cached.fetched_at:
+        cache_valid = False
+        if auction.status == "매각":
+            # 낙찰 완료 — 영구 캐시
+            cache_valid = True
+        else:
+            fetched_at = cached.fetched_at
+            if fetched_at.tzinfo is None:
+                fetched_at = fetched_at.replace(tzinfo=timezone.utc)
 
-    pin = pin.replace("-", "")
-    if len(pin) != 14:
-        raise HTTPException(
-            status_code=422,
-            detail=f"고유번호는 14자리여야 합니다 (입력: {len(pin)}자리)",
-        )
+            next_round = (
+                db.query(AuctionRound)
+                .filter(
+                    AuctionRound.auction_id == auction.id,
+                    AuctionRound.round_date > date.today(),
+                )
+                .order_by(AuctionRound.round_date.asc())
+                .first()
+            )
+            if next_round and next_round.round_date:
+                # 다음 기일 당일까지 유효 (최대 90일)
+                next_dt = datetime.combine(
+                    next_round.round_date, time(0, 0, 0), timezone.utc
+                )
+                cache_valid = (
+                    fetched_at >= (now - timedelta(days=90))
+                    and fetched_at < next_dt
+                )
+            else:
+                # 기일 없음 — 30일 캐시
+                cache_valid = fetched_at >= (now - timedelta(days=30))
 
-    # 4. 틸코 API 호출 → 등기부 XML 취득
+        if cache_valid:
+            return _registry_orm_to_response(cached, source="cache")
+
+    # 3. 틸코 API — 주소 기반 조회 (120pt)
     try:
         provider = TilkoRegistryProvider()
-        xml_str = provider.fetch_registry_xml(pin)
+        pin, xml_str = provider.fetch_by_address(auction.address)
     except Exception as exc:
         logger.error("틸코 등기부 조회 실패 %s seq=%s: %s", case_number, seq, exc)
         raise HTTPException(status_code=503, detail=f"등기부 조회 실패: {exc}") from exc
 
-    # 5. 파싱 + 분석 (실패해도 raw 저장)
+    # 4. 파싱 + 분석 (실패해도 raw 저장)
     has_hard_stop = False
-    hard_stop_flags: list[dict] = []
+    hard_stop_flags: list[str] = []  # rule_id 문자열 목록
     confidence = "HIGH"
     summary = ""
     extinguished: list[dict] = []
@@ -823,7 +831,7 @@ def fetch_registry_analysis(
         analysis = analyzer.analyze(reg_doc)
 
         has_hard_stop = analysis.has_hard_stop
-        hard_stop_flags = _hard_stops_to_list(analysis.hard_stop_flags)
+        hard_stop_flags = [getattr(f, "rule_id", str(f)) for f in analysis.hard_stop_flags]
         confidence = analysis.confidence.value
         summary = analysis.summary or ""
         extinguished = _rights_to_list(analysis.extinguished_rights)
@@ -834,8 +842,7 @@ def fetch_registry_analysis(
         logger.warning("등기부 파싱/분석 실패 (XML만 저장): %s seq=%s: %s", case_number, seq, exc)
         summary = f"XML 조회 성공, 분석 실패: {exc}"
 
-    # 6. DB 저장
-    now = datetime.now(timezone.utc)
+    # 5. DB 저장
     orm = RegistryAnalysisORM(
         auction_id=auction.id,
         case_number=case_number,

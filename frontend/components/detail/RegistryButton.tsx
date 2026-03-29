@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useSession } from "next-auth/react"
 
-export interface AnalyzedRight {
+interface RightItem {
   event_type: string
   purpose: string
   holder: string | null
@@ -13,21 +13,15 @@ export interface AnalyzedRight {
   reason: string
 }
 
-export interface HardStopFlag {
-  rule_id: string
-  name: string
-  description: string
-}
-
-export interface RegistryData {
-  source: "cache" | "fresh"
+interface RegistryData {
+  source: string
   has_hard_stop: boolean
-  hard_stop_flags: HardStopFlag[]
+  hard_stop_flags: string[]
   confidence: string
   summary: string
-  extinguished_rights: AnalyzedRight[]
-  surviving_rights: AnalyzedRight[]
-  uncertain_rights: AnalyzedRight[]
+  extinguished_rights: RightItem[]
+  surviving_rights: RightItem[]
+  uncertain_rights: RightItem[]
   warnings: string[]
   fetched_at: string | null
   registry_unique_no: string | null
@@ -36,12 +30,12 @@ export interface RegistryData {
 interface Props {
   caseNumber: string
   seq?: number
-  onResult: (result: RegistryData) => void
 }
 
-export function RegistryButton({ caseNumber, seq = 1, onResult }: Props) {
+export function RegistryButton({ caseNumber, seq = 1 }: Props) {
   const { data: session, status } = useSession()
   const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<RegistryData | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleFetch = async () => {
@@ -62,7 +56,7 @@ export function RegistryButton({ caseNumber, seq = 1, onResult }: Props) {
         throw new Error(err.detail ?? `오류 ${res.status}`)
       }
       const data: RegistryData = await res.json()
-      onResult(data)
+      setResult(data)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "알 수 없는 오류")
     } finally {
@@ -88,6 +82,90 @@ export function RegistryButton({ caseNumber, seq = 1, onResult }: Props) {
           인터넷등기소 ↗
         </a>
         <span className="ml-1">(로그인 시 자동 분석)</span>
+      </div>
+    )
+  }
+
+  // 결과 패널 (flex-wrap 부모에서 basis-full로 새 줄에 렌더링)
+  if (result) {
+    return (
+      <div className="basis-full mt-3 pt-3 border-t space-y-3">
+        {/* Hard Stop 경고 */}
+        {result.has_hard_stop && result.hard_stop_flags.length > 0 && (
+          <div className="space-y-1">
+            {result.hard_stop_flags.map((flag) => (
+              <div key={flag} className="flex items-center gap-1.5">
+                <span className="text-xs text-red-600 dark:text-red-400 font-semibold">⛔ {flag}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 요약 */}
+        {result.summary && (
+          <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">{result.summary}</p>
+        )}
+
+        {/* 인수 권리 */}
+        {result.surviving_rights.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1">인수 권리</p>
+            <ul className="space-y-0.5">
+              {result.surviving_rights.map((r, i) => (
+                <li key={i} className="text-xs text-slate-600 dark:text-slate-300">
+                  • [{r.event_type}] {r.purpose}
+                  {r.holder && ` — ${r.holder}`}
+                  {r.amount != null && ` (${r.amount.toLocaleString()}원)`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 소멸 권리 */}
+        {result.extinguished_rights.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">소멸 권리</p>
+            <ul className="space-y-0.5">
+              {result.extinguished_rights.map((r, i) => (
+                <li key={i} className="text-xs text-slate-500 dark:text-slate-400 line-through">
+                  • [{r.event_type}] {r.purpose}
+                  {r.holder && ` — ${r.holder}`}
+                  {r.amount != null && ` (${r.amount.toLocaleString()}원)`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 불확실 권리 */}
+        {result.uncertain_rights.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">확인 필요</p>
+            <ul className="space-y-0.5">
+              {result.uncertain_rights.map((r, i) => (
+                <li key={i} className="text-xs text-slate-500 dark:text-slate-400">
+                  • [{r.event_type}] {r.purpose} — {r.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 경고 */}
+        {result.warnings.length > 0 && (
+          <ul className="space-y-0.5">
+            {result.warnings.map((w, i) => (
+              <li key={i} className="text-xs text-amber-700 dark:text-amber-400">⚠ {w}</li>
+            ))}
+          </ul>
+        )}
+
+        <p className="text-xs text-slate-400 dark:text-slate-500">
+          신뢰도: {result.confidence}
+          {result.source === "cache" && " · 캐시"}
+          {result.fetched_at && ` · ${result.fetched_at.slice(0, 10)}`}
+        </p>
       </div>
     )
   }
