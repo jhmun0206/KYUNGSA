@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     # CODEF 등기부등본 전용
     CODEF_REGISTRY_ENDPOINT: str = "/v1/kr/public/ck/real-estate-register/status"
 
+    # 틸코블렛 API (등기부등본 조회 — CODEF 대체)
+    # TILKO_SERVICE_TYPE: "dev" | "prod" (기본값: dev)
+    #   dev  → dev.tilko.net (개발/테스트)
+    #   prod → api.tilko.net (운영)
+    TILKO_SERVICE_TYPE: str = "dev"
+    TILKO_API_KEY: str = ""
+    TILKO_RSA_PUBLIC_KEY: str = ""  # RSA 서버용 공개키 Base64
+
     # Vworld (국토정보플랫폼)
     VWORLD_API_KEY: str = ""
 

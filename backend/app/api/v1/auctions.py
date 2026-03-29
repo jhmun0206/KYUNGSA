@@ -727,21 +727,22 @@ def _registry_orm_to_response(orm: RegistryAnalysisORM, source: str) -> dict:
 def fetch_registry_analysis(
     case_number: str,
     seq: int = Query(default=1, ge=1, description="물건번호"),
+    realty_pin: str | None = Query(default=None, description="부동산 고유번호 14자리 (하이픈 제외)"),
     db: Session = Depends(get_db),
     current_user=Depends(_get_current_user_lazy),
 ) -> dict:
-    """등기부 자동 분석 — 로그인 필수, 7일 캐시 우선.
+    """등기부 자동 분석 — 로그인 필수, 7일 캐시 우선 (틸코블렛 API, 100포인트/건).
 
-    CODEF API를 통해 등기부를 열람하고 말소기준권리/인수소멸/HardStop을 분석한다.
     동일 (case_number, seq) 조합의 7일 이내 분석 결과가 있으면 캐시를 반환한다.
+    realty_pin 미입력 시 DB의 detail 필드에서 자동 추출을 시도하며,
+    고유번호를 찾을 수 없으면 422 오류를 반환한다.
     """
     from datetime import datetime, timedelta, timezone
 
     from app.models.db.auction import Auction
-    from app.services.address_parser import extract_codef_params
-    from app.services.registry.codef_provider import CodefRegistryProvider
-    from app.services.registry.pipeline import RegistryPipeline
     from app.services.parser.registry_analyzer import RegistryAnalyzer
+    from app.services.parser.registry_parser import RegistryParser
+    from app.services.registry.tilko_provider import TilkoRegistryProvider
 
     # 1. 캐시 확인 (7일 이내 가장 최신 분석)
     cache_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
@@ -758,7 +759,7 @@ def fetch_registry_analysis(
     if cached:
         return _registry_orm_to_response(cached, source="cache")
 
-    # 2. 물건 주소 조회
+    # 2. 물건 존재 확인
     auction = (
         db.query(Auction)
         .filter(
@@ -770,33 +771,70 @@ def fetch_registry_analysis(
     if not auction:
         raise HTTPException(status_code=404, detail=f"물건을 찾을 수 없습니다: {case_number} seq={seq}")
 
-    # 3. 주소 파싱 → CODEF 파라미터 매핑
-    try:
-        p = extract_codef_params(auction.address)
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"주소 파싱 실패: {exc}") from exc
+    # 3. 부동산 고유번호(Pin) 확인
+    pin = realty_pin
+    if not pin and auction.detail:
+        # detail JSONB에서 자동 추출 시도
+        for field in ("uniqueNo", "realtySeq", "pinNo", "realty_pin", "unique_no"):
+            val = auction.detail.get(field)
+            if val and str(val).strip():
+                pin = str(val).strip()
+                break
 
-    codef_kwargs = {
-        "sido": p.sido,
-        "sigungu": p.sigungu,
-        "addr_dong": p.dong,
-        "addr_lot_number": p.lot_number,
-        "addr_road_name": p.road_name,
-        "addr_building_number": p.building_number,
-        "building_name": p.building_name,
-        "address": p.address_text,
-    }
+    if not pin:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "부동산 고유번호(Pin)가 필요합니다. "
+                "인터넷등기소(iros.go.kr)에서 주소 검색 후 14자리 고유번호를 "
+                "?realty_pin= 파라미터로 전달해주세요."
+            ),
+        )
 
-    # 4. CODEF 파이프라인 실행
+    pin = pin.replace("-", "")
+    if len(pin) != 14:
+        raise HTTPException(
+            status_code=422,
+            detail=f"고유번호는 14자리여야 합니다 (입력: {len(pin)}자리)",
+        )
+
+    # 4. 틸코 API 호출 → 등기부 XML 취득
     try:
-        provider = CodefRegistryProvider()
-        pipeline = RegistryPipeline(provider=provider, analyzer=RegistryAnalyzer())
-        result = pipeline.analyze_by_address(**codef_kwargs)
+        provider = TilkoRegistryProvider()
+        xml_str = provider.fetch_registry_xml(pin)
     except Exception as exc:
-        logger.error("등기부 조회 실패 %s seq=%s: %s", case_number, seq, exc)
+        logger.error("틸코 등기부 조회 실패 %s seq=%s: %s", case_number, seq, exc)
         raise HTTPException(status_code=503, detail=f"등기부 조회 실패: {exc}") from exc
 
-    # 5. DB 저장
+    # 5. 파싱 + 분석 (실패해도 raw 저장)
+    has_hard_stop = False
+    hard_stop_flags: list[dict] = []
+    confidence = "HIGH"
+    summary = ""
+    extinguished: list[dict] = []
+    surviving: list[dict] = []
+    uncertain: list[dict] = []
+    warnings: list[str] = []
+
+    try:
+        parser = RegistryParser()
+        analyzer = RegistryAnalyzer()
+        reg_doc = parser.parse_text(xml_str)
+        analysis = analyzer.analyze(reg_doc)
+
+        has_hard_stop = analysis.has_hard_stop
+        hard_stop_flags = _hard_stops_to_list(analysis.hard_stop_flags)
+        confidence = analysis.confidence.value
+        summary = analysis.summary or ""
+        extinguished = _rights_to_list(analysis.extinguished_rights)
+        surviving = _rights_to_list(analysis.surviving_rights)
+        uncertain = _rights_to_list(analysis.uncertain_rights)
+        warnings = list(analysis.warnings)
+    except Exception as exc:
+        logger.warning("등기부 파싱/분석 실패 (XML만 저장): %s seq=%s: %s", case_number, seq, exc)
+        summary = f"XML 조회 성공, 분석 실패: {exc}"
+
+    # 6. DB 저장
     now = datetime.now(timezone.utc)
     orm = RegistryAnalysisORM(
         auction_id=auction.id,
@@ -804,15 +842,15 @@ def fetch_registry_analysis(
         property_sequence=seq,
         fetched_by_user_id=current_user.id if current_user else None,
         fetched_at=now,
-        registry_unique_no=result.unique_no,
-        has_hard_stop=result.analysis.has_hard_stop,
-        hard_stop_flags=_hard_stops_to_list(result.analysis.hard_stop_flags),
-        confidence=result.analysis.confidence.value,
-        summary=result.analysis.summary,
-        extinguished_rights=_rights_to_list(result.analysis.extinguished_rights),
-        surviving_rights=_rights_to_list(result.analysis.surviving_rights),
-        uncertain_rights=_rights_to_list(result.analysis.uncertain_rights),
-        warnings=list(result.analysis.warnings),
+        registry_unique_no=pin,
+        has_hard_stop=has_hard_stop,
+        hard_stop_flags=hard_stop_flags,
+        confidence=confidence,
+        summary=summary,
+        extinguished_rights=extinguished,
+        surviving_rights=surviving,
+        uncertain_rights=uncertain,
+        warnings=warnings,
         analyzed_at=now,
     )
     db.add(orm)
