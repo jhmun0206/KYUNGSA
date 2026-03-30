@@ -8,6 +8,7 @@ Type=oneshot
 User=eric
 WorkingDirectory=/home/eric/projects/KYUNGSA
 ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/run_batch.py --all-courts
+ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/fix_past_due.py
 ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/send_alerts.py
 Environment=PYTHONPATH=/home/eric/projects/KYUNGSA/backend
 TimeoutStartSec=7200
