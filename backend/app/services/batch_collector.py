@@ -320,31 +320,41 @@ class BatchCollector:
                     if item.minimum_bid and item.minimum_bid != existing.minimum_bid:
                         existing.minimum_bid = item.minimum_bid
                         changed = True
+                    # needs_rounds_update: 기일 자체가 바뀐 경우만 상세 API 재호출
+                    # - auction_date 변경: 기일 변경 → rounds 반드시 갱신
+                    # - bid_count 증가: 유찰 발생 → 새 기일 생성 → rounds 갱신 필요
+                    # - minimum_bid만 변경: 가격만 업데이트 → 기일 내역 불변 → 갱신 불필요
+                    needs_rounds_update = (
+                        (item.auction_date is not None and item.auction_date != existing.auction_date)
+                        or (item.bid_count is not None and item.bid_count > (existing.bid_count or 0))
+                    )
                     if changed:
                         existing.updated_at = datetime.now(timezone.utc)
-                        # auction_date 변경 또는 bid_count 증가 시 상세 API 재호출 → rounds 갱신
-                        try:
-                            fresh_detail = self._crawler.fetch_case_detail(
-                                case_number=item.internal_case_number or case_number,
-                                court_office_code=item.court_office_code or "",
-                                property_sequence=item.property_sequence or "1",
-                            )
-                            if fresh_detail.auction_rounds:
-                                for rnd_orm in list(existing.auction_rounds):
-                                    self._db.delete(rnd_orm)
-                                self._db.flush()
-                                for rnd in fresh_detail.auction_rounds:
-                                    self._db.add(AuctionRoundORM(
-                                        auction_id=existing.id,
-                                        round_number=rnd.round_number,
-                                        round_date=rnd.round_date,
-                                        minimum_bid=rnd.minimum_bid,
-                                        result=normalize_round_result(rnd.result),
-                                    ))
-                                self._db.flush()
-                                logger.debug("rounds 갱신 [%s]: %d건", case_number, len(fresh_detail.auction_rounds))
-                        except Exception as e:
-                            logger.warning("rounds 갱신 실패 [%s] (무시): %s", case_number, e)
+                        # auction_date 변경 또는 bid_count 증가 시에만 상세 API 재호출 → rounds 갱신
+                        # minimum_bid만 변경된 경우는 기일 내역 불변이므로 API 재호출 불필요
+                        if needs_rounds_update:
+                            try:
+                                fresh_detail = self._crawler.fetch_case_detail(
+                                    case_number=item.internal_case_number or case_number,
+                                    court_office_code=item.court_office_code or "",
+                                    property_sequence=item.property_sequence or "1",
+                                )
+                                if fresh_detail.auction_rounds:
+                                    for rnd_orm in list(existing.auction_rounds):
+                                        self._db.delete(rnd_orm)
+                                    self._db.flush()
+                                    for rnd in fresh_detail.auction_rounds:
+                                        self._db.add(AuctionRoundORM(
+                                            auction_id=existing.id,
+                                            round_number=rnd.round_number,
+                                            round_date=rnd.round_date,
+                                            minimum_bid=rnd.minimum_bid,
+                                            result=normalize_round_result(rnd.result),
+                                        ))
+                                    self._db.flush()
+                                    logger.debug("rounds 갱신 [%s]: %d건", case_number, len(fresh_detail.auction_rounds))
+                            except Exception as e:
+                                logger.warning("rounds 갱신 실패 [%s] (무시): %s", case_number, e)
                         try:
                             self._db.commit()
                         except Exception as e:
@@ -787,11 +797,13 @@ class BatchCollector:
         detail = auction_orm_to_detail(auction_orm)
 
         # 2. 대법원 API로 최신 상세 데이터 갱신 시도 (fail-open)
+        # DB 원본(auction_orm.property_sequence) 우선, None/0이면 "1" 사용
+        prop_seq = str(auction_orm.property_sequence) if auction_orm.property_sequence else "1"
         try:
             fresh = self._crawler.fetch_case_detail(
                 case_number=detail.internal_case_number or detail.case_number,
                 court_office_code=auction_orm.court_office_code or detail.court_office_code or "",
-                property_sequence="1",
+                property_sequence=prop_seq,
             )
             # property_type fallback
             if not fresh.property_type and detail.property_type:
@@ -810,7 +822,7 @@ class BatchCollector:
         if not self._skip_occupancy:
             tenants = self._fetch_occupancy_tenants(
                 court_office_code=auction_orm.court_office_code or detail.court_office_code or "",
-                property_sequence="1",
+                property_sequence=prop_seq,
                 formatted_case_number=auction_orm.case_number,
             )
 
