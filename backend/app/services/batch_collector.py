@@ -301,37 +301,38 @@ class BatchCollector:
                     .first()
                 )
                 if existing:
-                    # API 재호출 없이 목록 데이터로 기본 정보만 갱신
+                    # 경량 upsert: API 재호출 없이 목록 데이터로 기본 정보 갱신
                     changed = False
-                    # auction_date: 변경된 경우만 갱신
+                    needs_rounds_update = False
+
+                    # auction_date 변경 감지
                     if item.auction_date and item.auction_date != existing.auction_date:
                         existing.auction_date = item.auction_date
                         changed = True
-                    # status: 대법원 목록에 표시된 최신 상태
+                        needs_rounds_update = True  # 기일 자체 변경 → rounds 갱신 필요
+
+                    # status 변경 감지
                     if item.status and item.status != existing.status:
                         existing.status = item.status
                         changed = True
-                    # bid_count: 증가만 허용 (감소 = 다른 호실 오인 방지)
+
+                    # bid_count 증가만 허용 (감소 무시)
                     if (item.bid_count is not None
                             and item.bid_count > (existing.bid_count or 0)):
                         existing.bid_count = item.bid_count
                         changed = True
-                    # minimum_bid: 유찰 후 80% 재매각가 반영
+                        needs_rounds_update = True  # 유찰 발생 → 새 기일 생성 → rounds 갱신 필요
+
+                    # minimum_bid 변경 감지 (유찰 후 80% 재매각가)
                     if item.minimum_bid and item.minimum_bid != existing.minimum_bid:
                         existing.minimum_bid = item.minimum_bid
                         changed = True
-                    # needs_rounds_update: 기일 자체가 바뀐 경우만 상세 API 재호출
-                    # - auction_date 변경: 기일 변경 → rounds 반드시 갱신
-                    # - bid_count 증가: 유찰 발생 → 새 기일 생성 → rounds 갱신 필요
-                    # - minimum_bid만 변경: 가격만 업데이트 → 기일 내역 불변 → 갱신 불필요
-                    needs_rounds_update = (
-                        (item.auction_date is not None and item.auction_date != existing.auction_date)
-                        or (item.bid_count is not None and item.bid_count > (existing.bid_count or 0))
-                    )
+                        # minimum_bid만 변경 시 needs_rounds_update = False 유지 (API 재호출 불필요)
+
                     if changed:
                         existing.updated_at = datetime.now(timezone.utc)
-                        # auction_date 변경 또는 bid_count 증가 시에만 상세 API 재호출 → rounds 갱신
-                        # minimum_bid만 변경된 경우는 기일 내역 불변이므로 API 재호출 불필요
+
+                        # needs_rounds_update인 경우에만 상세 API 재호출 → rounds 갱신
                         if needs_rounds_update:
                             try:
                                 fresh_detail = self._crawler.fetch_case_detail(
@@ -355,11 +356,13 @@ class BatchCollector:
                                     logger.debug("rounds 갱신 [%s]: %d건", case_number, len(fresh_detail.auction_rounds))
                             except Exception as e:
                                 logger.warning("rounds 갱신 실패 [%s] (무시): %s", case_number, e)
+
                         try:
                             self._db.commit()
                         except Exception as e:
                             self._db.rollback()
                             logger.warning("경량 upsert 실패 [%s]: %s", case_number, e)
+
                     result.skipped += 1
                     logger.debug("스킵 (기존): %s", case_number)
                     continue
