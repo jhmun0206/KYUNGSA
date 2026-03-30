@@ -46,14 +46,28 @@ from app.services.crawler.court_auction import CourtAuctionClient
 
 logger = logging.getLogger(__name__)
 
-# 서울 5개 법원 코드 (기본값)
+# 서울 + 의정부 법원 코드 (기본값)
 SEOUL_COURT_CODES: list[str] = [
     "B000210",  # 서울중앙
-    "B000211",  # 서울남부
-    "B000212",  # 서울서부
+    "B000211",  # 서울동부
+    "B000212",  # 서울남부
     "B000213",  # 서울북부
-    "B000214",  # 서울동부
+    "B000214",  # 의정부
 ]
+
+GYEONGGI_COURT_CODES: list[str] = [
+    "B000250",  # 수원
+    "B000251",  # 성남
+    "B000240",  # 인천
+    "B000241",  # 부천
+    "B214807",  # 고양
+    "B000253",  # 평택
+    "B000254",  # 안양
+    "B214804",  # 남양주
+    "B250826",  # 안산
+]
+
+ALL_COURT_CODES: list[str] = SEOUL_COURT_CODES + GYEONGGI_COURT_CODES
 
 
 class SaleResultCollectorResult(BaseModel):
@@ -99,7 +113,10 @@ class SaleResultCollector:
         """매각결과 수집 실행
 
         Args:
-            court_codes: 법원코드 목록 (None이면 SEOUL_COURT_CODES 사용)
+            court_codes: 법원코드 목록
+                None            → SEOUL_COURT_CODES (서울 5개 + 의정부, 기본값)
+                ALL_COURT_CODES → 서울 + 수도권 전체 (14개)
+                [""]            → 전국 단일 조회
             date_from: 수집 시작일 maeGiil 기준 클라이언트 필터 (None이면 제한 없음)
             date_to: 수집 종료일 (None이면 제한 없음)
             dry_run: True면 DB 변경 없이 통계만 반환
@@ -364,6 +381,7 @@ class SaleResultCollector:
                     property_type=item.get("dspslUsgNm", "").strip(),
                     appraised_value=appraised_value,
                     minimum_bid=minimum_bid,
+                    auction_date=mae_date,
                     status="매각",
                     bid_count=bid_count,
                     winning_bid=winning_bid,
