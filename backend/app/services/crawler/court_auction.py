@@ -348,7 +348,7 @@ class CourtAuctionClient:
                 "bfPageNo": "",
                 "startRowNo": "",
                 "totalCnt": "",
-                "totalYn": "Y",
+                "totalYn": "Y" if page_no == 1 else "N",
                 "groupTotalCount": "",
             },
             "dma_srchGdsDtlSrchInfo": {

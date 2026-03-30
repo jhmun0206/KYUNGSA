@@ -37,6 +37,7 @@ if backend_dir not in sys.path:
 from app.database import SessionLocal  # noqa: E402
 from app.services.crawler.court_auction import CourtAuctionClient  # noqa: E402
 from app.services.sale_result_collector import (  # noqa: E402
+    ALL_COURT_CODES,
     SEOUL_COURT_CODES,
     SaleResultCollector,
 )
@@ -47,6 +48,15 @@ SEOUL_COURTS = {
     "B000212": "서울남부",
     "B000213": "서울북부",
     "B000214": "의정부",
+    "B000250": "수원",
+    "B000251": "성남",
+    "B000240": "인천",
+    "B000241": "부천",
+    "B214807": "고양",
+    "B000253": "평택",
+    "B000254": "안양",
+    "B214804": "남양주",
+    "B250826": "안산",
 }
 
 
@@ -171,8 +181,8 @@ def main() -> None:
         labels = [f"{SEOUL_COURTS.get(c, c)}({c})" for c in court_codes]
         label_str = ", ".join(labels)
     elif args.all_courts:
-        court_codes = [""]  # 빈 문자열 → 전국 조회
-        label_str = "전국 전체 (court_code='')"
+        court_codes = ALL_COURT_CODES
+        label_str = f"서울+수도권 전체 ({len(ALL_COURT_CODES)}개 법원)"
     else:
         court_codes = SEOUL_COURT_CODES
         labels = [f"{SEOUL_COURTS.get(c, c)}({c})" for c in court_codes]
