@@ -18,7 +18,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.db.auction import Auction
-from app.models.db.converters import auction_orm_to_detail, save_enriched_case
+from app.models.db.auction_round import AuctionRound as AuctionRoundORM
+from app.models.db.converters import auction_orm_to_detail, normalize_round_result, save_enriched_case
 from app.models.db.pipeline_run import PipelineRun
 from app.models.db.score import Score
 from app.models.enriched_case import FilterColor
@@ -321,6 +322,29 @@ class BatchCollector:
                         changed = True
                     if changed:
                         existing.updated_at = datetime.now(timezone.utc)
+                        # auction_date 변경 또는 bid_count 증가 시 상세 API 재호출 → rounds 갱신
+                        try:
+                            fresh_detail = self._crawler.fetch_case_detail(
+                                case_number=item.internal_case_number or case_number,
+                                court_office_code=item.court_office_code or "",
+                                property_sequence=item.property_sequence or "1",
+                            )
+                            if fresh_detail.auction_rounds:
+                                for rnd_orm in list(existing.auction_rounds):
+                                    self._db.delete(rnd_orm)
+                                self._db.flush()
+                                for rnd in fresh_detail.auction_rounds:
+                                    self._db.add(AuctionRoundORM(
+                                        auction_id=existing.id,
+                                        round_number=rnd.round_number,
+                                        round_date=rnd.round_date,
+                                        minimum_bid=rnd.minimum_bid,
+                                        result=normalize_round_result(rnd.result),
+                                    ))
+                                self._db.flush()
+                                logger.debug("rounds 갱신 [%s]: %d건", case_number, len(fresh_detail.auction_rounds))
+                        except Exception as e:
+                            logger.warning("rounds 갱신 실패 [%s] (무시): %s", case_number, e)
                         try:
                             self._db.commit()
                         except Exception as e:

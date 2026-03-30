@@ -41,7 +41,8 @@ if backend_dir not in sys.path:
 
 from app.database import SessionLocal  # noqa: E402
 from app.models.db.auction import Auction  # noqa: E402
-from app.models.db.converters import auction_orm_to_detail  # noqa: E402
+from app.models.db.auction_round import AuctionRound as AuctionRoundORM  # noqa: E402
+from app.models.db.converters import auction_orm_to_detail, normalize_round_result  # noqa: E402
 from app.services.crawler.court_auction import CourtAuctionClient  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -178,6 +179,21 @@ def update_past_due(
 
                 if changed:
                     if not dry_run:
+                        # auction_rounds 갱신 (상세 API를 이미 호출했으므로 비용 없음)
+                        if fresh.auction_rounds:
+                            for rnd_orm in list(auction.auction_rounds):
+                                db.delete(rnd_orm)
+                            db.flush()
+                            for rnd in fresh.auction_rounds:
+                                db.add(AuctionRoundORM(
+                                    auction_id=auction.id,
+                                    round_number=rnd.round_number,
+                                    round_date=rnd.round_date,
+                                    minimum_bid=rnd.minimum_bid,
+                                    result=normalize_round_result(rnd.result),
+                                ))
+                            db.flush()
+                            changed.append(f"rounds: {len(fresh.auction_rounds)}건 갱신")
                         auction.updated_at = datetime.now(timezone.utc)
                         db.commit()
                     updated += 1
