@@ -433,6 +433,18 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
         if enriched.building is not None:
             auction.building_info = enriched.building.model_dump()
             _apply_building_normalized(auction, enriched.building)
+        # 건축물대장 조회 성공 여부와 무관하게 exclusive_area_m2_real이 없으면 case.area_m2 fallback
+        if (
+            auction.exclusive_area_m2_real is None
+            and enriched.case.area_m2
+            and enriched.case.area_m2 > 0
+        ):
+            auction.exclusive_area_m2_real = enriched.case.area_m2
+            logger.debug(
+                "exclusive_area_m2_real fallback from case.area_m2 [%s]: %s",
+                enriched.case.case_number,
+                enriched.case.area_m2,
+            )
         if enriched.land_use is not None:
             auction.land_use_info = enriched.land_use.model_dump()
         if enriched.market_price is not None:
@@ -468,6 +480,18 @@ def save_enriched_case(db: Session, enriched: EnrichedCase) -> Auction:
             auction.location_data = enriched.location_data.model_dump()
             if enriched.location_data.nearest_station_m is not None:
                 auction.station_distance_m = enriched.location_data.nearest_station_m
+        # 건축물대장 없는 경우에도 case.area_m2 있으면 fallback
+        if (
+            auction.exclusive_area_m2_real is None
+            and enriched.case.area_m2
+            and enriched.case.area_m2 > 0
+        ):
+            auction.exclusive_area_m2_real = enriched.case.area_m2
+            logger.debug(
+                "exclusive_area_m2_real fallback from case.area_m2 [%s]: %s",
+                enriched.case.case_number,
+                enriched.case.area_m2,
+            )
         db.add(auction)
         db.flush()  # id 확보
 

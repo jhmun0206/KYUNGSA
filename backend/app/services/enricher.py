@@ -215,13 +215,27 @@ class CaseEnricher:
             tot_area = _safe_float(first.get("totArea", ""))  # 연면적 (일반/집합 공통)
             if regstr_gb_cd == "1":
                 building_type = "일반"
-                exclusive_area_m2_real = tot_area  # 일반건물: 전용면적 없음 → 연면적 사용
+                # 일반건물: 전용면적 개념 없음 → 연면적 사용 (정상)
+                exclusive_area_m2_real = tot_area
             elif regstr_gb_cd == "2":
                 building_type = "집합"
-                exclusive_area_m2_real = tot_area  # 집합건물: 표제부는 전체 연면적 (전유부는 units에서)
+                # 집합건물: 표제부 tot_area는 건물 전체 연면적 → 호실 전용면적 아님
+                # case.area_m2 = 크롤러가 파싱한 해당 호실 전용면적 (올바른 값) 우선 사용
+                case_area = case.area_m2 if hasattr(case, "area_m2") and case.area_m2 else None
+                if case_area and case_area > 0:
+                    exclusive_area_m2_real = case_area
+                else:
+                    # fallback: tot_area (부정확하지만 없는 것보다 나음)
+                    exclusive_area_m2_real = tot_area
+                    logger.debug(
+                        "집합건물 area_m2 fallback to tot_area [%s]: case_area=None, tot_area=%s",
+                        case.case_number, tot_area,
+                    )
             else:
                 building_type = None
-                exclusive_area_m2_real = tot_area
+                # 유형 불명: case.area_m2 우선, 없으면 tot_area
+                case_area = case.area_m2 if hasattr(case, "area_m2") and case.area_m2 else None
+                exclusive_area_m2_real = case_area if (case_area and case_area > 0) else tot_area
 
             info = BuildingInfo(
                 main_purpose=first.get("mainPurpsCdNm", ""),
