@@ -19,8 +19,14 @@ from sqlalchemy.orm import Session
 
 from app.models.db.auction import Auction
 from app.models.db.auction_round import AuctionRound as AuctionRoundORM
-from app.models.db.converters import auction_orm_to_detail, normalize_round_result, save_enriched_case
+from app.models.db.converters import (
+    auction_orm_to_detail,
+    normalize_round_result,
+    registry_analysis_orm_to_dto,
+    save_enriched_case,
+)
 from app.models.db.pipeline_run import PipelineRun
+from app.models.db.registry import RegistryAnalysisORM, RegistryEventORM
 from app.models.db.score import Score
 from app.models.enriched_case import FilterColor
 from app.services.crawler.court_auction import CourtAuctionClient
@@ -423,8 +429,16 @@ class BatchCollector:
                 formatted_case_number=detail.case_number,
             )
 
+        # 캐시된 등기 분석 조회 (있으면 legal_score 산출됨)
+        existing_ra = self._load_cached_registry_analysis(
+            case_number=enriched.case.case_number,
+            property_sequence=enriched.case.property_sequence,
+        )
+
         # 통합 평가 (필터 + 가격 + 명도 + 통합 점수)
-        eval_result = self._rule_engine.evaluate(enriched, tenants=tenants)
+        eval_result = self._rule_engine.evaluate(
+            enriched, registry_analysis=existing_ra, tenants=tenants
+        )
         enriched.filter_result = eval_result.filter_result
         enriched.price_score = eval_result.price
         enriched.occupancy_score = eval_result.occupancy
@@ -533,6 +547,41 @@ class BatchCollector:
                 "현황조사서 수집 실패 [%s]: %s", formatted_case_number, e
             )
         return None
+
+    def _load_cached_registry_analysis(
+        self,
+        case_number: str,
+        property_sequence,
+    ):
+        """캐시된 RegistryAnalysisORM → RegistryAnalysisResult DTO 복원.
+
+        등기 분석이 없으면 None 반환. fail-open — 어떤 예외도 평가를 막지 않음.
+        """
+        try:
+            try:
+                prop_seq_int = int(property_sequence) if property_sequence else 1
+            except (ValueError, TypeError):
+                prop_seq_int = 1
+            ra_orm = (
+                self._db.query(RegistryAnalysisORM)
+                .filter(
+                    RegistryAnalysisORM.case_number == case_number,
+                    RegistryAnalysisORM.property_sequence == prop_seq_int,
+                )
+                .order_by(RegistryAnalysisORM.fetched_at.desc())
+                .first()
+            )
+            if not ra_orm or not ra_orm.auction_id:
+                return None
+            events = (
+                self._db.query(RegistryEventORM)
+                .filter(RegistryEventORM.auction_id == ra_orm.auction_id)
+                .all()
+            )
+            return registry_analysis_orm_to_dto(ra_orm, events=events)
+        except Exception as e:
+            logger.warning("캐시 등기 분석 복원 실패 [%s] (무시): %s", case_number, e)
+            return None
 
     def _save_score(
         self,
@@ -829,7 +878,15 @@ class BatchCollector:
                 formatted_case_number=auction_orm.case_number,
             )
 
-        eval_result = self._rule_engine.evaluate(enriched, tenants=tenants)
+        # 캐시된 등기 분석 조회 (있으면 legal_score 산출됨)
+        existing_ra = self._load_cached_registry_analysis(
+            case_number=auction_orm.case_number,
+            property_sequence=auction_orm.property_sequence,
+        )
+
+        eval_result = self._rule_engine.evaluate(
+            enriched, registry_analysis=existing_ra, tenants=tenants
+        )
         enriched.filter_result = eval_result.filter_result
         enriched.price_score = eval_result.price
         enriched.occupancy_score = eval_result.occupancy
