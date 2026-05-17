@@ -864,4 +864,27 @@ def fetch_registry_analysis(
     db.commit()
     db.refresh(orm)
 
+    # 6. 자동 재채점 트리거 (legal_score 회복) — fail-open
+    # 등기 분석 저장은 유료 데이터이므로 반드시 보존. 재채점 실패해도 분석은 유지.
+    try:
+        import uuid as _uuid
+
+        from app.services.batch_collector import BatchCollector, BatchResult
+
+        collector = BatchCollector(db=db)
+        collector._skip_occupancy = False
+        _fake_result = BatchResult(
+            run_id=f"on_demand_registry_{_uuid.uuid4().hex[:8]}",
+            court_code=auction.court_office_code or "",
+        )
+        collector._rescore_single_from_db(
+            auction_orm=auction, result=_fake_result, dry_run=False
+        )
+        logger.info("등기 분석 후 자동 재채점 완료: %s seq=%d", case_number, seq)
+    except Exception as exc:
+        logger.warning(
+            "등기 분석 후 재채점 실패 (분석은 보존됨) [%s seq=%d]: %s",
+            case_number, seq, exc,
+        )
+
     return _registry_orm_to_response(orm, source="fresh")
