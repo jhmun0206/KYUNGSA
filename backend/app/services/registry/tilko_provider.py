@@ -21,6 +21,7 @@ BODY (모든 [암호화] 항목은 AES-CBC-128 암호화 후 Base64):
 import base64
 import logging
 import os
+import re
 
 import httpx
 from Crypto.Cipher import AES, PKCS1_v1_5
@@ -123,13 +124,15 @@ class TilkoRegistryProvider:
         if not self._api_key:
             raise RuntimeError("TILKO_API_KEY가 설정되지 않았습니다.")
 
+        # ⚠️ 2025-01 인터넷등기소 개편 이후 이 엔드포인트는 평문 바디를 요구한다.
+        #    암호화 바디를 보내면 ErrorCode 7701001/8801004로 실패 (2026-07-12 실측).
         aes_key = os.urandom(16)
         body = {
-            "Address":     self._aes_encrypt(aes_key, address),
-            "Sangtae":     self._aes_encrypt(aes_key, ""),
-            "KindClsFlag": self._aes_encrypt(aes_key, ""),
-            "Region":      self._aes_encrypt(aes_key, ""),
-            "Page":        self._aes_encrypt(aes_key, "1"),
+            "Address":     address,
+            "Sangtae":     "",
+            "KindClsFlag": "",
+            "Region":      "",
+            "Page":        "1",
         }
 
         logger.info("틸코 주소 검색 요청: address=%s... host=%s", address[:20], self._host)
@@ -157,6 +160,8 @@ class TilkoRegistryProvider:
             if not pin:
                 continue
             addr = item.get("rd_addr_detail") or item.get("rd_addr") or ""
+            # 응답 주소에 검색어 하이라이트용 <span> 태그가 섞여 온다 — 매칭 전 제거
+            addr = re.sub(r"<[^>]+>", "", addr)
             candidates.append({
                 "pin":     pin,
                 "gubun":   item.get("real_cls_cd", ""),
@@ -249,10 +254,18 @@ class TilkoRegistryProvider:
 
         if data.get("Status") != "OK":
             seq = data.get("StatusSeq", "")
+            code = data.get("ErrorCode", "")
             msg = data.get("Message", "알 수 없는 오류")
-            raise RuntimeError(f"틸코 등기부 조회 실패 (seq={seq}): {msg}")
+            log = data.get("ErrorLog", "")
+            if code == 8801012 or "로그인" in str(msg):
+                raise RuntimeError(
+                    "인터넷등기소 로그인 실패 — .env의 IROS_PHONE_NO(회원 ID)/"
+                    f"IROS_PASSWORD를 확인하세요. (2025-01 개편 후 회원 ID 로그인만 지원) [{msg} / {log}]"
+                )
+            raise RuntimeError(f"틸코 등기부 조회 실패 (seq={seq}, code={code}): {msg} / {log}")
 
-        xml_str: str = data.get("Message", "")
+        # 2025-01 개편 후 XML은 XmlData 필드로 온다 (구버전은 Message에 실렸음)
+        xml_str: str = data.get("XmlData") or data.get("Message") or ""
         logger.info("틸코 등기부 조회 성공: pin=%s*** xml_len=%d", pin[:4], len(xml_str))
         return xml_str
 
