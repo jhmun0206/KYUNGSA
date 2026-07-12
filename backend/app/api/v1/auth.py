@@ -24,6 +24,20 @@ router = APIRouter(tags=["auth"])
 
 # ── JWT 헬퍼 ─────────────────────────────────────────────────────────────
 
+_JWT_SECRET_DEFAULT = "change-me-in-production"
+
+
+def _require_jwt_secret() -> str:
+    """기본값/빈 시크릿으로는 절대 서명·검증하지 않는다 (토큰 위조 방지)."""
+    secret = settings.JWT_SECRET
+    if not secret or secret == _JWT_SECRET_DEFAULT:
+        raise RuntimeError(
+            "JWT_SECRET이 기본값입니다 — .env에 강한 랜덤 문자열을 설정하기 전까지 "
+            "인증 기능을 사용할 수 없습니다."
+        )
+    return secret
+
+
 def _create_token(user_id: str, email: str) -> str:
     """HS256 JWT 발급"""
     try:
@@ -38,7 +52,7 @@ def _create_token(user_id: str, email: str) -> str:
         "iat": now,
         "exp": now + timedelta(days=settings.JWT_EXPIRE_DAYS),
     }
-    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    return jwt.encode(payload, _require_jwt_secret(), algorithm=settings.JWT_ALGORITHM)
 
 
 def verify_token(token: str) -> dict:
@@ -51,10 +65,12 @@ def verify_token(token: str) -> dict:
     try:
         payload = jwt.decode(
             token,
-            settings.JWT_SECRET,
+            _require_jwt_secret(),
             algorithms=[settings.JWT_ALGORITHM],
         )
         return payload
+    except ValueError:
+        raise
     except Exception as exc:
         raise ValueError(f"토큰 검증 실패: {exc}") from exc
 

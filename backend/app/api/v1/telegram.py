@@ -35,12 +35,15 @@ async def telegram_webhook(
 ) -> dict:
     """텔레그램 봇 Webhook 수신
 
-    TELEGRAM_WEBHOOK_SECRET 설정 시 헤더 검증.
-    미설정이면 검증 생략 (개발/테스트용).
+    TELEGRAM_WEBHOOK_SECRET 미설정 시 웹훅 비활성(503) — 위조 요청 방지.
     """
-    # Webhook Secret 검증 (설정된 경우에만)
     secret = settings.TELEGRAM_WEBHOOK_SECRET
-    if secret and x_telegram_bot_api_secret_token != secret:
+    if not secret:
+        raise HTTPException(
+            status_code=503,
+            detail="TELEGRAM_WEBHOOK_SECRET 미설정 — 웹훅 비활성 상태",
+        )
+    if x_telegram_bot_api_secret_token != secret:
         raise HTTPException(status_code=403, detail="Webhook secret 불일치")
 
     try:
