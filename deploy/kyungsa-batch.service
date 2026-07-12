@@ -1,5 +1,5 @@
 [Unit]
-Description=KYUNGSA Batch Collector
+Description=KYUNGSA Batch Collector (Seoul)
 After=postgresql.service network-online.target
 Wants=network-online.target
 
@@ -7,11 +7,11 @@ Wants=network-online.target
 Type=oneshot
 User=eric
 WorkingDirectory=/home/eric/projects/KYUNGSA
-ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/run_batch.py --all-courts
-ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/fix_past_due.py
-ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/send_alerts.py
+ExecStart=/home/eric/projects/KYUNGSA/backend/.venv/bin/python scripts/run_batch.py --all-seoul
 Environment=PYTHONPATH=/home/eric/projects/KYUNGSA/backend
 TimeoutStartSec=14400
+# SIGTERM 후 우아 종료(PipelineRun finished_at 기록)에 여유 시간
+TimeoutStopSec=120
 StandardOutput=journal
 StandardError=journal
 

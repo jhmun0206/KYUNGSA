@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import signal
 import sys
 from pathlib import Path
 
@@ -78,6 +79,21 @@ ALL_COURTS = {
     "B250826": "안산",
     "B000250": "수원",
 }
+
+
+class GracefulTermination(Exception):
+    """SIGTERM 수신 시 발생 — collect()의 except Exception에 잡혀
+    PipelineRun.finished_at이 기록된 뒤 루프에서 중단 처리된다.
+    (기존에는 SIGTERM 즉사로 finished_at=NULL stuck run이 매일 쌓였음)"""
+
+
+_terminating = False
+
+
+def _sigterm_handler(signum, frame):  # noqa: ANN001
+    global _terminating
+    _terminating = True
+    raise GracefulTermination(f"signal {signum} 수신 — 우아 종료")
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -280,6 +296,7 @@ def main() -> None:
 
     args = parser.parse_args()
     setup_logging(verbose=args.verbose)
+    signal.signal(signal.SIGTERM, _sigterm_handler)
 
     # 모드 검증
     update_station = getattr(args, "update_station_names", False)
@@ -363,22 +380,36 @@ def main() -> None:
             code_all = "수도권전체"
 
         results: list[BatchResult] = []
+        aborted = False
         for code, name in target_courts.items():
-            result = run_single_court(
-                court_code=code,
-                max_items=args.max,
-                force=args.force,
-                delay=args.delay,
-                dry_run=args.dry_run,
-                skip_occupancy=args.skip_occupancy,
-            )
-            results.append(result)
+            # 법원별 실패 격리 — 한 법원의 예외가 나머지 법원 수집을 죽이지 않는다
+            try:
+                result = run_single_court(
+                    court_code=code,
+                    max_items=args.max,
+                    force=args.force,
+                    delay=args.delay,
+                    dry_run=args.dry_run,
+                    skip_occupancy=args.skip_occupancy,
+                )
+                results.append(result)
+            except GracefulTermination:
+                print(f"\n!!! SIGTERM 수신 — {name}({code}) 처리 중 중단, 이후 법원 스킵")
+                aborted = True
+                break
+            except Exception as e:
+                print(f"\n!!! {name}({code}) 수집 실패 (다음 법원 계속): {e}")
+                continue
+            if _terminating:
+                aborted = True
+                break
 
         # 전체 요약
         total_processed = sum(r.processed for r in results)
         total_errors = sum(len(r.errors) for r in results)
+        status_label = " (SIGTERM 중단됨)" if aborted else ""
         print(f"\n{'='*50}")
-        print(f"{label_all} 수집 완료: {total_processed}건 처리, {total_errors}건 에러")
+        print(f"{label_all} 수집 완료{status_label}: {total_processed}건 처리, {total_errors}건 에러")
         print(f"{'='*50}")
 
         # 텔레그램 알림 (전체 합산)
@@ -398,6 +429,8 @@ def main() -> None:
                     errors=total_errors,
                 )
                 send_telegram(msg)
+        if aborted:
+            sys.exit(1)
     else:
         result = run_single_court(
             court_code=args.court,

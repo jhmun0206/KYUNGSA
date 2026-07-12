@@ -2,8 +2,9 @@
 Description=KYUNGSA Batch Gyeonggi/Incheon Daily Timer
 
 [Timer]
-OnCalendar=*-*-* 04:00:00
+OnCalendar=*-*-* 05:00:00
 Persistent=true
+RandomizedDelaySec=300
 
 [Install]
 WantedBy=timers.target
