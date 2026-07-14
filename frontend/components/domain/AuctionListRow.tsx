@@ -2,14 +2,16 @@
 
 import Link from "next/link"
 import { ChevronRight, MapPin } from "lucide-react"
-import { GradeBadge } from "./GradeBadge"
+import { SignalBadge } from "./SignalBadge"
 import { CompareButton } from "./CompareButton"
 import { FavoriteButton } from "./FavoriteButton"
 import { formatPrice, calcDiscount, calcDday, getDdayColor, cn } from "@/lib/utils"
 import { COURT_OPTIONS } from "@/lib/constants"
+import { calcListSignal } from "@/lib/risk-signals"
 import type { AuctionListItem } from "@/lib/types"
 
 export function AuctionListRow({ item }: { item: AuctionListItem }) {
+  const signal = calcListSignal(item)
   const failCount = Math.max(0, item.bid_count - 1)
   const discount = calcDiscount(item.minimum_bid, item.appraised_value)
   const dday = calcDday(item.auction_date, item.status)
@@ -28,13 +30,9 @@ export function AuctionListRow({ item }: { item: AuctionListItem }) {
       <Link href={detailHref} className="absolute inset-0 sm:hidden" aria-label="상세 보기" />
 
       <div className="flex items-center gap-3 px-4 py-3">
-        {/* 등급 */}
-        <div className="shrink-0 flex flex-col items-center gap-0.5">
-          <GradeBadge
-            grade={item.grade}
-            provisional={item.grade_provisional}
-            size="sm"
-          />
+        {/* 리스크 신호등 (1차 지표) */}
+        <div className="shrink-0 flex flex-col items-center gap-0.5 w-9">
+          <SignalBadge color={signal} size="sm" />
           {isSold && (
             <span className="rounded px-1 text-[9px] font-semibold bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
               낙찰

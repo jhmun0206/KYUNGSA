@@ -5,7 +5,8 @@ import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
 import { getFavorites, toggleFavorite } from "@/lib/favorites"
 import { fetchAuctionDetail } from "@/lib/api"
-import { GradeBadge } from "@/components/domain/GradeBadge"
+import { SignalBadge } from "@/components/domain/SignalBadge"
+import { calcListSignal } from "@/lib/risk-signals"
 import { formatPrice, calcDday, calcDiscount } from "@/lib/utils"
 import { Heart, Trash2 } from "lucide-react"
 import type { AuctionDetailResponse } from "@/lib/types"
@@ -171,13 +172,10 @@ export default function FavoritesPage() {
               >
                 <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-sm">
                   <div className="flex min-w-0 items-start gap-3">
-                    {item.score?.grade && (
-                      <GradeBadge
-                        grade={item.score.grade}
-                        provisional={item.score.grade_provisional}
-                        size="sm"
-                      />
-                    )}
+                    <SignalBadge
+                      color={item.score ? calcListSignal(item.score) : "unknown"}
+                      size="sm"
+                    />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-foreground">
                         {item.address}
@@ -232,13 +230,10 @@ export default function FavoritesPage() {
                 <li key={item.case_number}>
                   <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
                     <div className="flex min-w-0 items-start gap-3">
-                      {item.score?.grade && (
-                        <GradeBadge
-                          grade={item.score.grade}
-                          provisional={item.score.grade_provisional}
-                          size="sm"
-                        />
-                      )}
+                      <SignalBadge
+                        color={item.score ? calcListSignal(item.score) : "unknown"}
+                        size="sm"
+                      />
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-foreground">
                           {item.address}

@@ -6,7 +6,8 @@ import { AnimatePresence, motion } from "framer-motion"
 import { Scale, Trash2 } from "lucide-react"
 import { getCompareList, toggleCompare, clearCompare } from "@/lib/compare"
 import { fetchAuctionDetail } from "@/lib/api"
-import { GradeBadge } from "@/components/domain/GradeBadge"
+import { SignalBadge } from "@/components/domain/SignalBadge"
+import { calcListSignal } from "@/lib/risk-signals"
 import { formatPrice, calcDiscount, calcDday } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
@@ -182,9 +183,10 @@ export default function ComparePage() {
               >
                 <div className="mb-3 flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    {item.score?.grade && (
-                      <GradeBadge grade={item.score.grade} provisional={item.score.grade_provisional} size="md" />
-                    )}
+                    <SignalBadge
+                      color={item.score ? calcListSignal(item.score) : "unknown"}
+                      size="md"
+                    />
                     <span className="text-sm font-semibold text-foreground">
                       {item.score?.total_score?.toFixed(1) ?? "-"}점
                     </span>
@@ -212,7 +214,11 @@ export default function ComparePage() {
                   <div className="mt-3 space-y-1.5">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">권리분석</span>
-                      <span>{item.score.legal_score?.toFixed(0) ?? "-"}</span>
+                      <span>
+                        {item.score.legal_score != null
+                          ? item.score.legal_score.toFixed(0)
+                          : "미분석 — 등기 열람 필요"}
+                      </span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">수익성</span>
@@ -272,9 +278,10 @@ export default function ComparePage() {
                   className="space-y-1.5"
                 >
                   <div className="flex items-center justify-between">
-                    {item.score?.grade && (
-                      <GradeBadge grade={item.score.grade} provisional={item.score.grade_provisional} size="md" />
-                    )}
+                    <SignalBadge
+                      color={item.score ? calcListSignal(item.score) : "unknown"}
+                      size="md"
+                    />
                     <button
                       onClick={() => handleRemove(item.case_number)}
                       className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -302,9 +309,15 @@ export default function ComparePage() {
           <CompareRow
             label="권리분석"
             highlight={bestLegal}
-            values={items.map((i, idx) => (
-              <MiniScoreBar key={idx} value={i.score?.legal_score ?? null} best={bestLegal === idx} />
-            ))}
+            values={items.map((i, idx) =>
+              i.score?.legal_score != null ? (
+                <MiniScoreBar key={idx} value={i.score.legal_score} best={bestLegal === idx} />
+              ) : (
+                <span key={idx} className="text-xs text-muted-foreground">
+                  미분석 — 등기 열람 필요
+                </span>
+              )
+            )}
           />
           <CompareRow
             label="수익성"
@@ -366,14 +379,6 @@ export default function ComparePage() {
               const f = Math.max(0, i.bid_count - 1)
               return f > 0 ? `${f}회` : "신건"
             })}
-          />
-          <CompareRow
-            label="낙찰가율 (참고)"
-            values={items.map((i) =>
-              i.score?.predicted_winning_ratio != null
-                ? `${(i.score.predicted_winning_ratio * 100).toFixed(0)}%`
-                : "-"
-            )}
           />
 
           {/* 액션 */}
