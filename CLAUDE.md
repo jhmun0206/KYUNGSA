@@ -763,9 +763,17 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
   - `deploy/kyungsa-batch.service` 파일 서버 설정과 동기화 완료
 - **테스트:** 763개 통과 (백엔드 mock)
 
-**다음 할 일:** Phase J 알림 발송 로직 (저장검색 매칭→텔레그램) 또는 325건 location_data 재수집
-**블로커:** 없음
-**최근 변경:** 2026-03-27 | property_sequence 다물건 지원 + GYEONGGI_COURTS 코드 수정 + batch --all-courts
+**2026-04~05 (문서 미반영분 소급 기록):**
+- 등기부 연동을 CODEF → **틸코블렛(Tilko)** 으로 전면 교체 (`services/registry/tilko_provider.py`, 커밋 3365b20 등). 이 문서의 CODEF 서술은 구버전 — W7에서 정리 예정.
+- 자기진단 Stage 1~3 수행: `docs/diagnosis/STAGE1_REPORT.md` / `STAGE2_REPORT.md` / `STAGE3_FIXLOG.md` — legal_score 배선 복구, 인천 배치 stuck 1차 조치, bulk_registry_analysis 스크립트(dry-run만, 실호출 대기).
+
+**2026-07-12 — 시니어 종합 진단 완료:**
+- 진단 보고서: `docs/diagnosis/SENIOR_REVIEW_2026-07-12.md` (코드 + 서버 실측 + 시장 벤치마킹 + 법적 리스크)
+- 핵심 발견: registry_analyses 여전히 0건(legal_score 전건 NULL 지속), 배치 stuck 54건 재발(다법원 확산), 검증 레이어가 스텁이라 절대원칙 #2와 모순, 프론트 3중 평가 체계(등급/신호등/ML) 혼선, JWT_SECRET 기본값 하드코딩
+
+**다음 할 일:** ⭐ `docs/diagnosis/IMPROVEMENT_ROADMAP.md` (W1~W12 실행 지시서)의 우선순위 순으로 진행. P0/P1 완료 전 신규 기능 개발 동결 권고.
+**블로커:** W1(등기 분석 50건 실호출, 6,000pt)은 사용자 승인 필요
+**최근 변경:** 2026-07-12 | 시니어 종합 진단 + 개선 로드맵 작성
 
 ---
 

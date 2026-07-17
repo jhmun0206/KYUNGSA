@@ -6,7 +6,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.auctions import router as auction_router
 from app.api.v1.auctions import router as v1_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.telegram import router as telegram_router
@@ -31,9 +30,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
-
-# 기존 크롤러 직접 실행 API (v0)
-app.include_router(auction_router)
 
 # DB 기반 대시보드 API (v1)
 app.include_router(v1_router, prefix="/api/v1")
