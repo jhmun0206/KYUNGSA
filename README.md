@@ -9,7 +9,7 @@
 | 프로젝트명 | KYUNGSA |
 | 현재 단계 | `Phase 10 완료` (ML 재학습 + property_sequence 다물건 + 경기 법원 코드 수정) |
 | 최종 업데이트 | 2026-03-27 |
-| 테스트 | 763개 통과 |
+| 테스트 | 730개 중 727개 통과 (실패 3건은 pre-existing) |
 | 배포 | https://kyungsa.com (Vercel) / https://api.kyungsa.com (Cloudflare Tunnel) |
 | 개발 도구 | Claude Code |
 | 개발자 | 경희대학교 컴퓨터공학과 4학년 |
@@ -63,7 +63,7 @@ DB:         PostgreSQL 16 (홈서버 확정)
 Cache:      인메모리 (dict/lru_cache) → Redis (필요 시)
 Scheduler:  systemd timer (cron 대체)
 Crawling:   httpx + Playwright (대법원 E2E)
-Registry:   CODEF API (등기부등본 자동 조회) + PyMuPDF (PDF 백업)
+Registry:   틸코블렛 API (등기부 XML, 2026-04 CODEF에서 교체) + PyMuPDF (PDF 백업)
 ML:         CatBoost (낙찰가율 예측) + pandas + numpy
 Crypto:     pycryptodome (CODEF RSA 암호화)
 Geo/API:    카카오 Geocode+카테고리, Vworld, data.go.kr (실거래가, 건축물대장)
@@ -127,10 +127,11 @@ KYUNGSA/
 │   │       │   └── registry_analyzer.py     # 말소기준 + 인수/소멸 + HardStop (✅)
 │   │       ├── registry/
 │   │       │   ├── provider.py              # RegistryProvider ABC
-│   │       │   ├── codef_provider.py        # CODEF API 호출 (✅)
-│   │       │   ├── codef_mapper.py          # CODEF JSON → RegistryDocument (✅)
-│   │       │   ├── matcher.py               # CODEF 검색결과 매칭
-│   │       │   └── pipeline.py              # 주소→등기부→분석 파이프라인 (✅)
+│   │       │   ├── tilko_provider.py        # ⭐ 틸코 API (현행 — 주소검색+등기 XML)
+│   │       │   ├── codef_provider.py        # CODEF (레거시 백업, 미사용)
+│   │       │   ├── codef_mapper.py          # CODEF (레거시 백업, 미사용)
+│   │       │   ├── matcher.py               # 검색결과 매칭
+│   │       │   └── pipeline.py              # 주소→등기부→분석 파이프라인
 │   │       ├── occupancy/                   # ⭐ 명도 데이터 수집/파싱
 │   │       │   ├── parser.py                # 현황조사서 JSON 파서 (대법원 API)
 │   │       │   └── service.py               # 수집→파싱→DB 저장 오케스트레이터
@@ -207,13 +208,12 @@ KYUNGSA/
     ├── components/
     │   ├── layout/              # Header (로그인/아바타/텔레그램), Footer, MobileNav, ThemeProvider,
     │   │                        #   ThemeToggle, AuthSessionProvider, TelegramModal
-    │   ├── domain/              # AuctionListRow, AuctionCard, GradeBadge, CoveragePill,
-    │   │                        #   PredictionPill, DisclaimerBanner, FavoriteButton(DB동기화),
+    │   ├── domain/              # AuctionListRow, SignalBadge(⭐ 신호등 1차 지표), GradeBadge(상세 전용),
+    │   │                        #   DisclaimerBanner, FavoriteButton(DB동기화),
     │   │                        #   CompareButton, CompareBar
     │   ├── detail/              # DecisionSection, PillarBreakdown(Accordion 근거),
     │   │                        #   BasicInfo, InvestmentCalculator(룸테이블+임대료참고),
     │   │                        #   MobileActionBar
-    │   ├── landing/             # (레거시, TopPicksGrid)
     │   └── search/              # ⭐ Phase K-2 전면 재설계
     │       ├── SearchSidebar.tsx        # 항상 펼쳐진 사이드바 (8섹션: 물건종류/건물형태/지역/감정가/유찰/역거리/승인연도/리스크)
     │       ├── AuctionTable.tsx         # 고정폭 컬럼 테이블 (신호등+완성도+관심/비교)
@@ -221,9 +221,7 @@ KYUNGSA/
     │       ├── SearchToolbar.tsx        # 상단 검색바 + 정렬 + 건수
     │       ├── MobileFilterDrawer.tsx   # 모바일 하단 드로어 (SearchSidebar 재사용)
     │       ├── GradeLegend.tsx          # 리스크 신호등 범례 (🟢🟡🔴⚫)
-    │       ├── SearchFilters.tsx        # (레거시, 보존)
-    │       ├── SearchResultsList.tsx    # (레거시, 보존)
-    │       └── ClientFilteredResults.tsx # (레거시, 보존)
+    │       └── (레거시 4종은 2026-07 삭제 — SearchFilters/SearchResultsList/SearchResultsGrid/ClientFilteredResults)
     ├── lib/
     │   ├── api.ts               # fetchAuctions, fetchAuctionDetail
     │   ├── auth-api.ts          # ⭐ Phase I: Bearer 토큰 인증 API (favorites + saved-searches)
@@ -452,14 +450,8 @@ KYUNGSA/
 | `sort` | 정렬 기준 | `grade` / `appraised_value` / `auction_date` / `minimum_bid` / `bid_count` / `discount_rate` / `predicted_winning_ratio` |
 | `page` / `size` | 페이지네이션 | `page=1&size=20` |
 
-### v0 — 크롤러 직접 실행 API (레거시)
-
-| 메서드 | 엔드포인트 | 설명 | 상태 |
-|--------|-----------|------|------|
-| GET | `/api/auctions?court_code=B000210` | 법원별 목록 (매 요청마다 크롤링) | ✅ |
-| GET | `/api/auctions/{case_number}` | 개별 물건 상세 | ✅ |
-| POST | `/api/auctions/analyze` | 단일 물건 즉시 분석 (주소 입력) | ✅ |
-| GET | `/api/registry/{unique_no}` | 등기부 분석 단독 조회 | ✅ |
+### v0 API — 2026-07 제거됨
+> 크롤러 직접 실행 API(v0)는 프론트 참조 0건으로 확인되어 제거. v1(DB 기반)만 사용.
 
 ---
 
@@ -521,10 +513,10 @@ KYUNGSA/
 ## 7. 데이터 수집 파이프라인 (2단 구조 + 낙찰 추적)
 
 ```
-[1단 수집: 무료] ✅                    [2단 수집: CODEF API] ✅
-대법원 경매정보 (httpx)                CODEF 주소검색 → 고유번호
-건축물대장 (data.go.kr)          →    CODEF 등기부열람 → JSON
-Vworld (용도지역/주소)                 CodefMapper → RegistryDocument
+[1단 수집: 무료] ✅                    [2단 수집: 틸코 API, 온디맨드] ✅
+대법원 경매정보 (httpx)                틸코 주소검색 → 고유번호(pin)
+건축물대장 (data.go.kr)          →    틸코 등기부열람 → XML
+Vworld (용도지역/주소)                 RegistryParser → RegistryDocument
 실거래가/임대료 (data.go.kr)           RegistryAnalyzer → 리스크 분석
 카카오 Geocode+카테고리 (좌표/입지)         │
      │                                   ▼

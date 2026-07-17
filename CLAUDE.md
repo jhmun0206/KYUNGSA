@@ -36,9 +36,9 @@ KYUNGSA/
 │   │   ├── models/    ← Pydantic 모델 (auction, enriched_case, registry)
 │   │   ├── api/       ← API 라우터
 │   │   ├── services/  ← 비즈니스 로직
-│   │   │   ├── crawler/    ← 데이터 수집 (대법원, CODEF, 공공API, Geocode)
+│   │   │   ├── crawler/    ← 데이터 수집 (대법원, 공공API, Geocode)
 │   │   │   ├── parser/     ← 등기부 파싱 + ⭐ RegistryAnalyzer (말소기준권리 판별)
-│   │   │   ├── registry/   ← ⭐ CODEF 등기부 연동 (provider, mapper, pipeline)
+│   │   │   ├── registry/   ← ⭐ 틸코 등기부 연동 (tilko_provider; codef_*는 레거시 백업)
 │   │   │   ├── validator/  ← 검증 레이어
 │   │   │   ├── rules/      ← 룰 엔진 (핵심 자산)
 │   │   │   │   └── rulesets/  ← 물건 유형별 룰셋 분리
@@ -52,7 +52,7 @@ KYUNGSA/
 │   │   └── tasks/     ← 스케줄러 (APScheduler/cron, 미구현)
 │   ├── config/        ← ⭐ 설정 파일 (banned_phrases.json 등)
 │   └── tests/
-├── scripts/           ← CLI 스크립트 (run_pipeline, parse_registry, test_codef_registry 등)
+├── scripts/           ← CLI 스크립트 (run_batch, bulk_registry_analysis, parse_registry 등)
 └── frontend/          ← Next.js 프론트엔드
 ```
 
@@ -349,7 +349,14 @@ class RegistryAnalyzer:
     """
 ```
 
-**CODEF 등기부 연동 (`services/registry/`):**
+**틸코블렛 등기부 연동 (`services/registry/`), 2026-04 CODEF에서 교체:**
+```python
+# tilko_provider.py — ⭐ 현행. 틸코 API (주소검색[평문 바디] + 등기부 XML[Iros2IdLogin])
+#   ⚠️ 2025-01 등기소 개편 후 회원 ID 로그인만 지원 (IROS_PHONE_NO=회원ID)
+#   ⚠️ 주소검색 응답 XML은 XmlData 필드 (2026-07-12 스펙 실측 수리)
+```
+
+**CODEF 연동 (레거시 백업 — 미사용):**
 ```python
 # provider.py — RegistryProvider ABC + RegistryTwoWayAuthRequired 예외
 # codef_provider.py — CODEF API 호출 (주소검색 + 등기부열람 + RSA 암호화)
@@ -359,14 +366,14 @@ class RegistryAnalyzer:
 
 **데이터 흐름 (2경로):**
 ```
-[경로A: CODEF API]                      [경로B: PDF 업로드]
-CODEF 주소검색 → 고유번호                  등기부등본 PDF
+[경로A: 틸코 API]                       [경로B: PDF 업로드]
+틸코 주소검색 → 고유번호(pin)              등기부등본 PDF
      │                                       │
      ▼                                       ▼
-CODEF 등기부열람 → JSON                 RegistryParser
+틸코 등기부열람 → XML                   RegistryParser
      │                                       │
      ▼                                       │
-CodefRegistryMapper                          │
+RegistryParser.parse_text                    │
      │                                       │
      └──────────┬────────────────────────────┘
                 ▼
@@ -388,7 +395,7 @@ CodefRegistryMapper                          │
 ```python
 # ⭐ 1단+2단 통합 파이프라인 (3A 완료)
 # 1단 (무료): court_auction + public_api + geo_client → enricher → filter_engine
-# 2단 (유료): address_parser → matcher → CODEF 등기부 → registry pipeline → analyzer
+# 2단 (유료): 틸코 등기부 (tilko_provider) → RegistryParser → RegistryAnalyzer
 # AuctionPipeline이 1단 필터 후 YELLOW/GREEN 건만 2단 자동 연결 (fail-open)
 
 # court_auction.py — 대법원 경매정보 HTTP 클라이언트 (✅ E2E 검증 완료)
@@ -403,10 +410,7 @@ CodefRegistryMapper                          │
 #   카카오 Geocode: 주소 → 좌표
 #   Vworld: 용도지역/지구 조회, 지번 주소 검색
 
-# codef_client.py — CODEF API 연동 (유료, 2단 수집, ✅ 실 응답 확보)
-#   OAuth 2.0 Bearer Token (7일 유효, 메모리 캐싱)
-#   URL-encoded 응답 자동 파싱 (text/plain → unquote_plus → json.loads)
-#   등기부등본 조회는 services/registry/codef_provider.py에서 호출
+# codef_client.py — CODEF API 연동 (레거시 백업, 미사용 — 등기부는 틸코로 대체)
 ```
 
 ### 5. LLM 연동 (`services/llm/`)
@@ -650,9 +654,9 @@ fix: 등기부 파싱 시 날짜 형식 오류 수정
 ### 2단 파이프라인 구조
 
 ```
-[1단: 무료 필터링]                    [2단: CODEF 등기부 분석]
-대법원 경매정보 크롤링                 CODEF 주소검색 → 고유번호
-건축물대장 API (data.go.kr)     →    CODEF 등기부열람 → JSON
+[1단: 무료 필터링]                    [2단: 틸코 등기부 분석 (온디맨드)]
+대법원 경매정보 크롤링                 틸코 주소검색 → 고유번호(pin)
+건축물대장 API (data.go.kr)     →    틸코 등기부열람 → XML
 Vworld (용도지역/주소)                CodefMapper → RegistryDocument
 실거래가 API (data.go.kr)             RegistryAnalyzer → 리스크 분석
 카카오 Geocode (좌표)                      │
@@ -664,9 +668,9 @@ enricher → filter_engine           (말소기준, 인수/소멸, Hard Stop)
 ```
 
 ### 등기부등본 조회 방식
-- **메인: CODEF API 자동 조회** (주소검색 + 등기부열람, 실 응답 확보 완료)
+- **메인: 틸코블렛 API 조회** (120pt/건 = 주소검색 20 + 열람 100, 등기수수료 700원/건 별도) — 온디맨드(사용자 버튼) + bulk_registry_analysis.py
 - **백업: 수동 PDF 업로드 → RegistryParser 파싱**
-- CODEF 등기부 파이프라인: `RegistryPipeline` (주소 → 고유번호 → 등기부 → 분석 일괄 실행)
+- 배치 채점은 캐시된 registry_analyses만 사용 (자동 유료 호출 없음)
 - 등기정보광장 Open API: **미사용** (지역 통계만 제공, 개별 물건 조회 불가)
 
 ### 1단 무료 필터링 데이터 소스 (확정, 5개)
@@ -697,20 +701,9 @@ CostGate: RED → passed=False (2단 진입 차단), YELLOW/GREEN → passed=Tru
 
 ## 🧪 현재 테스트 현황
 
-- **총 763개 mock 테스트 전체 통과** (`cd backend && python -m pytest tests/ -v`)
-  - 크롤러: 61개 (기타 19 + 대법원 40 + URL-decode 2)
-  - Enricher: 22개
-  - FilterEngine: 27개 (RED 11 + YELLOW 12 + FilterEngine 6 + CostGate 3)
-  - Pipeline: 18개 (1단 8 + 2단 통합 10)
-  - AddressParser: 29개 (도로명 6 + 지번 6 + 정규화 6 + 엣지 6 + 보충 5)
-  - RegistryMatcher: 13개 (지번일치 3 + 건물명 2 + 부분 1 + 동 1 + 실패 2 + 선택 2 + 결과 2)
-  - RegistryParser: 40개
-  - RegistryAnalyzer: 35개
-  - CODEF Registry: 62개 (mapper 40 + provider fetch 13 + search 6 + RSA 3 + Validation 9)
-  - RegistryPipeline(2단): 27개
-  - API 스키마: 16개 (summary 5 + detail 7 + registry 2 + request 2)
-  - API 엔드포인트: 17개 (health 1 + list 5 + detail 4 + analyze 3 + registry 4)
-  - 기타: 396개 (ML예측 + 점수엔진 + 명도 + Phase I 인증 포함)
+- **총 730개 테스트, 727개 통과** (`cd backend && python -m pytest tests/ -v`)
+  - 기존 실패 3건(test_db 1 + test_enricher 2)은 Stage1부터 존재하던 pre-existing
+  - 2026-07: v0 API 제거로 죽은 표면 테스트 33개 삭제 (763 → 730)
 - **E2E 실전 검증 (4E, 2026-02-14):** address 100%, geocode 60%, land_use 100%, building 100%, market 100%, codef_search 70%, registry_full 86% (6/7)
 
 ---
